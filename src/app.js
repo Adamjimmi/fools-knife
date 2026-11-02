@@ -109,6 +109,7 @@
     const sl = document.querySelectorAll('.slot-label');
     if (sl[0]) sl[0].textContent = T('Твоя рука', 'Your hand');
     if (sl[1]) sl[1].textContent = T('Колода', 'Deck');
+    setText('#rotate p', 'Поверни телефон вертикально', 'Please turn your phone upright');
     setText('#modal h2', 'Пароль сервера', 'Server password');
     setText('#modal-input', 'Пароль', 'Password', 'placeholder');
     setText('#modal-cancel', 'Отмена', 'Cancel');
@@ -830,6 +831,7 @@
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.documentElement.classList.add('touch');
   addLangToggles();
   applyStatic();
   renderServers();

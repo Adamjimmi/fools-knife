@@ -15,6 +15,7 @@ html = html.replace('<div class="slot-label">Твой нож</div>', '<div class
 html = html.replace('<button id="btn-bot" class="btn">Быстрая игра против бота</button>',
     '<button id="btn-bot" class="btn">Быстрая игра против бота</button>\n      <p class="note"></p>\n      <div id="online" class="online"></div>')
 html = html.replace('<div id="toast" class="toast"></div>', '''<div id="toast" class="toast"></div>
+<div id="rotate"><div class="ic">📱</div><p>Поверни телефон вертикально</p></div>
 <div id="modal" class="modal hidden"><div class="panel"><h2>Пароль сервера</h2><input id="modal-input" type="password" maxlength="32" placeholder="Пароль"><div class="btns"><button id="modal-cancel" class="btn">Отмена</button><button id="modal-ok" class="btn gold">Войти</button></div></div></div>''')
 scripts = ''.join('<script>\n' + s + '\n</script>\n' for s in [src('game.js'), src('engine.js'), 'window.ND_ITCH = true;', src('mqttnet.js'), src('app.js')])
 html = html.replace('<script src="/shared/game.js"></script>\n<script src="client.js"></script>', scripts)
