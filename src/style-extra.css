@@ -1,0 +1,22 @@
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 40; }
+.modal.hidden { display: none; }
+.modal .panel { width: 320px; }
+.modal .btns { display: flex; gap: 8px; }
+.online { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+#lobby { position: relative; }
+.lang-toggle { background: #1a120b; border: 1px solid var(--line); border-radius: 20px; padding: 3px; cursor: pointer; display: inline-flex; gap: 2px; flex: none; }
+.lang-toggle span { padding: 3px 9px; border-radius: 14px; font: 600 12px Rubik, sans-serif; color: var(--muted); }
+.lang-toggle span.on { background: var(--gold); color: #3a2208; }
+.logo .lang-toggle { position: absolute; top: 18px; right: 20px; }
+.hand { display: flex; align-items: center; justify-content: center; }
+.hand > * { flex: none; }
+.hand.n2 > * + * { margin-left: -24px; }
+.hand.n3 { zoom: .84; } .hand.n3 > * + * { margin-left: -44px; }
+.hand.n4 { zoom: .74; } .hand.n4 > * + * { margin-left: -64px; }
+.hand.n5 { zoom: .68; } .hand.n5 > * + * { margin-left: -78px; }
+.hand > *:hover { z-index: 5; position: relative; }
+.hand .knife-hand { position: relative; z-index: 3; }
+.card.dim { filter: brightness(.7) saturate(.7); }
+select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--line); background: #1a120b; color: var(--text); font: inherit; }
+.table { grid-template-columns: 1.4fr auto 1.4fr; }
+.note { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.45; }

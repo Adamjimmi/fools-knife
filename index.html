@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fool's Knife — browser card game with knife throwing</title>
+<meta name="description" content="Fool's Knife: a two-player browser game where Durak playing cards become throwing knives. Simultaneous throws, mid-air knife collisions, online lobby with no server of its own.">
+<meta property="og:title" content="Fool's Knife">
+<meta property="og:description" content="Durak meets knife throwing. Play online 1v1 in your browser.">
+<meta property="og:image" content="assets/cover.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #120c07; --wood: #231811; --wood2: #2f2117; --line: #5a4026; --gold: #e8b64a; --gold2: #ffd77a; --text: #f1e6d6; --muted: #b09a80; --red: #d2453a; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: radial-gradient(ellipse at top, #3a2716 0%, var(--bg) 55%) fixed; color: var(--text); font: 16px/1.6 Rubik, system-ui, sans-serif; }
+h1, h2, h3, .btn, .stat b { font-family: 'Russo One', Rubik, sans-serif; font-weight: 400; }
+a { color: var(--gold2); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+nav { position: sticky; top: 0; z-index: 10; background: rgba(18,12,7,.86); backdrop-filter: blur(6px); border-bottom: 1px solid rgba(90,64,38,.6); }
+nav .wrap { display: flex; align-items: center; gap: 22px; height: 58px; }
+nav .brand { font-family: 'Russo One'; color: var(--gold); text-decoration: none; font-size: 19px; margin-right: auto; }
+nav a.l { color: var(--muted); text-decoration: none; font-size: 14.5px; }
+nav a.l:hover { color: var(--text); }
+.lang { background: #1a120b; border: 1px solid var(--line); border-radius: 20px; padding: 3px; display: inline-flex; gap: 2px; cursor: pointer; }
+.lang span { padding: 2px 9px; border-radius: 14px; font: 600 12px Rubik; color: var(--muted); }
+.lang span.on { background: var(--gold); color: #3a2208; }
+@media (max-width: 760px) { nav a.l { display: none; } }
+
+.hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 44px; align-items: center; padding: 64px 0 40px; }
+@media (max-width: 900px) { .hero { grid-template-columns: 1fr; padding-top: 36px; } }
+.hero h1 { font-size: clamp(44px, 6vw, 72px); line-height: 1.02; margin: 0 0 14px; color: var(--gold); text-shadow: 0 3px 0 #6b3f12, 0 10px 30px rgba(232,182,74,.25); }
+.hero .lead { font-size: 19px; color: #e6d6bf; margin: 0 0 26px; max-width: 34em; }
+.hero img { width: 100%; border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.55); transform: rotate(1.2deg); }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 11px; text-decoration: none; font-size: 16px; border: 1px solid var(--line); color: var(--text); background: #4a3320; transition: transform .1s, filter .15s; }
+.btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.btn.gold { background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #3a2208; border-color: #a77421; box-shadow: 0 4px 0 #8a5a17; }
+.stats { display: flex; gap: 28px; margin-top: 30px; flex-wrap: wrap; }
+.stat b { display: block; font-size: 28px; color: var(--gold2); }
+.stat span { font-size: 13px; color: var(--muted); }
+
+section { padding: 56px 0; }
+section h2 { font-size: 32px; color: var(--gold); margin: 0 0 8px; }
+section .sub { color: var(--muted); margin: 0 0 30px; max-width: 46em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.card { background: linear-gradient(180deg, var(--wood2), var(--wood)); border: 1px solid var(--line); border-radius: 14px; padding: 20px 20px 18px; }
+.card .ic { font-size: 26px; }
+.card h3 { font-size: 17px; margin: 8px 0 6px; color: var(--text); }
+.card p { margin: 0; color: #d8c8b2; font-size: 14.5px; }
+
+.shots { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+.shots img { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; cursor: zoom-in; }
+.shots .col { display: grid; gap: 14px; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; }
+.lightbox.on { display: flex; }
+.lightbox img { max-width: 94vw; max-height: 92vh; border-radius: 10px; }
+
+.tech { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .tech { grid-template-columns: 1fr; } }
+.tech .card h3 { color: var(--gold2); }
+.tech code { background: #1a120b; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 13px; }
+.diagram { background: #1a120b; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-top: 16px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+
+table { width: 100%; border-collapse: collapse; background: var(--wood); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid rgba(90,64,38,.6); font-size: 14.5px; }
+th { color: var(--muted); font-weight: 500; background: var(--wood2); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: #1a120b; border: 1px solid var(--line); border-radius: 20px; padding: 6px 13px; font-size: 13.5px; color: #e6d6bf; }
+footer { border-top: 1px solid rgba(90,64,38,.6); padding: 26px 0 40px; color: var(--muted); font-size: 14px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+[data-ru] { }
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#top" data-en="Fool's Knife" data-ru="Нож дурака">Fool's Knife</a>
+  <a class="l" href="#features" data-en="Features" data-ru="Особенности">Features</a>
+  <a class="l" href="#screens" data-en="Screenshots" data-ru="Скриншоты">Screenshots</a>
+  <a class="l" href="#tech" data-en="How it works" data-ru="Как устроено">How it works</a>
+  <a class="l" href="https://github.com/Adamjimmi/fools-knife">GitHub</a>
+  <button class="lang" id="lang" type="button" aria-label="Language"></button>
+</div></nav>
+
+<main id="top">
+<div class="wrap hero">
+  <div>
+    <h1 data-en="Fool's Knife" data-ru="Нож дурака">Fool's Knife</h1>
+    <p class="lead" data-en="The Russian card game Durak — except every card is a throwing knife. Pick a blade from your hand, aim, and stick it into your opponent's stump. Both players throw at once, and you can knock their knife out of the air."
+       data-ru="Карточный дурак, в котором каждая карта — метательный нож. Выбери клинок из руки, прицелься и воткни его в пень соперника. Оба бросают одновременно, а чужой нож можно сбить прямо в воздухе.">The Russian card game Durak — except every card is a throwing knife. Pick a blade from your hand, aim, and stick it into your opponent's stump. Both players throw at once, and you can knock their knife out of the air.</p>
+    <div class="btns">
+      <a class="btn gold" href="play/" data-en="▶ Play in browser" data-ru="▶ Играть в браузере">▶ Play in browser</a>
+      <a class="btn" href="https://mor-game-studio.itch.io/fools-knife">itch.io</a>
+      <a class="btn" href="https://github.com/Adamjimmi/fools-knife" data-en="Source code" data-ru="Исходный код">Source code</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>28</b><span data-en="unique knives" data-ru="уникальных ножей">unique knives</span></div>
+      <div class="stat"><b>1v1</b><span data-en="online, no sign-up" data-ru="онлайн без регистрации">online, no sign-up</span></div>
+      <div class="stat"><b>0</b><span data-en="dependencies" data-ru="зависимостей">dependencies</span></div>
+      <div class="stat"><b>RU / EN</b><span data-en="two languages" data-ru="два языка">two languages</span></div>
+    </div>
+  </div>
+  <img src="assets/cover.png" alt="Fool's Knife cover art">
+</div>
+
+<section id="features"><div class="wrap">
+  <h2 data-en="Features" data-ru="Особенности">Features</h2>
+  <p class="sub" data-en="Short matches, simple controls, and a surprising amount of strategy in which knife you throw and when."
+     data-ru="Короткие матчи, простое управление и неожиданно много тактики: какой нож бросить и когда.">Short matches, simple controls, and a surprising amount of strategy in which knife you throw and when.</p>
+  <div class="grid">
+    <div class="card"><div class="ic">🃏</div><h3 data-en="Cards become knives" data-ru="Карты становятся ножами">Cards become knives</h3><p data-en="Pick a card from your hand and it turns into the knife drawn on it — each with its own ballistics, abilities and flaws." data-ru="Выбери карту, и она превратится в нарисованный на ней нож — со своей баллистикой, способностями и недостатками.">Pick a card from your hand and it turns into the knife drawn on it — each with its own ballistics, abilities and flaws.</p></div>
+    <div class="card"><div class="ic">♠</div><h3 data-en="Trump suit" data-ru="Козырная масть">Trump suit</h3><p data-en="Like in Durak, the bottom card sets the trump. Trump knives glow, gain an extra ability and quality, and shrug off the wind." data-ru="Как в дураке, нижняя карта задаёт козырь. Козырные ножи светятся, получают лишнюю способность и качество и почти не боятся ветра.">Like in Durak, the bottom card sets the trump. Trump knives glow, gain an extra ability and quality, and shrug off the wind.</p></div>
+    <div class="card"><div class="ic">⚡</div><h3 data-en="Simultaneous throws" data-ru="Одновременные броски">Simultaneous throws</h3><p data-en="No waiting for turns. Hit the stump and you throw again — chain up to five hits in a 50-knife match." data-ru="Никакой очерёдности. Попал — бросаешь снова: в матче на 50 ножей можно сделать серию из пяти попаданий.">No waiting for turns. Hit the stump and you throw again — chain up to five hits in a 50-knife match.</p></div>
+    <div class="card"><div class="ic">💥</div><h3 data-en="Mid-air knockdowns" data-ru="Сбивание в воздухе">Mid-air knockdowns</h3><p data-en="Intercept your opponent's flying knife. A rusty blade that can't hit a stump can still knock down an ace." data-ru="Перехвати летящий нож соперника. Ржавый клинок, которым трудно попасть в пень, всё ещё может сбить туза.">Intercept your opponent's flying knife. A rusty blade that can't hit a stump can still knock down an ace.</p></div>
+    <div class="card"><div class="ic">🌐</div><h3 data-en="Online lobby" data-ru="Онлайн-лобби">Online lobby</h3><p data-en="Create a server (optionally with a password) and it shows up instantly in everyone's server list. No accounts, no install." data-ru="Создай сервер (можно с паролем), и он сразу появится в списке у всех. Без аккаунтов и установки.">Create a server (optionally with a password) and it shows up instantly in everyone's server list. No accounts, no install.</p></div>
+    <div class="card"><div class="ic">🤖</div><h3 data-en="Bot opponent" data-ru="Бот-соперник">Bot opponent</h3><p data-en="Practise offline against a bot that picks its best knife and solves the trajectory — with a human-like wobble." data-ru="Тренируйся против бота: он выбирает лучший нож и рассчитывает траекторию, но ошибается почти как человек.">Practise offline against a bot that picks its best knife and solves the trajectory — with a human-like wobble.</p></div>
+  </div>
+</div></section>
+
+<section id="screens"><div class="wrap">
+  <h2 data-en="Screenshots" data-ru="Скриншоты">Screenshots</h2>
+  <p class="sub" data-en="Click to enlarge." data-ru="Нажми, чтобы увеличить.">Click to enlarge.</p>
+  <div class="shots">
+    <img src="assets/screenshot-aim.png" alt="Aiming with the trajectory preview">
+    <div class="col">
+      <img src="assets/screenshot-match.png" alt="Mid-match with knives in the stumps">
+      <img src="assets/screenshot-lobby.png" alt="Online lobby with server list">
+    </div>
+  </div>
+</div></section>
+
+<section id="deck"><div class="wrap">
+  <h2 data-en="The deck" data-ru="Колода">The deck</h2>
+  <p class="sub" data-en="Three match lengths. Every deck has four aces; the rest are split between good and bad knives of all four suits."
+     data-ru="Три длины матча. В каждой колоде четыре туза, остальное — хорошие и плохие ножи всех четырёх мастей.">Three match lengths. Every deck has four aces; the rest are split between good and bad knives of all four suits.</p>
+  <table>
+    <thead><tr><th data-en="Match" data-ru="Матч">Match</th><th data-en="Aces" data-ru="Тузы">Aces</th><th data-en="Good" data-ru="Хорошие">Good</th><th data-en="Bad" data-ru="Плохие">Bad</th><th data-en="Hand size" data-ru="Карт в руке">Hand size</th></tr></thead>
+    <tbody>
+      <tr><td data-en="20 knives" data-ru="20 ножей">20 knives</td><td>4</td><td>8</td><td>8</td><td>2</td></tr>
+      <tr><td data-en="30 knives" data-ru="30 ножей">30 knives</td><td>4</td><td>13</td><td>13</td><td>3</td></tr>
+      <tr><td data-en="50 knives" data-ru="50 ножей">50 knives</td><td>4</td><td>23</td><td>23</td><td>5</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section id="tech"><div class="wrap">
+  <h2 data-en="How it works" data-ru="Как это устроено">How it works</h2>
+  <p class="sub" data-en="Everything runs in the browser: one self-contained HTML file, plain JavaScript and Canvas 2D, no frameworks and no game server."
+     data-ru="Всё работает в браузере: один самодостаточный HTML-файл, чистый JavaScript и Canvas 2D, без фреймворков и без игрового сервера.">Everything runs in the browser: one self-contained HTML file, plain JavaScript and Canvas 2D, no frameworks and no game server.</p>
+  <div class="tech">
+    <div class="card"><h3 data-en="Deterministic ballistics" data-ru="Детерминированная баллистика">Deterministic ballistics</h3>
+      <p data-en="Each throw is a fixed-step simulation (120 Hz) with gravity, wind and spin. The knife sticks only if the blade faces the wood within the knife's “stick window”. Spread comes from a seeded PRNG, so every client replays an identical flight from just angle, power and seed."
+         data-ru="Каждый бросок — симуляция с фиксированным шагом (120 Гц): гравитация, ветер, вращение. Нож втыкается, только если лезвие смотрит в дерево в пределах «окна втыкания». Разброс идёт от генератора со сидом, поэтому все клиенты воспроизводят одинаковый полёт по углу, силе и сиду.">Each throw is a fixed-step simulation (120 Hz) with gravity, wind and spin. The knife sticks only if the blade faces the wood within the knife's “stick window”. Spread comes from a seeded PRNG, so every client replays an identical flight from just angle, power and seed.</p></div>
+    <div class="card"><h3 data-en="Host-authoritative netcode" data-ru="Авторитетный хост">Host-authoritative netcode</h3>
+      <p data-en="The player who creates a server runs the match engine in their own tab. Guests only send intents (take card, throw); the host validates them, simulates, scores and broadcasts state. No dedicated server to pay for or cheat against."
+         data-ru="Тот, кто создал сервер, запускает движок матча у себя во вкладке. Гости отправляют только намерения (взять карту, бросить); хост их проверяет, симулирует, считает очки и рассылает состояние. Нет выделенного сервера, за который надо платить и который можно обмануть.">The player who creates a server runs the match engine in their own tab. Guests only send intents (take card, throw); the host validates them, simulates, scores and broadcasts state. No dedicated server to pay for or cheat against.</p></div>
+    <div class="card"><h3 data-en="Hand-written MQTT client" data-ru="Свой MQTT-клиент">Hand-written MQTT client</h3>
+      <p data-en="Players find each other through free public MQTT brokers over WebSocket, with automatic fallback between three brokers. The ~200-line MQTT 3.1.1 client handles retained lobby entries and a “last will” that removes a server from the list when its host disappears."
+         data-ru="Игроки находят друг друга через бесплатные публичные MQTT-брокеры по WebSocket, с автоматическим переключением между тремя брокерами. MQTT 3.1.1-клиент примерно на 200 строк поддерживает «закреплённые» записи лобби и «последнюю волю», которая убирает сервер из списка, когда хост пропал.">Players find each other through free public MQTT brokers over WebSocket, with automatic fallback between three brokers. The ~200-line MQTT 3.1.1 client handles retained lobby entries and a “last will” that removes a server from the list when its host disappears.</p></div>
+    <div class="card"><h3 data-en="Collisions &amp; resilience" data-ru="Столкновения и надёжность">Collisions &amp; resilience</h3>
+      <p data-en="When a knife is thrown, the host checks its path against every enemy knife still in flight, time-aligned frame by frame. Scores are applied on landing, so a knocked-down knife never counts. Knives in flight are mirrored into the periodic state, so a dropped message never makes a knife vanish."
+         data-ru="При броске хост сверяет траекторию с каждым летящим ножом соперника кадр за кадром с учётом времени. Очки начисляются при приземлении, поэтому сбитый нож никогда не засчитывается. Летящие ножи дублируются в регулярном состоянии, так что потерянное сообщение не заставит нож исчезнуть.">When a knife is thrown, the host checks its path against every enemy knife still in flight, time-aligned frame by frame. Scores are applied on landing, so a knocked-down knife never counts. Knives in flight are mirrored into the periodic state, so a dropped message never makes a knife vanish.</p></div>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 900 190" role="img" aria-label="Network diagram">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e8b64a"/></marker></defs>
+      <g font-family="Rubik, sans-serif" font-size="14" fill="#f1e6d6" text-anchor="middle">
+        <rect x="20" y="40" width="230" height="110" rx="14" fill="#2f2117" stroke="#e8b64a"/>
+        <text x="135" y="72" font-size="16" fill="#ffd77a" class="t" data-en="Host browser" data-ru="Браузер хоста">Host browser</text>
+        <text x="135" y="98" fill="#d8c8b2" data-en="match engine · bot" data-ru="движок матча · бот">match engine · bot</text>
+        <text x="135" y="120" fill="#d8c8b2" data-en="physics · scoring" data-ru="физика · очки">physics · scoring</text>
+        <rect x="335" y="55" width="230" height="80" rx="14" fill="#1a120b" stroke="#5a4026"/>
+        <text x="450" y="88" font-size="16" fill="#ffd77a" data-en="Public MQTT broker" data-ru="Публичный MQTT-брокер">Public MQTT broker</text>
+        <text x="450" y="112" fill="#b09a80" data-en="lobby · rooms · relay" data-ru="лобби · комнаты · пересылка">lobby · rooms · relay</text>
+        <rect x="650" y="40" width="230" height="110" rx="14" fill="#2f2117" stroke="#5a4026"/>
+        <text x="765" y="72" font-size="16" fill="#ffd77a" data-en="Guest browser" data-ru="Браузер гостя">Guest browser</text>
+        <text x="765" y="98" fill="#d8c8b2" data-en="replays flights locally" data-ru="воспроизводит полёты">replays flights locally</text>
+        <text x="765" y="120" fill="#d8c8b2" data-en="sends intents only" data-ru="шлёт только намерения">sends intents only</text>
+        <line x1="252" y1="78" x2="332" y2="78" stroke="#e8b64a" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="332" y1="112" x2="254" y2="112" stroke="#e8b64a" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="568" y1="78" x2="648" y2="78" stroke="#e8b64a" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="648" y1="112" x2="570" y2="112" stroke="#e8b64a" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="292" y="68" font-size="12" fill="#b09a80" data-en="state" data-ru="состояние">state</text>
+        <text x="292" y="132" font-size="12" fill="#b09a80" data-en="intents" data-ru="намерения">intents</text>
+        <text x="608" y="68" font-size="12" fill="#b09a80" data-en="state" data-ru="состояние">state</text>
+        <text x="608" y="132" font-size="12" fill="#b09a80" data-en="intents" data-ru="намерения">intents</text>
+      </g>
+    </svg>
+  </div>
+</div></section>
+
+<section id="stack"><div class="wrap">
+  <h2 data-en="Built with" data-ru="Технологии">Built with</h2>
+  <div class="chips">
+    <span class="chip">JavaScript (ES2020)</span><span class="chip">Canvas 2D</span><span class="chip">WebSocket</span><span class="chip">MQTT 3.1.1</span>
+    <span class="chip" data-en="Procedural knife art" data-ru="Процедурная отрисовка ножей">Procedural knife art</span>
+    <span class="chip" data-en="Web Audio sound effects" data-ru="Звуки на Web Audio">Web Audio sound effects</span>
+    <span class="chip" data-en="Single-file build (Python)" data-ru="Сборка в один файл (Python)">Single-file build (Python)</span>
+    <span class="chip" data-en="RU / EN localisation" data-ru="Локализация RU / EN">RU / EN localisation</span>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>© 2026 MOR. Game Studio · Adamjimmi</span>
+  <span><a href="play/" data-en="Play" data-ru="Играть">Play</a> · <a href="https://mor-game-studio.itch.io/fools-knife">itch.io</a> · <a href="https://github.com/Adamjimmi/fools-knife">GitHub</a></span>
+</div></footer>
+
+<div class="lightbox" id="lb"><img alt=""></div>
+
+<script>
+(() => {
+  let lang = 'en';
+  try { lang = localStorage.getItem('nd-lang') || (/^(ru|uk|be|kk)/i.test(navigator.language || '') ? 'ru' : 'en'); } catch (e) {}
+  const btn = document.getElementById('lang');
+  function apply() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-en]').forEach(el => { el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en'); });
+    document.title = lang === 'ru' ? 'Нож дурака — карточная игра с метанием ножей' : "Fool's Knife — browser card game with knife throwing";
+    btn.innerHTML = `<span class="${lang === 'ru' ? 'on' : ''}">RU</span><span class="${lang === 'en' ? 'on' : ''}">EN</span>`;
+  }
+  btn.onclick = () => { lang = lang === 'ru' ? 'en' : 'ru'; try { localStorage.setItem('nd-lang', lang); } catch (e) {} apply(); };
+  apply();
+  const lb = document.getElementById('lb');
+  document.querySelectorAll('.shots img').forEach(img => img.onclick = () => { lb.querySelector('img').src = img.src; lb.classList.add('on'); });
+  lb.onclick = () => lb.classList.remove('on');
+})();
+</script>
+</body>
+</html>

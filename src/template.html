@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нож дурака</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ЛОББИ -->
+<section id="lobby" class="screen active">
+  <header class="logo">
+    <div class="logo-knives">🗡️</div>
+    <h1>Нож дурака</h1>
+    <p class="tag">20 ножей · козырь · пни · кто больше настрелял — тот не дурак</p>
+  </header>
+
+  <div class="lobby-grid">
+    <div class="panel">
+      <h2>Твоё имя</h2>
+      <input id="nick" maxlength="20" placeholder="Например, Сеня-Метатель">
+
+      <h2>Создать сервер</h2>
+      <input id="room-name" maxlength="32" placeholder="Название сервера">
+      <input id="room-pass" maxlength="32" placeholder="Пароль (необязательно)">
+      <button id="btn-create" class="btn gold">Создать сервер</button>
+      <div class="or">или</div>
+      <button id="btn-bot" class="btn">Быстрая игра против бота</button>
+
+      <details class="rules">
+        <summary>Правила</summary>
+        <ul>
+          <li>В колоде 20 карт-ножей: 4 туза, 8 хороших и 8 плохих (по 2 каждой масти).</li>
+          <li>Нижняя карта колоды открыта — её масть становится <b>козырем</b>. Козырные ножи получают +1 способность, +1 хорошее качество и летят ровнее.</li>
+          <li>Каждый раунд оба берут по карте. Нажми на карту — она превратится в нож.</li>
+          <li>По очереди бросаете ножи в пень соперника: <b>зажми мышь и тяни назад</b>, отпусти — бросок.</li>
+          <li>Нож вращается в полёте, и воткнуться он должен лезвием. Белые призраки на траектории показывают, как он будет повёрнут.</li>
+          <li>Красная полоса на пне — яблочко (×2), белая — ×1,5, торец сверху — ×1.</li>
+          <li>Когда колода кончится, побеждает тот, у кого больше очков.</li>
+        </ul>
+      </details>
+    </div>
+
+    <div class="panel wide">
+      <div class="row-between">
+        <h2>Список серверов</h2>
+        <button id="btn-refresh" class="btn small">⟳ Обновить</button>
+      </div>
+      <table class="servers">
+        <thead><tr><th>Сервер</th><th>Хост</th><th>Игроки</th><th>Статус</th><th></th></tr></thead>
+        <tbody id="server-list"></tbody>
+      </table>
+      <div id="no-servers" class="empty">Пока нет ни одного сервера. Создай свой!</div>
+    </div>
+  </div>
+  <div id="conn" class="conn">Подключение…</div>
+</section>
+
+<!-- КОМНАТА / ИГРА -->
+<section id="room" class="screen">
+  <div class="topbar">
+    <button id="btn-leave" class="btn small">← Выйти</button>
+    <div id="room-title" class="room-title"></div>
+    <div class="hud">
+      <div class="hud-item"><span>Раунд</span><b id="hud-round">0/10</b></div>
+      <div class="hud-item trump"><span>Козырь</span><b id="hud-trump">—</b></div>
+      <div class="hud-item"><span>В колоде</span><b id="hud-deck">20</b></div>
+      <div class="hud-item"><span>Ход</span><b id="hud-turn">—</b></div>
+      <div class="hud-item"><span>Таймер</span><b id="hud-timer">—</b></div>
+    </div>
+  </div>
+
+  <div class="game-wrap">
+    <div class="stage">
+      <canvas id="cv" width="1000" height="560"></canvas>
+      <div id="overlay" class="overlay hidden"></div>
+      <div id="hint" class="hint"></div>
+    </div>
+    <aside class="side">
+      <div id="scores" class="scores"></div>
+      <div class="log-box"><h3>Ход игры</h3><div id="log" class="log"></div></div>
+      <div class="chat-box">
+        <div id="chat" class="chat"></div>
+        <form id="chat-form"><input id="chat-input" maxlength="200" placeholder="Сообщение…" autocomplete="off"><button class="btn small">➤</button></form>
+      </div>
+    </aside>
+  </div>
+
+  <div class="table">
+    <div class="slot">
+      <div class="slot-label">Твой нож</div>
+      <div id="my-slot" class="slot-body"></div>
+    </div>
+    <div class="slot deck-slot">
+      <div class="slot-label">Колода</div>
+      <div id="deck-slot" class="slot-body"></div>
+    </div>
+    <div class="slot">
+      <div class="slot-label" id="opp-label">Соперник</div>
+      <div id="opp-slot" class="slot-body"></div>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="toast"></div>
+
+<script src="/shared/game.js"></script>
+<script src="client.js"></script>
+</body>
+</html>

@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нож дурака</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #17110c;
+  --wood: #2a1d13;
+  --wood2: #3a2819;
+  --line: #5a4026;
+  --gold: #e8b64a;
+  --gold2: #ffd77a;
+  --text: #f1e6d6;
+  --muted: #b09a80;
+  --red: #d2453a;
+  --green: #6fcf7c;
+  --card: #f6efe1;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: radial-gradient(ellipse at top, #3a2716 0%, var(--bg) 60%) fixed;
+  color: var(--text);
+  font-family: 'Rubik', system-ui, sans-serif;
+  font-size: 15px;
+}
+h1, h2, h3, .room-title, .btn, .hud b, .card .cname, .corner { font-family: 'Russo One', 'Rubik', sans-serif; font-weight: 400; }
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ---------- Лобби ---------- */
+#lobby { max-width: 1150px; margin: 0 auto; padding: 28px 20px 60px; }
+.logo { text-align: center; margin-bottom: 26px; }
+.logo h1 { font-size: 64px; margin: 4px 0; color: var(--gold); letter-spacing: 2px; text-shadow: 0 3px 0 #6b3f12, 0 8px 24px rgba(232,182,74,.25); }
+.logo-knives { font-size: 40px; transform: rotate(-20deg); display: inline-block; }
+.tag { color: var(--muted); margin: 0; }
+.lobby-grid { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+@media (max-width: 860px) { .lobby-grid { grid-template-columns: 1fr; } }
+.panel {
+  background: linear-gradient(180deg, var(--wood2), var(--wood));
+  border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.panel h2 { font-size: 17px; color: var(--gold); margin: 14px 0 8px; letter-spacing: .5px; }
+.panel h2:first-child { margin-top: 0; }
+input {
+  width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px;
+  border: 1px solid var(--line); background: #1a120b; color: var(--text); font: inherit; outline: none;
+}
+input:focus { border-color: var(--gold); }
+.btn {
+  display: inline-block; width: 100%; padding: 11px 14px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--line); background: #4a3320; color: var(--text); font-size: 15px;
+  transition: transform .08s, background .15s, box-shadow .15s;
+}
+.btn:hover { background: #5b3f27; }
+.btn:active { transform: translateY(1px); }
+.btn.gold { background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #3a2208; border-color: #a77421; box-shadow: 0 3px 0 #8a5a17; }
+.btn.gold:hover { filter: brightness(1.06); }
+.btn.small { width: auto; padding: 6px 12px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.or { text-align: center; color: var(--muted); margin: 8px 0; font-size: 13px; }
+.row-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.row-between h2 { margin: 0; }
+.servers { width: 100%; border-collapse: collapse; }
+.servers th { text-align: left; color: var(--muted); font-weight: 500; font-size: 13px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.servers td { padding: 10px 8px; border-bottom: 1px solid rgba(90,64,38,.5); }
+.servers tr:hover td { background: rgba(232,182,74,.05); }
+.servers .st-lobby { color: var(--green); }
+.servers .st-playing { color: var(--gold); }
+.servers .st-over { color: var(--muted); }
+.servers td:last-child { text-align: right; }
+.empty { color: var(--muted); text-align: center; padding: 30px 0; }
+.rules { margin-top: 16px; color: var(--muted); font-size: 13.5px; }
+.rules summary { cursor: pointer; color: var(--gold); font-family: 'Russo One', sans-serif; }
+.rules ul { padding-left: 18px; line-height: 1.5; }
+.rules b { color: var(--text); }
+.conn { position: fixed; bottom: 10px; left: 12px; font-size: 12px; color: var(--muted); }
+
+/* ---------- Комната ---------- */
+#room { padding: 10px 14px 16px; max-width: 1400px; margin: 0 auto; }
+.topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.room-title { font-size: 20px; color: var(--gold); flex: 1; min-width: 160px; }
+.hud { display: flex; gap: 8px; flex-wrap: wrap; }
+.hud-item { background: var(--wood); border: 1px solid var(--line); border-radius: 9px; padding: 4px 12px; text-align: center; min-width: 74px; }
+.hud-item > span { display: block; font-size: 11px; color: var(--muted); }
+.hud-item b { font-size: 17px; }
+.hud-item.trump b { font-size: 17px; white-space: nowrap; }
+.red { color: var(--red); }
+.game-wrap { display: grid; grid-template-columns: 1fr 290px; gap: 12px; }
+@media (max-width: 1050px) { .game-wrap { grid-template-columns: 1fr; } }
+.stage { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); background: #000; }
+#cv { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+.overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: rgba(15,10,6,.72); backdrop-filter: blur(2px); text-align: center; padding: 20px;
+}
+.overlay.hidden { display: none; }
+.overlay h2 { font-family: 'Russo One'; font-weight: 400; font-size: 34px; color: var(--gold); margin: 0; }
+.overlay p { color: var(--muted); margin: 0; }
+.overlay .btns { display: flex; gap: 10px; }
+.overlay .btn { width: auto; min-width: 170px; }
+.final { display: flex; gap: 30px; margin: 6px 0 10px; }
+.final div { font-size: 15px; }
+.final b { display: block; font-family: 'Russo One'; font-size: 44px; color: var(--text); }
+.final .win b { color: var(--gold2); }
+.hint {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  background: rgba(20,14,8,.78); border: 1px solid var(--line); padding: 6px 14px; border-radius: 20px;
+  font-size: 13.5px; pointer-events: none; white-space: nowrap; transition: opacity .2s;
+}
+.hint:empty { opacity: 0; }
+.side { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.scores { display: grid; gap: 8px; }
+.pl { background: var(--wood); border: 1px solid var(--line); border-radius: 11px; padding: 8px 12px; display: flex; align-items: center; gap: 10px; }
+.pl.turn { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset, 0 0 14px rgba(232,182,74,.25); }
+.pl .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.pl .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl .nm small { color: var(--muted); display: block; font-size: 11.5px; }
+.pl .sc { font-family: 'Russo One'; font-size: 26px; color: var(--gold2); }
+.log-box, .chat-box { background: var(--wood); border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; }
+.log-box h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+.log { font-size: 12.5px; line-height: 1.45; max-height: 170px; overflow-y: auto; }
+.log div { padding: 2px 0; border-bottom: 1px dashed rgba(90,64,38,.5); }
+.chat { font-size: 13px; height: 110px; overflow-y: auto; margin-bottom: 6px; }
+.chat b { color: var(--gold); }
+#chat-form { display: flex; gap: 6px; }
+#chat-form input { margin: 0; padding: 6px 10px; }
+
+/* ---------- Стол с картами ---------- */
+.table {
+  margin-top: 12px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px;
+  background: radial-gradient(ellipse at center, #2f5232 0%, #1d3a22 75%);
+  border: 6px solid #5a3a1e; border-radius: 18px; padding: 12px 18px 16px;
+  box-shadow: inset 0 0 40px rgba(0,0,0,.5), 0 10px 30px rgba(0,0,0,.4);
+}
+.slot { display: flex; flex-direction: column; align-items: center; }
+.slot-label { font-size: 12px; color: #cfe3cf; opacity: .8; margin-bottom: 6px; letter-spacing: .5px; text-transform: uppercase; }
+.slot-body { min-height: 262px; display: flex; align-items: center; justify-content: center; position: relative; }
+.slot-empty { color: rgba(255,255,255,.45); font-size: 14px; border: 2px dashed rgba(255,255,255,.2); border-radius: 12px; width: 176px; height: 252px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; }
+
+.card {
+  width: 176px; height: 252px; border-radius: 12px; background: var(--card); color: #2a1d13; position: relative;
+  box-shadow: 0 6px 16px rgba(0,0,0,.45); padding: 8px 10px; display: flex; flex-direction: column;
+  border: 2px solid #d9cbb0; transition: transform .25s;
+}
+.card.red-suit .corner { color: #b8222f; }
+.card.tier-ace { background: linear-gradient(160deg, #fff8e2, #f1dfb0); border-color: #d6a73e; }
+.card.tier-bad { background: linear-gradient(160deg, #eee5d4, #d9ccb4); }
+.card.trump { box-shadow: 0 0 0 2px var(--gold), 0 0 22px rgba(255,205,90,.7), 0 6px 16px rgba(0,0,0,.45); }
+.card .corner { font-size: 20px; line-height: 1; display: flex; justify-content: space-between; align-items: center; }
+.card .badge { font-size: 9.5px; font-family: 'Russo One'; background: var(--gold); color: #3a2208; border-radius: 4px; padding: 2px 5px; letter-spacing: .5px; }
+.card canvas { width: 156px; height: 78px; margin: 2px auto 0; display: block; }
+.card .cname { font-size: 15px; text-align: center; margin-top: 2px; }
+.card .ctier { font-size: 10.5px; text-align: center; color: #7a6650; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.card ul { list-style: none; padding: 0; margin: 0; font-size: 10.8px; line-height: 1.28; flex: 1; overflow: hidden; }
+.card li { margin-bottom: 1px; }
+.card li.ab { color: #8a5a00; font-weight: 500; }
+.card li.q { color: #1f7a33; }
+.card li.fl { color: #b0222c; }
+.card li .x { color: #b07b00; font-weight: 700; }
+.card .nums { gap: 4px; white-space: nowrap; font-size: 9.6px; color: #6a5a48; border-top: 1px solid rgba(0,0,0,.12); padding-top: 3px; display: flex; justify-content: space-between; }
+.card.clickable { cursor: pointer; }
+.card.clickable:hover { transform: translateY(-6px) rotate(-1deg); }
+.card.pulse { animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 2px var(--gold), 0 0 10px rgba(255,205,90,.5); } 50% { box-shadow: 0 0 0 3px var(--gold2), 0 0 30px rgba(255,205,90,.95); } }
+.card.morph { animation: morph .55s forwards; }
+@keyframes morph { 0% { transform: rotateY(0) scale(1); } 60% { transform: rotateY(90deg) scale(.9); filter: brightness(2); } 100% { transform: rotateY(90deg) scale(.6); opacity: 0; } }
+.card.mini { transform: scale(.82); }
+
+.card-back {
+  width: 176px; height: 252px; border-radius: 12px; border: 2px solid #c9b48a; box-shadow: 0 6px 16px rgba(0,0,0,.45);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.07) 0 6px, transparent 6px 12px),
+    radial-gradient(circle at center, #8b2a22 0%, #5a1712 80%);
+  display: flex; align-items: center; justify-content: center; font-size: 46px; color: rgba(255,220,150,.75);
+}
+.knife-hand {
+  width: 176px; height: 252px; border-radius: 12px; border: 2px solid rgba(232,182,74,.6);
+  background: radial-gradient(circle at 50% 40%, rgba(255,220,140,.18), rgba(0,0,0,.25));
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px; animation: appear .4s;
+}
+.knife-hand.done { opacity: .45; }
+.knife-hand canvas { width: 160px; height: 110px; }
+.knife-hand .kn { font-family: 'Russo One'; font-size: 16px; color: var(--gold2); }
+.knife-hand .kd { font-size: 12px; color: #d5e7d5; margin-top: 4px; }
+@keyframes appear { from { transform: scale(.5) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.deck-stack { position: relative; width: 230px; height: 252px; }
+.deck-stack .trump-under { position: absolute; left: 70px; top: 38px; transform: rotate(90deg) scale(.86); transform-origin: center; }
+.deck-stack .back { position: absolute; left: 0; top: 0; }
+.deck-count { position: absolute; left: 50px; top: 104px; transform: translateX(-50%); width: 64px; text-align: center; font-family: 'Russo One'; font-size: 30px; color: #fff; text-shadow: 0 2px 6px #000; z-index: 9; }
+.trump-big { position: absolute; right: -2px; bottom: -6px; font-size: 13px; background: rgba(0,0,0,.55); padding: 3px 8px; border-radius: 8px; z-index: 10; }
+
+.toast {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-80px); background: #4a1f18; border: 1px solid #a3402e;
+  padding: 10px 18px; border-radius: 10px; transition: transform .25s; z-index: 50;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 40; }
+.modal.hidden { display: none; }
+.modal .panel { width: 320px; }
+.modal .btns { display: flex; gap: 8px; }
+.online { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+#lobby { position: relative; }
+.lang-toggle { background: #1a120b; border: 1px solid var(--line); border-radius: 20px; padding: 3px; cursor: pointer; display: inline-flex; gap: 2px; flex: none; }
+.lang-toggle span { padding: 3px 9px; border-radius: 14px; font: 600 12px Rubik, sans-serif; color: var(--muted); }
+.lang-toggle span.on { background: var(--gold); color: #3a2208; }
+.logo .lang-toggle { position: absolute; top: 18px; right: 20px; }
+.hand { display: flex; align-items: center; justify-content: center; }
+.hand > * { flex: none; }
+.hand.n2 > * + * { margin-left: -24px; }
+.hand.n3 { zoom: .84; } .hand.n3 > * + * { margin-left: -44px; }
+.hand.n4 { zoom: .74; } .hand.n4 > * + * { margin-left: -64px; }
+.hand.n5 { zoom: .68; } .hand.n5 > * + * { margin-left: -78px; }
+.hand > *:hover { z-index: 5; position: relative; }
+.hand .knife-hand { position: relative; z-index: 3; }
+.card.dim { filter: brightness(.7) saturate(.7); }
+select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--line); background: #1a120b; color: var(--text); font: inherit; }
+.table { grid-template-columns: 1.4fr auto 1.4fr; }
+.note { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.45; }
+
+</style>
+</head>
+<body>
+
+<!-- ЛОББИ -->
+<section id="lobby" class="screen active">
+  <header class="logo">
+    <div class="logo-knives">🗡️</div>
+    <h1>Нож дурака</h1>
+    <p class="tag">20 ножей · козырь · пни · кто больше настрелял — тот не дурак</p>
+  </header>
+
+  <div class="lobby-grid">
+    <div class="panel">
+      <h2>Твоё имя</h2>
+      <input id="nick" maxlength="20" placeholder="Например, Сеня-Метатель">
+
+      <h2>Создать сервер</h2>
+      <select id="deck-size"><option value="20">Матч на 20 ножей · рука 2</option><option value="30">Матч на 30 ножей · рука 3</option><option value="50">Матч на 50 ножей · рука 5</option></select>
+      <input id="room-name" maxlength="32" placeholder="Название сервера">
+      <input id="room-pass" maxlength="32" placeholder="Пароль (необязательно)">
+      <button id="btn-create" class="btn gold">Создать сервер</button>
+      <div class="or">или</div>
+      <button id="btn-bot" class="btn">Быстрая игра против бота</button>
+      <p class="note"></p>
+      <div id="online" class="online"></div>
+
+      <details class="rules">
+        <summary>Правила</summary>
+        <ul>
+          <li>В колоде 20 карт-ножей: 4 туза, 8 хороших и 8 плохих (по 2 каждой масти).</li>
+          <li>Нижняя карта колоды открыта — её масть становится <b>козырем</b>. Козырные ножи получают +1 способность, +1 хорошее качество и летят ровнее.</li>
+          <li>Каждый раунд оба берут по карте. Нажми на карту — она превратится в нож.</li>
+          <li>По очереди бросаете ножи в пень соперника: <b>зажми мышь и тяни назад</b>, отпусти — бросок.</li>
+          <li>Нож вращается в полёте, и воткнуться он должен лезвием. Белые призраки на траектории показывают, как он будет повёрнут.</li>
+          <li>Красная полоса на пне — яблочко (×2), белая — ×1,5, торец сверху — ×1.</li>
+          <li>Когда колода кончится, побеждает тот, у кого больше очков.</li>
+        </ul>
+      </details>
+    </div>
+
+    <div class="panel wide">
+      <div class="row-between">
+        <h2>Список серверов</h2>
+        <span style="color:var(--muted);font-size:12.5px">обновляется сам</span>
+      </div>
+      <table class="servers">
+        <thead><tr><th>Сервер</th><th>Хост</th><th>Игроки</th><th>Статус</th><th></th></tr></thead>
+        <tbody id="server-list"></tbody>
+      </table>
+      <div id="no-servers" class="empty">Пока нет ни одного сервера. Создай свой!</div>
+    </div>
+  </div>
+  <div id="conn" class="conn">Подключение…</div>
+</section>
+
+<!-- КОМНАТА / ИГРА -->
+<section id="room" class="screen">
+  <div class="topbar">
+    <button id="btn-leave" class="btn small">← Выйти</button>
+    <div id="room-title" class="room-title"></div>
+    <div class="hud">
+      <div class="hud-item"><span>Раунд</span><b id="hud-round">0/10</b></div>
+      <div class="hud-item trump"><span>Козырь</span><b id="hud-trump">—</b></div>
+      <div class="hud-item"><span>В колоде</span><b id="hud-deck">20</b></div>
+      <div class="hud-item"><span>Твоя серия</span><b id="hud-turn">—</b></div>
+      <div class="hud-item"><span>Таймер</span><b id="hud-timer">—</b></div>
+    </div>
+  </div>
+
+  <div class="game-wrap">
+    <div class="stage">
+      <canvas id="cv" width="1000" height="560"></canvas>
+      <div id="overlay" class="overlay hidden"></div>
+      <div id="hint" class="hint"></div>
+    </div>
+    <aside class="side">
+      <div id="scores" class="scores"></div>
+      <div class="log-box"><h3>Ход игры</h3><div id="log" class="log"></div></div>
+      <div class="chat-box">
+        <div id="chat" class="chat"></div>
+        <form id="chat-form"><input id="chat-input" maxlength="200" placeholder="Сообщение…" autocomplete="off"><button class="btn small">➤</button></form>
+      </div>
+    </aside>
+  </div>
+
+  <div class="table">
+    <div class="slot">
+      <div class="slot-label">Твоя рука</div>
+      <div id="my-slot" class="slot-body"></div>
+    </div>
+    <div class="slot deck-slot">
+      <div class="slot-label">Колода</div>
+      <div id="deck-slot" class="slot-body"></div>
+    </div>
+    <div class="slot">
+      <div class="slot-label" id="opp-label">Соперник</div>
+      <div id="opp-slot" class="slot-body"></div>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal hidden"><div class="panel"><h2>Пароль сервера</h2><input id="modal-input" type="password" maxlength="32" placeholder="Пароль"><div class="btns"><button id="modal-cancel" class="btn">Отмена</button><button id="modal-ok" class="btn gold">Войти</button></div></div></div>
+
+<script>
+// Общая логика «Нож дурака»: колода, характеристики ножей, баллистика, отрисовка ножей.
+// Используется и сервером (Node), и браузером (window.KG).
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.KG = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // ---------- Мир ----------
+  const W = 1000, H = 560, GROUND = 480;
+  const STUMP_TOP = 300, STUMP_W = 70, FACE_X = 840; // пень соперника (в системе координат бросающего)
+  const BULL_Y = 390;                                // «яблочко» на боку пня
+  const HAND = { x: 75, y: 285 };                    // точка выброса
+  const GRAV = 900, SPIN = Math.PI * 2, WIND_ACC = 80, KNIFE_HALF = 30;
+  const TURN_MS = 35000;
+
+  const SUITS = {
+    clubs:    { sym: '♣', name: 'Крести', red: false, handle: '#2f6b3a' },
+    diamonds: { sym: '♦', name: 'Бубны',  red: true,  handle: '#c7701d' },
+    spades:   { sym: '♠', name: 'Пики',   red: false, handle: '#2a2a35' },
+    hearts:   { sym: '♥', name: 'Черви',  red: true,  handle: '#a3192a' },
+  };
+  const SUIT_ORDER = ['clubs', 'diamonds', 'spades', 'hearts'];
+
+  const TIERS = {
+    ace:  { name: 'Туз',              rank: 'Т' },
+    good: { name: 'Хороший нож',      rank: 'Х' },
+    bad:  { name: 'Плохой нож',       rank: 'П' },
+  };
+
+  // Особые способности (тузы и козыри)
+  const ABILITIES = {
+    homing: { name: 'Самонаведение',    desc: 'в конце полёта доворачивает к пню' },
+    calm:   { name: 'Штиль',            desc: 'ветер не действует' },
+    double: { name: 'Двойной удар',     desc: 'очки за попадание ×2' },
+    sticky: { name: 'Всегда втыкается', desc: 'втыкается под любым углом' },
+    eagle:  { name: 'Орлиный глаз',     desc: 'видна вся траектория' },
+    magnet: { name: 'Магнит',           desc: 'пень-мишень крупнее' },
+    thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
+    bounce: { name: 'Рикошет',          desc: 'один раз отскакивает от земли' },
+  };
+  // Хорошие качества
+  const QUALITIES = {
+    balance: { name: 'Баланс',   desc: 'разброс −50%' },
+    power:   { name: 'Сила',     desc: 'скорость броска +12%' },
+    sharp:   { name: 'Острота',  desc: 'окно втыкания +20°' },
+    light:   { name: 'Лёгкость', desc: 'гравитация −15%' },
+    value:   { name: 'Ценность', desc: '+5 очков за попадание' },
+    scope:   { name: 'Прицел',   desc: 'траектория видна дальше' },
+  };
+  // Недостатки плохих ножей
+  const FLAWS = {
+    crooked: { name: 'Кривой',  desc: 'разброс +50%' },
+    dull:    { name: 'Тупой',   desc: 'окно втыкания −8°' },
+    heavy:   { name: 'Тяжёлый', desc: 'гравитация +10%' },
+    wobbly:  { name: 'Шаткий',  desc: 'вращается быстрее' },
+  };
+
+  // ---------- Колоды: 20 / 30 / 50 ножей ----------
+  const SUIT_SHORT = { clubs: 'c', diamonds: 'd', spades: 's', hearts: 'h' };
+  // Тузы: по одному на масть
+  const ACES = {
+    clubs:    ['Дубовый Король', 'royal',    ['magnet'], 'calm',   'value'],
+    diamonds: ['Алмазный Шип',   'stiletto', ['double'], 'eagle',  'balance'],
+    spades:   ['Чёрный Клык',    'dagger',   ['homing'], 'sticky', 'power'],
+    hearts:   ['Алое Сердце',    'fang',     ['thief'],  'homing', 'sharp'],
+  };
+  // Модели хороших ножей: [имя, форма, качества, козырная способность, козырное качество]
+  const GOOD = [
+    ['Боуи',       'bowie',     ['power', 'value'],   'bounce', 'balance'],
+    ['Финка',      'finka',     ['balance', 'scope'], 'calm',   'sharp'],
+    ['Танто',      'tanto',     ['sharp', 'power'],   'eagle',  'light'],
+    ['Балисонг',   'butterfly', ['light', 'balance'], 'magnet', 'value'],
+    ['Кукри',      'kukri',     ['value', 'sharp'],   'homing', 'power'],
+    ['Кортик',     'dirk',      ['scope', 'light'],   'double', 'balance'],
+    ['Скиннер',    'skinner',   ['balance', 'value'], 'sticky', 'scope'],
+    ['Кунай',      'kunai',     ['light', 'sharp'],   'thief',  'power'],
+    ['Керамбит',   'fang',      ['sharp', 'scope'],   'bounce', 'value'],
+    ['Сантоку',    'kitchen',   ['value', 'light'],   'calm',   'balance'],
+    ['Охотничий',  'royal',     ['power', 'balance'], 'eagle',  'sharp'],
+    ['Метательный','stiletto',  ['light', 'scope'],   'magnet', 'power'],
+  ];
+  // Модели плохих ножей: [имя, форма, недостатки, козырная способность, козырное качество]
+  const BAD = [
+    ['Ржавый тесак',     'cleaver',  ['heavy'],   'magnet', 'light'],
+    ['Заточка',          'shiv',     ['crooked'], 'bounce', 'balance'],
+    ['Нож для масла',    'butter',   ['dull'],    'sticky', 'value'],
+    ['Перочинный',       'penknife', ['wobbly'],  'calm',   'sharp'],
+    ['Сломанный клинок', 'broken',   ['crooked'], 'homing', 'sharp'],
+    ['Хлеборез',         'bread',    ['heavy'],   'eagle',  'balance'],
+    ['Кухонный',         'kitchen',  ['dull'],    'double', 'power'],
+    ['Столовый',         'table',    ['wobbly'],  'bounce', 'light'],
+    ['Пилка',            'bread',    ['dull'],    'thief',  'balance'],
+    ['Тупой мачете',     'cleaver',  ['wobbly'],  'calm',   'value'],
+    ['Пластиковый',      'table',    ['heavy'],   'homing', 'power'],
+    ['Брелок',           'penknife', ['crooked'], 'magnet', 'sharp'],
+  ];
+  // Сколько хороших/плохих ножей каждой масти в колоде (порядок мастей: ♣ ♦ ♠ ♥)
+  const LAYOUT = {
+    20: { good: [2, 2, 2, 2], bad: [2, 2, 2, 2], hand: 2 },
+    30: { good: [4, 3, 3, 3], bad: [3, 3, 3, 4], hand: 3 },
+    50: { good: [6, 6, 6, 5], bad: [5, 6, 6, 6], hand: 5 },
+  };
+  const DECK_SIZES = [20, 30, 50];
+  const HAND_SIZE = { 20: 2, 30: 3, 50: 5 };
+
+  function mkCard(id, suit, tier, d, isBad) {
+    return {
+      id, suit, tier, name: d[0], shape: d[1],
+      abilities: tier === 'ace' ? d[2] : [], qualities: tier === 'good' ? d[2] : [], flaws: isBad ? d[2] : [],
+      trumpAbility: d[3], trumpQuality: d[4],
+    };
+  }
+  function deckFor(size) {
+    const L = LAYOUT[size] || LAYOUT[20];
+    const out = [];
+    SUIT_ORDER.forEach((suit, si) => {
+      const a = ACES[suit];
+      out.push(mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', a, false));
+      for (let k = 0; k < L.good[si]; k++) out.push(mkCard(`G-${SUIT_SHORT[suit]}${k + 1}`, suit, 'good', GOOD[(si * 2 + k) % GOOD.length], false));
+      for (let k = 0; k < L.bad[si]; k++) out.push(mkCard(`B-${SUIT_SHORT[suit]}${k + 1}`, suit, 'bad', BAD[(si * 2 + k) % BAD.length], true));
+    });
+    return out;
+  }
+  const CARDS = deckFor(20);
+  const CARD_BY_ID = Object.fromEntries(deckFor(50).map(c => [c.id, c]));
+
+  const BASE = {
+    ace:  { maxSpeed: 1100, gravityMul: 0.9,  spread: 0.5, stick: 100, spinMul: 1,   points: 30, preview: 0.7,  windMul: 0.5 },
+    good: { maxSpeed: 1030, gravityMul: 1.0,  spread: 1.5, stick: 70,  spinMul: 1,   points: 15, preview: 0.4,  windMul: 0.9 },
+    bad:  { maxSpeed: 960,  gravityMul: 1.08, spread: 3.0, stick: 44,  spinMul: 1.1, points: 7,  preview: 0.2,  windMul: 1.15 },
+  };
+
+  // Итоговые характеристики ножа с учётом козыря
+  function knifeStats(card, trumpSuit) {
+    const s = Object.assign({ magnet: 1 }, BASE[card.tier]);
+    const trump = card.suit === trumpSuit;
+    const abilities = card.abilities.slice();
+    const qualities = card.qualities.slice();
+    const flaws = card.flaws.slice();
+    if (trump) {
+      // Козырь: +1 особенность, +1 хорошее качество, летит лучше
+      abilities.push(card.trumpAbility);
+      qualities.push(card.trumpQuality);
+      s.windMul *= 0.5;
+      s.spread *= 0.6;
+    }
+    for (const q of qualities) {
+      if (q === 'balance') s.spread *= 0.5;
+      if (q === 'power') s.maxSpeed *= 1.12;
+      if (q === 'sharp') s.stick += 20;
+      if (q === 'light') s.gravityMul *= 0.85;
+      if (q === 'value') s.points += 5;
+      if (q === 'scope') s.preview += 0.25;
+    }
+    for (const f of flaws) {
+      if (f === 'crooked') s.spread *= 1.5;
+      if (f === 'dull') s.stick -= 8;
+      if (f === 'heavy') s.gravityMul *= 1.1;
+      if (f === 'wobbly') s.spinMul *= 1.25;
+    }
+    for (const a of abilities) {
+      if (a === 'calm') s.windMul = 0;
+      if (a === 'eagle') s.preview = 1;
+      if (a === 'sticky') s.stick = 360;
+      if (a === 'magnet') s.magnet = 1.4;
+    }
+    s.preview = Math.min(1, s.preview);
+    s.spread = Math.round(s.spread * 100) / 100;
+    return Object.assign(s, {
+      abilities, qualities, flaws, trump,
+      extraAbility: trump ? card.trumpAbility : null,
+      extraQuality: trump ? card.trumpQuality : null,
+      has: (a) => abilities.includes(a),
+    });
+  }
+
+  function cardWithStats(card, trumpSuit) {
+    const st = knifeStats(card, trumpSuit);
+    const { has, ...stats } = st;
+    return Object.assign({}, card, { stats });
+  }
+
+  // ---------- Случайность ----------
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(rng) {
+    let u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.max(-2.5, Math.min(2.5, Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v)));
+  }
+  function shuffle(arr, rnd = Math.random) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function norm(a) {
+    a = a % (Math.PI * 2);
+    if (a > Math.PI) a -= Math.PI * 2;
+    if (a <= -Math.PI) a += Math.PI * 2;
+    return a;
+  }
+
+  // ---------- Баллистика ----------
+  // stats — объект из knifeStats (abilities — массив). angle в радианах (вправо = 0, вверх < 0), power 0..1
+  function simulate({ angle, power, stats, wind = 0, seed = 1, noNoise = false }) {
+    const has = (a) => stats.abilities.includes(a);
+    const rng = mulberry32(seed);
+    let a = angle, sp = Math.max(0, Math.min(1, power)) * stats.maxSpeed;
+    if (!noNoise) {
+      a += gauss(rng) * stats.spread * Math.PI / 180;
+      sp *= 1 + gauss(rng) * stats.spread * 0.004;
+    }
+    let x = HAND.x, y = HAND.y, vx = Math.cos(a) * sp, vy = Math.sin(a) * sp, r = a;
+    let omega = SPIN * stats.spinMul;
+    const g = GRAV * stats.gravityMul;
+    const ax = wind * WIND_ACC * stats.windMul;
+    const big = stats.magnet > 1;
+    const top = STUMP_TOP - (big ? 40 : 0);
+    const face = FACE_X - (big ? 20 : 0);
+    const right = FACE_X + STUMP_W + (big ? 20 : 0);
+    const win = stats.stick * Math.PI / 360; // половина окна
+    const dt = 1 / 120;
+    const frames = [];
+    const res = { hit: false, reason: 'Мимо', code: 'miss', mult: 0, points: 0, zone: null, stuck: null };
+    let state = 'fly', bounced = false;
+    const push = () => frames.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, r: Math.round(r * 1000) / 1000 });
+
+    for (let i = 0; i < 720; i++) {
+      const px = x, py = y;
+      if (state === 'fly') {
+        if (has('homing') && x > face - 330 && vx > 0) {
+          const cur = Math.atan2(vy, vx);
+          const des = Math.atan2(BULL_Y - y, face - x);
+          const d = Math.max(-2.2 * dt, Math.min(2.2 * dt, norm(des - cur)));
+          const spd = Math.hypot(vx, vy);
+          vx = Math.cos(cur + d) * spd; vy = Math.sin(cur + d) * spd;
+        }
+        vx += ax * dt; vy += g * dt;
+        x += vx * dt; y += vy * dt; r += omega * dt;
+
+        const tipNow = x + KNIFE_HALF * 0.9, tipPrev = px + KNIFE_HALF * 0.9;
+        if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
+          // удар в бок пня
+          const rn = norm(r);
+          if (stats.stick >= 360 || Math.abs(rn) <= win) {
+            const rr = Math.abs(rn) <= win ? rn : Math.sign(rn || 1) * Math.min(Math.abs(rn), 0.6);
+            r = rr;
+            x = face + 10 - Math.cos(rr) * KNIFE_HALF;
+            const dy = Math.abs(y - BULL_Y);
+            if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
+            else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
+            else { res.mult = 1; res.zone = 'outer'; res.reason = 'Попадание'; res.code = 'outer'; }
+            res.hit = true;
+            res.stuck = { x, y, r };
+            push();
+            break;
+          } else {
+            vx = -Math.abs(vx) * 0.25; vy = -140; omega *= -1.4;
+            res.reason = 'Отскочил от пня'; res.code = 'bounce_face';
+            state = 'fall';
+          }
+        } else if (py < top && y >= top && x >= face && x <= right) {
+          // удар в торец сверху
+          const rn = norm(r - Math.PI / 2);
+          if (stats.stick >= 360 || Math.abs(rn) <= win) {
+            y = top + 8;
+            res.hit = true; res.mult = 1; res.zone = 'top'; res.reason = 'В торец!'; res.code = 'top';
+            res.stuck = { x, y: y - Math.sin(r) * KNIFE_HALF + 4, r };
+            y = res.stuck.y;
+            push();
+            break;
+          } else {
+            vy = -Math.abs(vy) * 0.3; vx *= 0.4; omega *= -1.3;
+            res.reason = 'Отскочил от торца'; res.code = 'bounce_top';
+            state = 'fall';
+          }
+        }
+      } else {
+        vy += g * dt; x += vx * dt; y += vy * dt; r += omega * 0.6 * dt;
+      }
+
+      if (y >= GROUND) {
+        if (state === 'fly' && has('bounce') && !bounced) {
+          bounced = true; y = GROUND - 1; vy = -Math.abs(vy) * 0.5; vx *= 0.75;
+        } else {
+          y = GROUND - 2;
+          if (Math.sin(r) > 0.5) { y = GROUND + 6; } else { r = Math.cos(r) > 0 ? 0.04 : Math.PI - 0.04; }
+          if (state === 'fly') { res.reason = 'В землю'; res.code = 'ground'; }
+          push();
+          break;
+        }
+      }
+      if (x > W + 80 || x < -80 || y < -600) { if (state === 'fly') { res.reason = 'Улетел'; res.code = 'out'; } push(); break; }
+      if (i % 2 === 0) push();
+    }
+    if (res.hit) {
+      res.points = Math.round(stats.points * res.mult * (has('double') ? 2 : 1));
+    }
+    return { frames, result: res };
+  }
+
+  // ---------- Английские названия ----------
+  const EN = {
+    suits: { clubs: 'Clubs', diamonds: 'Diamonds', spades: 'Spades', hearts: 'Hearts' },
+    tiers: { ace: ['Ace', 'A'], good: ['Good knife', 'G'], bad: ['Bad knife', 'B'] },
+    abilities: {
+      homing: ['Homing', 'curves toward the stump late in flight'], calm: ['Calm', 'wind has no effect'],
+      double: ['Double Strike', 'hit points ×2'], sticky: ['Always Sticks', 'sticks at any angle'],
+      eagle: ['Eagle Eye', 'full trajectory shown'], magnet: ['Magnet', 'bigger target stump'],
+      thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
+    },
+    qualities: {
+      balance: ['Balance', 'spread −50%'], power: ['Power', 'throw speed +12%'], sharp: ['Sharpness', 'stick window +20°'],
+      light: ['Lightness', 'gravity −15%'], value: ['Value', '+5 points per hit'], scope: ['Sight', 'longer trajectory preview'],
+    },
+    flaws: { crooked: ['Crooked', 'spread +50%'], dull: ['Dull', 'stick window −8°'], heavy: ['Heavy', 'gravity +10%'], wobbly: ['Wobbly', 'spins faster'] },
+    names: {
+      'Дубовый Король': 'Oak King', 'Алмазный Шип': 'Diamond Thorn', 'Чёрный Клык': 'Black Fang', 'Алое Сердце': 'Scarlet Heart',
+      'Боуи': 'Bowie', 'Финка': 'Finka', 'Танто': 'Tanto', 'Балисонг': 'Balisong', 'Кукри': 'Kukri', 'Кортик': 'Dirk',
+      'Скиннер': 'Skinner', 'Кунай': 'Kunai', 'Керамбит': 'Karambit', 'Сантоку': 'Santoku', 'Охотничий': 'Hunter', 'Метательный': 'Thrower',
+      'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
+      'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
+      'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
+    },
+    reasons: {
+      miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
+      bounce_top: 'Bounced off the top', ground: 'Into the ground', out: 'Flew away', timeout: 'Time is up',
+      knock: 'Knocked the enemy knife!', knocked: 'Knocked out of the air!',
+    },
+  };
+  const RU_REASONS = {
+    miss: 'Мимо', bull: 'Яблочко!', inner: 'Отличное попадание!', outer: 'Попадание', top: 'В торец!', bounce_face: 'Отскочил от пня',
+    bounce_top: 'Отскочил от торца', ground: 'В землю', out: 'Улетел', timeout: 'Время вышло',
+    knock: 'Сбил нож соперника!', knocked: 'Сбит в воздухе!',
+  };
+
+  // ---------- Столкновение ножей в воздухе ----------
+  const KNOCK_DIST = 38;
+  // Обрезать траекторию на кадре idx и дописать падение сбитого ножа (детерминированно)
+  function knockFrames(frames, idx) {
+    idx = Math.max(0, Math.min(frames.length - 1, idx | 0));
+    const out = frames.slice(0, idx + 1);
+    const f = frames[idx], pf = frames[Math.max(0, idx - 1)];
+    let vx = (f.x - pf.x) * 60, vy = (f.y - pf.y) * 60;
+    vx = -vx * 0.25; vy = Math.min(vy, 0) * 0.2 - 160;
+    let x = f.x, y = f.y, r = f.r;
+    const dt = 1 / 60;
+    for (let k = 0; k < 400; k++) {
+      vy += GRAV * dt; x += vx * dt; y += vy * dt; r += 14 * dt;
+      if (y >= GROUND - 2) { out.push({ x: Math.round(x * 10) / 10, y: GROUND - 2, r: Math.cos(r) > 0 ? 0.04 : Math.PI - 0.04 }); break; }
+      out.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, r: Math.round(r * 1000) / 1000 });
+    }
+    return out;
+  }
+  // Ищет столкновение нового ножа (кадры newF) с чужим ножом oldF, который летит уже offset кадров.
+  // Чужой нож в зеркальной системе координат. Возвращает {i, j} или null.
+  function findCollision(newF, oldF, offset) {
+    for (let i = 0; i < newF.length; i++) {
+      const j = offset + i;
+      if (j >= oldF.length - 1) return null;          // чужой нож уже долетел
+      if (j < 0) continue;
+      const A = newF[i], B = oldF[j];
+      if (A.y >= GROUND - 4 || B.y >= GROUND - 4) continue;
+      const dx = A.x - (W - B.x), dy = A.y - B.y;
+      if (dx * dx + dy * dy < KNOCK_DIST * KNOCK_DIST) return { i, j };
+    }
+    return null;
+  }
+
+  // ---------- Отрисовка ножа (только браузер) ----------
+  const SH = {
+    royal:     { len: 54, w: 10, handle: 26, guard: 18, pts: [[0,-.6],[.6,-.6],[.78,-.35],[1,.1],[.85,.6],[0,.6]], pommel: true },
+    stiletto:  { len: 56, w: 6,  handle: 24, guard: 16, pts: [[0,-.5],[1,0],[0,.5]], pommel: true },
+    dagger:    { len: 52, w: 10, handle: 24, guard: 18, pts: [[0,-.7],[.7,-.45],[1,0],[.7,.45],[0,.7]], pommel: true },
+    fang:      { len: 50, w: 10, handle: 24, guard: 14, pts: [[0,-.5],[.5,-.75],[.85,-.4],[1,.4],[.78,.05],[.4,.5],[0,.6]], pommel: true },
+    bowie:     { len: 46, w: 9,  handle: 24, guard: 14, pts: [[0,-.6],[.62,-.6],[.78,-.35],[1,.15],[.85,.6],[0,.6]] },
+    finka:     { len: 40, w: 8,  handle: 26, guard: 10, pts: [[0,-.5],[.75,-.5],[1,.1],[.7,.55],[0,.55]] },
+    tanto:     { len: 42, w: 9,  handle: 24, guard: 12, pts: [[0,-.55],[.8,-.55],[1,-.2],[.88,.55],[0,.55]] },
+    butterfly: { len: 40, w: 7,  handle: 28, guard: 0,  pts: [[0,-.45],[.8,-.45],[1,0],[.85,.45],[0,.45]], split: true },
+    kukri:     { len: 44, w: 10, handle: 24, guard: 8,  pts: [[0,-.4],[.45,-.9],[.8,-.5],[1,.2],[.6,.9],[.3,.4],[0,.5]] },
+    dirk:      { len: 48, w: 8,  handle: 24, guard: 16, pts: [[0,-.5],[1,0],[0,.5]] },
+    skinner:   { len: 38, w: 10, handle: 26, guard: 6,  pts: [[0,-.5],[.5,-.6],[.9,-.2],[1,.3],[.6,.7],[0,.6]] },
+    kunai:     { len: 36, w: 10, handle: 22, guard: 0,  pts: [[0,-.2],[.25,-.9],[1,0],[.25,.9],[0,.2]], ring: true },
+    cleaver:   { len: 40, w: 12, handle: 24, guard: 0,  pts: [[0,-.9],[.95,-.9],[1,.9],[0,.9]] },
+    shiv:      { len: 34, w: 6,  handle: 22, guard: 0,  pts: [[0,-.4],[.3,-.6],[.5,-.3],[.7,-.5],[1,0],[.6,.4],[.3,.25],[0,.5]], rag: true },
+    butter:    { len: 36, w: 7,  handle: 26, guard: 0,  pts: [[0,-.4],[.85,-.4],[.97,-.2],[1,0],[.97,.2],[.85,.4],[0,.4]] },
+    penknife:  { len: 26, w: 6,  handle: 30, guard: 0,  pts: [[0,-.4],[.7,-.4],[1,.1],[.8,.4],[0,.4]], fat: true },
+    broken:    { len: 40, w: 9,  handle: 24, guard: 10, pts: [[0,-.6],[.55,-.6],[.62,-.1],[.5,.2],[.58,.6],[0,.6]] },
+    bread:     { len: 50, w: 8,  handle: 24, guard: 0,  pts: null },
+    kitchen:   { len: 46, w: 10, handle: 24, guard: 0,  pts: [[0,-.4],[.6,-.4],[1,.1],[.7,.8],[0,.8]] },
+    table:     { len: 36, w: 6,  handle: 26, guard: 0,  pts: [[0,-.3],[.9,-.3],[1,.1],[.9,.35],[0,.35]] },
+  };
+  (function () {
+    const p = [[0,-.5],[.92,-.5],[1,.2]];
+    for (let i = 0; i <= 12; i++) { const x = 1 - i / 12 * 0.95; p.push([x, i % 2 ? .5 : .32]); }
+    p.push([0, .5]);
+    SH.bread.pts = p;
+  })();
+
+  const ACE_BLADE = {
+    clubs: ['#fff3b0', '#d4a52c'], diamonds: ['#e8fbff', '#62c7e6'],
+    spades: ['#6a6380', '#15131c'], hearts: ['#ffd7d7', '#c8263b'],
+  };
+
+  function drawKnife(ctx, card, opt) {
+    opt = opt || {};
+    const sh = SH[card.shape] || SH.bowie;
+    const suit = SUITS[card.suit];
+    const L = sh.len, w = sh.w, hl = sh.handle, hw = sh.fat ? 6 : 4.5;
+    ctx.save();
+    ctx.translate(-(L - hl) / 2, 0);
+    if (opt.trump) { ctx.shadowColor = 'rgba(255,214,90,.95)'; ctx.shadowBlur = 14; }
+    // рукоять
+    ctx.fillStyle = suit.handle;
+    ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1;
+    if (sh.split) {
+      ctx.fillRect(-hl, -hw, hl, 3); ctx.fillRect(-hl, hw - 3, hl, 3);
+      ctx.fillStyle = '#888'; ctx.fillRect(-hl - 3, -hw, 3, hw * 2);
+    } else {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(-hl, -hw, hl, hw * 2, 3); else ctx.rect(-hl, -hw, hl, hw * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,.18)';
+      for (let i = 1; i < 5; i++) { const x = -hl + (hl / 5) * i; ctx.beginPath(); ctx.moveTo(x, -hw + 1); ctx.lineTo(x - 2, hw - 1); ctx.stroke(); }
+      if (sh.rag) { ctx.fillStyle = '#c9b48a'; ctx.fillRect(-hl * 0.7, -hw - 1, hl * 0.5, hw * 2 + 2); }
+    }
+    if (sh.ring) { ctx.strokeStyle = '#999'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-hl - 5, 0, 5, 0, Math.PI * 2); ctx.stroke(); }
+    if (sh.pommel) { ctx.fillStyle = card.tier === 'ace' ? '#e3b341' : '#999'; ctx.beginPath(); ctx.arc(-hl - 2, 0, 4.5, 0, Math.PI * 2); ctx.fill(); }
+    // гарда
+    if (sh.guard) {
+      ctx.fillStyle = card.tier === 'ace' ? '#e3b341' : card.tier === 'good' ? '#8d949c' : '#6b6152';
+      ctx.fillRect(-3, -sh.guard / 2, 5, sh.guard);
+    }
+    // клинок
+    if (opt.trump) ctx.shadowBlur = 14;
+    ctx.beginPath();
+    sh.pts.forEach((p, i) => { const X = p[0] * L, Y = p[1] * w; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+    ctx.closePath();
+    const gr = ctx.createLinearGradient(0, -w, 0, w);
+    let c1, c2;
+    if (card.tier === 'ace') [c1, c2] = ACE_BLADE[card.suit];
+    else if (card.tier === 'good') { c1 = '#f4f7fa'; c2 = '#8c99a7'; }
+    else { c1 = '#b3a68e'; c2 = '#5e5444'; }
+    gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+    ctx.fillStyle = gr; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = card.tier === 'ace' ? 'rgba(80,50,0,.8)' : 'rgba(0,0,0,.55)';
+    ctx.lineWidth = 0.9; ctx.stroke();
+    // дол / блик
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(3, -w * 0.15); ctx.lineTo(L * 0.6, -w * 0.15); ctx.stroke();
+    if (card.tier === 'bad') {
+      ctx.fillStyle = 'rgba(140,60,20,.6)';
+      [[.2, .1], [.45, -.2], [.65, .25], [.35, .3]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a * L, b * w, 2.2, 0, Math.PI * 2); ctx.fill(); });
+    }
+    ctx.restore();
+  }
+
+  return {
+    W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
+    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, DECK_SIZES, HAND_SIZE,
+    knifeStats, cardWithStats, simulate, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+  };
+});
+
+</script>
+<script>
+// Игровой движок хоста: работает в браузере того, кто создал сервер (или в игре с ботом).
+// Правила раунда: оба добирают руку до лимита и бросают ОДНОВРЕМЕННО. Попал — бросаешь ещё (пока есть карты).
+// Промах или пустая рука — твой раунд окончен. Раунд заканчивается, когда оба закончили.
+window.NDEngine = (() => {
+  'use strict';
+  const G = KG;
+
+  // out: { state(), throwEv(msg), log(text), aim(msg) }
+  function create(opts, out) {
+    const size = G.DECK_SIZES.includes(+opts.size) ? +opts.size : 20;
+    const g = {
+      id: opts.id, name: opts.name, password: opts.password || '', hostId: opts.hostId,
+      size, handMax: G.HAND_SIZE[size],
+      players: [], state: 'lobby', phase: 'idle', deck: [], trumpSuit: null, trumpCard: null,
+      round: 0, wind: 0, stuck: [], flights: [], timers: [], token: 0, winnerId: null, endReason: '', throwSeq: 0,
+    };
+    const later = (ms, fn) => { const tok = g.token; g.timers.push(setTimeout(() => { if (g.token === tok && !g.dead) fn(); }, ms)); };
+    const clearTimers = () => { g.timers.forEach(clearTimeout); g.timers = []; g.token++; };
+    const P = (id) => g.players.find(p => p.id === id);
+    const log = (t) => out.log(t);
+    const push = () => out.state();
+
+    function pub() {
+      const now = Date.now();
+      return {
+        id: g.id, name: g.name, hostId: g.hostId, state: g.state, phase: g.phase, round: g.round,
+        size: g.size, handMax: g.handMax,
+        trumpSuit: g.trumpSuit, trumpCard: g.trumpCard ? g.trumpCard.id : null, deckCount: g.deck.length,
+        wind: g.wind, winnerId: g.winnerId, endReason: g.endReason, locked: !!g.password,
+        players: g.players.map(p => ({
+          id: p.id, name: p.name, isBot: p.isBot, score: p.score, hits: p.hits,
+          hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
+          status: p.status, streak: p.streak, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
+        })),
+        // компактно: [индекс игрока, карта, козырь, x, y, r, id броска]
+        stuck: g.stuck.map(s => [g.players.findIndex(p => p.id === s.o), s.c, s.t ? 1 : 0, s.x, s.y, s.r, s.id]),
+        ep: g.epoch || '',
+        // ножи в полёте — на случай, если сообщение о броске потерялось
+        fl: g.flights.filter(f => !f.landed && f.msg).map(f => Object.assign({}, f.msg, { el: now - f.t0 })),
+      };
+    }
+    function summary() {
+      return { id: g.id, name: g.name, players: g.players.length, state: g.state, round: g.round, locked: !!g.password, hasBot: g.players.some(p => p.isBot), size: g.size };
+    }
+    const newPlayer = (id, name, isBot) => ({ id, name, isBot: !!isBot, score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0, turnNo: 0 });
+    const reset = (p) => Object.assign(p, { score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0 });
+
+    function addPlayer(id, name) {
+      if (P(id)) return { ok: true };
+      if (g.players.length >= 2) return { ok: false, code: 'full', msg: 'Сервер заполнен' };
+      if (g.state === 'playing') return { ok: false, code: 'playing', msg: 'Игра уже идёт' };
+      g.players.push(newPlayer(id, name, false));
+      log({ k: 'join', n: name });
+      push();
+      return { ok: true };
+    }
+    function addBot() {
+      if (g.players.length >= 2 || g.state === 'playing') return;
+      g.players.push(newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true));
+      log({ k: 'bot' }); push();
+    }
+    function kickBot() { if (g.state === 'playing') return; g.players = g.players.filter(p => !p.isBot); push(); }
+
+    function removePlayer(id) {
+      const p = P(id); if (!p) return;
+      g.players = g.players.filter(x => x.id !== id);
+      g.stuck = g.stuck.filter(s => s.o !== id);
+      log({ k: 'leave', n: p.name, b: p.isBot });
+      if (g.state === 'playing') {
+        clearTimers();
+        const other = g.players[0];
+        g.state = 'over'; g.phase = 'idle';
+        if (other) { other.status = 'idle'; other.active = null; }
+        g.winnerId = other ? other.id : null; g.endReason = 'forfeit';
+      }
+      push();
+    }
+
+    function start() {
+      if (g.players.length !== 2 || g.state === 'playing') return;
+      clearTimers();
+      g.deck = G.shuffle(G.deckFor(g.size));
+      g.trumpCard = g.deck[g.deck.length - 1];
+      g.trumpSuit = g.trumpCard.suit;
+      g.state = 'playing'; g.round = 0; g.stuck = []; g.flights = []; g.epoch = Math.random().toString(36).slice(2, 8); g.winnerId = null; g.endReason = '';
+      g.players.forEach(reset);
+      log({ k: 'start', size: g.size, suit: g.trumpSuit, hand: g.handMax });
+      nextRound();
+    }
+
+    function nextRound() {
+      // добор по очереди, пока у обоих не будет лимит или колода не кончится
+      let drew = true;
+      const order = g.round % 2 === 0 ? g.players : [...g.players].reverse();
+      while (drew && g.deck.length) {
+        drew = false;
+        for (const p of order) if (p.hand.length < g.handMax && g.deck.length) { p.hand.push(g.deck.shift()); drew = true; }
+      }
+      if (g.players.every(p => p.hand.length === 0)) return endGame();
+      g.round++;
+      g.wind = Math.round((Math.random() * 2 - 1) * 100) / 100;
+      g.phase = 'draw';
+      g.players.forEach(p => { p.active = null; p.streak = 0; p.status = p.hand.length ? 'wait' : 'done'; p.deadline = 0; });
+      push();
+      later(1200, () => {
+        g.phase = 'play';
+        g.players.forEach(p => { if (p.status === 'wait') beginAim(p); });
+        push();
+      });
+    }
+
+    function beginAim(p) {
+      p.status = 'aim';
+      p.deadline = Date.now() + G.TURN_MS;
+      const turnNo = ++p.turnNo;
+      later(G.TURN_MS + 300, () => {
+        if (p.status !== 'aim' || p.turnNo !== turnNo || g.state !== 'playing') return;
+        // время вышло: нож сгорает, раунд для игрока окончен
+        const c = p.active || p.hand[0];
+        p.hand = p.hand.filter(x => x !== c);
+        p.active = null; p.status = 'done'; p.streak = 0;
+        log({ k: 'timeout', n: p.name, b: p.isBot, c: c ? c.id : null });
+        out.throwEv({ ep: g.epoch, o: p.id, a: null, c: c ? c.id : null, ts: g.trumpSuit, res: { hit: false, reason: 'Время вышло', code: 'timeout', points: 0 }, id: ++g.throwSeq });
+        checkRoundEnd();
+        push();
+      });
+      if (p.isBot) botAim(p, turnNo);
+    }
+
+    function take(id, cardId) {
+      const p = P(id);
+      if (!p || g.state !== 'playing' || p.status !== 'aim' || p.active) return;
+      const c = p.hand.find(x => x.id === cardId) || (cardId == null ? p.hand[0] : null);
+      if (!c) return;
+      p.active = c; push();
+    }
+
+    function doThrow(id, angle, power) {
+      const p = P(id);
+      if (!p || g.state !== 'playing' || g.phase !== 'play' || p.status !== 'aim' || !p.active) return;
+      angle = Math.max(-1.45, Math.min(0.6, Number(angle) || 0));
+      power = Math.max(0, Math.min(1, Number(power) || 0));
+      const card = p.active;
+      const st = G.knifeStats(card, g.trumpSuit);
+      const seed = (Math.random() * 2 ** 31) | 0;
+      const sim = G.simulate({ angle, power, stats: st, wind: g.wind, seed });
+      let frames = sim.frames;
+      const result = Object.assign({}, sim.result);
+      p.hand = p.hand.filter(x => x !== card);
+      p.active = null; p.status = 'flying'; p.deadline = 0;
+      const throwId = ++g.throwSeq;
+      const now = Date.now();
+      const flight = { id: throwId, o: id, card, st, frames, result, t0: now, ver: 0, landed: false };
+      const msg = { ep: g.epoch, o: id, a: angle, p: power, s: seed, w: g.wind, c: card.id, ts: g.trumpSuit, id: throwId };
+      flight.msg = msg;
+
+      // Столкновение с чужим ножом, который ещё в воздухе
+      for (const f of g.flights) {
+        if (f.landed || f.o === id || f.result.knocked || f.result.knock) continue;
+        const offset = Math.round(((now - f.t0) / 1000) * 60);
+        const col = G.findCollision(frames, f.frames, offset);
+        if (!col) continue;
+        frames = flight.frames = G.knockFrames(frames, col.i);
+        f.frames = G.knockFrames(f.frames, col.j);
+        const bonus = Math.max(5, Math.round(f.st.points / 2));
+        Object.assign(result, { hit: false, knock: true, reason: 'Сбил нож соперника!', code: 'knock', points: bonus, mult: 0, zone: null, stuck: null });
+        f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
+        msg.cut = col.i;
+        msg.knock = { id: f.id, at: col.j, res: f.result };
+        if (f.msg) { f.msg.cut = col.j; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
+        scheduleLanding(f);
+        break;
+      }
+      const opp = g.players.find(x => x.id !== id);
+      msg.res = { hit: result.hit, knock: !!result.knock, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck };
+      msg.streak = (result.hit || result.knock) ? p.streak + 1 : 0;
+      if (result.hit && st.has('thief') && opp) msg.res.steal = Math.min(5, opp.score);
+      g.flights.push(flight);
+      out.throwEv(msg);
+      push();
+      scheduleLanding(flight);
+    }
+
+    // Очки и последствия броска применяются, когда нож долетел (его могли сбить по дороге)
+    function scheduleLanding(f) {
+      const ver = ++f.ver;
+      const ms = f.t0 + (f.frames.length / 60) * 1000 - Date.now();
+      later(Math.max(0, ms), () => { if (f.ver === ver && !f.landed) land(f); });
+    }
+    function land(f) {
+      f.landed = true;
+      g.flights = g.flights.filter(x => x !== f);
+      const p = P(f.o);
+      if (!p || g.state !== 'playing') return;
+      const r = f.result;
+      const opp = g.players.find(x => x.id !== f.o);
+      if (r.hit && f.st.has('thief') && opp) { r.steal = Math.min(5, opp.score); opp.score -= r.steal; r.points += r.steal; }
+      p.score += r.points || 0;
+      const good = r.hit || r.knock;
+      if (r.hit) p.hits++;
+      p.streak = good ? p.streak + 1 : 0;
+      if (r.stuck) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(r.stuck.x), y: Math.round(r.stuck.y), r: Math.round(r.stuck.r * 100) / 100, id: f.id });
+      log({ k: 'throw', n: p.name, b: p.isBot, c: f.card.id, code: r.code, pts: r.points || 0, steal: r.steal || 0, streak: good ? p.streak : 0 });
+      push();
+      later(700, () => {
+        if (g.state !== 'playing' || p.status !== 'flying') return;
+        if (good && p.hand.length) beginAim(p);      // попал или сбил — бросает ещё
+        else p.status = 'done';
+        checkRoundEnd();
+        push();
+      });
+    }
+
+    function checkRoundEnd() {
+      if (g.state !== 'playing' || g.phase !== 'play') return;
+      if (g.players.every(p => p.status === 'done')) {
+        g.phase = 'end';
+        later(1100, nextRound);
+      }
+    }
+
+    function endGame() {
+      g.state = 'over'; g.phase = 'idle';
+      g.players.forEach(p => { p.status = 'idle'; p.active = null; });
+      const [a, b] = g.players;
+      if (a.score === b.score) { g.winnerId = null; g.endReason = 'draw'; }
+      else { const w = a.score > b.score ? a : b; g.winnerId = w.id; g.endReason = 'win'; }
+      const w = g.players.find(p => p.id === g.winnerId);
+      log({ k: 'end', w: w ? w.name : null, b: w ? w.isBot : false, s1: a.score, s2: b.score });
+      push();
+    }
+
+    // ---------- Бот ----------
+    const TIER_RANK = { ace: 3, good: 2, bad: 1 };
+    function botAim(bot, turnNo) {
+      const mine = () => g.state === 'playing' && bot.status === 'aim' && bot.turnNo === turnNo;
+      later(900 + Math.random() * 900, () => {
+        if (!mine()) return;
+        // бот берёт лучший нож (козырь важнее)
+        const pick = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)))[0];
+        take(bot.id, pick.id);
+        later(1100 + Math.random() * 900, () => {
+          if (!mine() || !bot.active) return;
+          const st = G.knifeStats(bot.active, g.trumpSuit);
+          const hits = [];
+          for (let a = -62; a <= 4; a += 1.5) for (let pw = 0.45; pw <= 1.001; pw += 0.015) {
+            const r = G.simulate({ angle: a * Math.PI / 180, power: pw, stats: st, wind: g.wind, noNoise: true }).result;
+            if (r.hit) hits.push({ a, pw, w: r.mult });
+          }
+          let a = -35, pw = 0.8;
+          if (hits.length) {
+            const best = hits.filter(h => h.w >= 1.5);
+            const pool = best.length && Math.random() < 0.6 ? best : hits;
+            const h = pool[Math.floor(Math.random() * pool.length)];
+            a = h.a + G.gauss(Math.random) * 1.3; pw = h.pw + G.gauss(Math.random) * 0.012;
+          }
+          out.aim({ o: bot.id, a: a * Math.PI / 180, p: pw });
+          later(500, () => { if (mine()) doThrow(bot.id, a * Math.PI / 180, pw); });
+        });
+      });
+    }
+
+    function destroy() { clearTimers(); g.dead = true; }
+
+    return { g, pub, summary, addPlayer, addBot, kickBot, removePlayer, start, take, doThrow, destroy, checkPassword: (pw) => !g.password || g.password === pw };
+  }
+  return { create };
+})();
+
+</script>
+<script>
+window.ND_ITCH = true;
+</script>
+<script>
+// Сетевой слой для itch.io: минимальный MQTT 3.1.1 клиент поверх WebSocket + адаптер
+// с тем же интерфейсом, что и комнаты claude.ai (presence / onPeers / join / emit / on).
+window.NDMqtt = (() => {
+  'use strict';
+  const BROKERS = [
+    'wss://broker.hivemq.com:8884/mqtt',
+    'wss://broker.emqx.io:8084/mqtt',
+    'wss://test.mosquitto.org:8081/mqtt',
+  ];
+  const BASE = 'nozh-duraka-game/v1';
+  const enc = new TextEncoder(), dec = new TextDecoder();
+
+  // ---------- кодирование пакетов ----------
+  function varLen(n) { const out = []; do { let b = n % 128; n = Math.floor(n / 128); if (n > 0) b |= 128; out.push(b); } while (n > 0); return out; }
+  function str(s) { const b = enc.encode(s); return [b.length >> 8, b.length & 255, ...b]; }
+  function bin(b) { return [b.length >> 8, b.length & 255, ...b]; }
+  function packet(type, body) { return new Uint8Array([type, ...varLen(body.length), ...body]); }
+
+  function Client(url, clientId, will, onReady, onClose) {
+    const ws = new WebSocket(url, ['mqtt']);
+    ws.binaryType = 'arraybuffer';
+    let buf = new Uint8Array(0), pid = 1, ping = null, ready = false;
+    const subs = [];      // [{filter, fn}]
+    const self = {
+      get ready() { return ready; },
+      publish(topic, payload, retain) {
+        if (ws.readyState !== 1) return;
+        const p = typeof payload === 'string' ? enc.encode(payload) : payload;
+        ws.send(packet(0x30 | (retain ? 1 : 0), [...str(topic), ...p]));
+      },
+      subscribe(filter, fn) {
+        subs.push({ filter, fn });
+        if (ws.readyState === 1 && ready) sendSub(filter);
+      },
+      unsubscribe(filter) {
+        for (let i = subs.length - 1; i >= 0; i--) if (subs[i].filter === filter) subs.splice(i, 1);
+        if (ws.readyState === 1) { const id = pid++ & 0xffff || 1; ws.send(packet(0xA2, [id >> 8, id & 255, ...str(filter)])); }
+      },
+      close() { try { if (ws.readyState === 1) ws.send(new Uint8Array([0xE0, 0])); ws.close(); } catch (e) {} },
+    };
+    function sendSub(filter) { const id = pid++ & 0xffff || 1; ws.send(packet(0x82, [id >> 8, id & 255, ...str(filter), 0])); }
+    const match = (filter, topic) => {
+      const f = filter.split('/'), t = topic.split('/');
+      if (f.length !== t.length) return false;
+      return f.every((x, i) => x === '+' || x === t[i]);
+    };
+    ws.onopen = () => {
+      // CONNECT: clean session, will (retain), keepalive 30 c
+      let flags = 0x02;
+      const payload = [...str(clientId)];
+      if (will) { flags |= 0x04 | 0x20; payload.push(...str(will.topic), ...bin(enc.encode(will.payload || ''))); }
+      ws.send(packet(0x10, [...str('MQTT'), 4, flags, 0, 30, ...payload]));
+    };
+    ws.onmessage = (e) => {
+      const chunk = new Uint8Array(e.data);
+      const nb = new Uint8Array(buf.length + chunk.length); nb.set(buf); nb.set(chunk, buf.length); buf = nb;
+      for (;;) {
+        if (buf.length < 2) return;
+        let mult = 1, len = 0, i = 1, b;
+        do { if (i >= buf.length) return; b = buf[i++]; len += (b & 127) * mult; mult *= 128; } while (b & 128);
+        if (buf.length < i + len) return;
+        const type = buf[0] >> 4, flags = buf[0] & 15, body = buf.subarray(i, i + len);
+        buf = buf.slice(i + len);
+        if (type === 2) {            // CONNACK
+          if (body[1] !== 0) { ws.close(); return; }
+          ready = true;
+          for (const s of subs) sendSub(s.filter);
+          ping = setInterval(() => { if (ws.readyState === 1) ws.send(new Uint8Array([0xC0, 0])); }, 20000);
+          onReady && onReady();
+        } else if (type === 3) {     // PUBLISH
+          const tl = (body[0] << 8) | body[1];
+          const topic = dec.decode(body.subarray(2, 2 + tl));
+          let off = 2 + tl;
+          const qos = (flags >> 1) & 3;
+          if (qos > 0) off += 2;
+          const payload = dec.decode(body.subarray(off));
+          for (const s of subs.slice()) if (match(s.filter, topic)) { try { s.fn(topic, payload); } catch (er) { console.error(er); } }
+        }
+      }
+    };
+    ws.onclose = () => { ready = false; if (ping) clearInterval(ping); onClose && onClose(); };
+    ws.onerror = () => {};
+    return self;
+  }
+
+  // ---------- адаптер «комнат» ----------
+  async function connect() {
+    const peer = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+    const lobbyTopic = `${BASE}/l/${peer}`;
+    let client = null, brokerIdx = 0, connected = false, myPresence = {};
+    const connFns = [], lobbyPeersFns = [];
+    const lobby = new Map();              // peer -> {presence, seen}
+    const rooms = new Map();              // name -> room internals
+    const subsWanted = [];                // [{filter, fn}] для переподключения
+
+    const mkPeer = (id, presence) => Object.freeze({ peer: id, isMe: id === peer, sameTab: id === peer, kind: 'viewer', guest: false, by: null, presence: presence || {}, updatedAt: Date.now() });
+    const setConn = (c) => { if (c !== connected) { connected = c; connFns.forEach(f => f(c)); } };
+
+    function lobbySnapshot() {
+      const list = [mkPeer(peer, myPresence)];
+      for (const [id, v] of lobby) if (id !== peer) list.push(v.p);
+      return list;
+    }
+    function emitLobby(joined = [], left = []) {
+      const peers = lobbySnapshot();
+      lobbyPeersFns.forEach(f => f({ peers, joined, left, updated: [] }));
+    }
+    function publishPresence() { if (client && client.ready) client.publish(lobbyTopic, JSON.stringify({ p: myPresence }), true); }
+
+    function subscribe(filter, fn) { subsWanted.push({ filter, fn }); if (client) client.subscribe(filter, fn); }
+    function unsubscribe(filter) { for (let i = subsWanted.length - 1; i >= 0; i--) if (subsWanted[i].filter === filter) subsWanted.splice(i, 1); if (client) client.unsubscribe(filter); }
+
+    function onLobbyMsg(topic, payload) {
+      const id = topic.split('/').pop();
+      if (id === peer) return;
+      if (!payload) { const v = lobby.get(id); if (v) { lobby.delete(id); emitLobby([], [v.p]); } return; }
+      let d; try { d = JSON.parse(payload); } catch (e) { return; }
+      const isNew = !lobby.has(id);
+      const p = mkPeer(id, d && typeof d.p === 'object' ? d.p : {});
+      lobby.set(id, { p, seen: Date.now() });
+      emitLobby(isNew ? [p] : [], []);
+    }
+
+    function open() {
+      const url = BROKERS[brokerIdx % BROKERS.length];
+      let opened = false;
+      client = Client(url, 'nd-' + peer, { topic: lobbyTopic, payload: '' }, () => {
+        opened = true; setConn(true); publishPresence();
+      }, () => {
+        setConn(false);
+        if (!opened) brokerIdx++;          // брокер недоступен — пробуем следующий
+        setTimeout(open, opened ? 1500 : 800);
+      });
+      for (const s of subsWanted) client.subscribe(s.filter, s.fn);
+    }
+
+    subscribe(`${BASE}/l/+`, onLobbyMsg);
+    open();
+    // обновлять своё присутствие и чистить пропавших
+    setInterval(publishPresence, 10000);
+    setInterval(() => {
+      const now = Date.now(), left = [];
+      for (const [id, v] of lobby) if (now - v.seen > 35000) { lobby.delete(id); left.push(v.p); }
+      if (left.length) emitLobby([], left);
+    }, 5000);
+    window.addEventListener('pagehide', () => { try { client.publish(lobbyTopic, '', true); client.close(); } catch (e) {} });
+
+    // ждём первого подключения (до 8 с)
+    await new Promise((res) => { const t0 = Date.now(); const iv = setInterval(() => { if (connected || Date.now() - t0 > 8000) { clearInterval(iv); res(); } }, 100); });
+    if (!connected) throw new Error('no broker');
+
+    function join(name) {
+      if (rooms.has(name)) return Promise.resolve(rooms.get(name).api);
+      const evTopic = `${BASE}/r/${name}/ev`, hbTopic = `${BASE}/r/${name}/hb`;
+      const handlers = {}, peersFns = [], members = new Map();
+      const snapshot = () => [mkPeer(peer, {}), ...[...members.keys()].filter(id => id !== peer).map(id => members.get(id).p)];
+      const fire = (joined, left) => { const peers = snapshot(); peersFns.forEach(f => f({ peers, joined, left, updated: [] })); };
+      const onEv = (t, payload) => {
+        let d; try { d = JSON.parse(payload); } catch (e) { return; }
+        if (!d || typeof d.t !== 'string') return;
+        const msg = { topic: d.t, data: d.d, peer: d.f, isMe: d.f === peer, sameTab: d.f === peer, kind: 'viewer', guest: false, by: null };
+        (handlers[d.t] || []).slice().forEach(h => h(msg));
+        touch(d.f);
+      };
+      const touch = (id) => {
+        if (!id || id === peer) return;
+        if (!members.has(id)) { const p = mkPeer(id, {}); members.set(id, { p, seen: Date.now() }); fire([p], []); }
+        else members.get(id).seen = Date.now();
+      };
+      const onHb = (t, payload) => {
+        let d; try { d = JSON.parse(payload); } catch (e) { return; }
+        if (!d || !d.f || d.f === peer) return;
+        if (d.bye) { const v = members.get(d.f); if (v) { members.delete(d.f); fire([], [v.p]); } return; }
+        touch(d.f);
+      };
+      subscribe(evTopic, onEv); subscribe(hbTopic, onHb);
+      const hb = () => client && client.publish(hbTopic, JSON.stringify({ f: peer }));
+      hb();
+      const hbIv = setInterval(hb, 2000);
+      const pruneIv = setInterval(() => {
+        const now = Date.now(), left = [];
+        for (const [id, v] of members) if (now - v.seen > 8000) { members.delete(id); left.push(v.p); }
+        if (left.length) fire([], left);
+      }, 2000);
+      const api = Object.freeze({
+        name,
+        emit: (topic, data) => { if (!connected) return Promise.resolve(); client.publish(evTopic, JSON.stringify({ f: peer, t: topic, d: data })); return Promise.resolve(); },
+        on: (topic, fn) => { (handlers[topic] = handlers[topic] || []).push(fn); return () => { handlers[topic] = (handlers[topic] || []).filter(x => x !== fn); }; },
+        onPeers: (fn) => { peersFns.push(fn); setTimeout(() => fn({ peers: snapshot(), joined: snapshot(), left: [], updated: [] }), 0); return () => {}; },
+        peers: snapshot,
+        presence: () => Promise.resolve(),
+        connected: () => connected,
+        onConnection: (fn) => { connFns.push(fn); setTimeout(() => fn(connected), 0); return () => {}; },
+        leave: () => {
+          clearInterval(hbIv); clearInterval(pruneIv);
+          if (client) client.publish(hbTopic, JSON.stringify({ f: peer, bye: 1 }));
+          unsubscribe(evTopic); unsubscribe(hbTopic);
+          rooms.delete(name);
+          return Promise.resolve();
+        },
+      });
+      rooms.set(name, { api });
+      return Promise.resolve(api);
+    }
+
+    return Object.freeze({
+      presence: (patch) => {
+        myPresence = Object.assign({}, myPresence, patch);
+        for (const k of Object.keys(myPresence)) if (myPresence[k] === null) delete myPresence[k];
+        publishPresence(); emitLobby();
+        return Promise.resolve();
+      },
+      onPeers: (fn) => { lobbyPeersFns.push(fn); setTimeout(() => fn({ peers: lobbySnapshot(), joined: lobbySnapshot(), left: [], updated: [] }), 0); return () => {}; },
+      peers: lobbySnapshot,
+      onConnection: (fn) => { connFns.push(fn); setTimeout(() => fn(connected), 0); return () => {}; },
+      connected: () => connected,
+      join,
+    });
+  }
+  return { connect };
+})();
+
+</script>
+<script>
+// Клиент «Нож дурака» для веб-версии: лобби и игра через комнаты платформы (room), хост считает игру у себя.
+(() => {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const { W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, SUITS, TIERS, ABILITIES, QUALITIES, FLAWS } = KG;
+
+  // ---------- Состояние ----------
+  let R = null;              // лобби-комната платформы
+  let myPeer = null;
+  let lobbyPeers = [];
+  let net = null;            // { isHost, hostPeer, room, srvId }
+  let eng = null;            // движок (только у хоста или в игре с ботом)
+  let room = null;           // публичное состояние для отрисовки
+  let roomAt = 0;
+  let myId = 'local';
+  let logLines = [];
+  let anims = [], floaters = [], booms = [];
+  let aim = { active: false, angle: -0.6, power: 0 };
+  let oppAim = null, lastAimSent = 0, morphing = false;
+  let heartbeat = null, joinRetry = null;
+  const slotKeys = {};
+  const seenThrows = new Set();
+
+  const ITCH = !!window.ND_ITCH;
+  // ---------- язык ----------
+  let LANG = (() => { try { const v = localStorage.getItem('nd-lang'); if (v === 'ru' || v === 'en') return v; } catch (e) {} return /^(ru|uk|be|kk)/i.test(navigator.language || '') ? 'ru' : 'en'; })();
+  const T = (ru, en) => (LANG === 'en' ? en : ru);
+  const EN = KG.EN;
+  const cardName = (c) => (LANG === 'en' ? (EN.names[c.name] || c.name) : c.name);
+  const suitName = (k) => (LANG === 'en' ? EN.suits[k] : KG.SUITS[k].name);
+  const tierName = (k) => (LANG === 'en' ? EN.tiers[k][0] : KG.TIERS[k].name);
+  const tierRank = (k) => (LANG === 'en' ? EN.tiers[k][1] : KG.TIERS[k].rank);
+  const abil = (k) => (LANG === 'en' ? EN.abilities[k] : [KG.ABILITIES[k].name, KG.ABILITIES[k].desc]);
+  const qual = (k) => (LANG === 'en' ? EN.qualities[k] : [KG.QUALITIES[k].name, KG.QUALITIES[k].desc]);
+  const flaw = (k) => (LANG === 'en' ? EN.flaws[k] : [KG.FLAWS[k].name, KG.FLAWS[k].desc]);
+  const reasonText = (r) => (!r ? '' : LANG === 'en' ? (EN.reasons[r.code] || r.reason || '') : (KG.RU_REASONS[r.code] || r.reason || ''));
+  const BOT = () => T('Бот Ножовщик', 'Knife Bot');
+  const pname = (p) => (p.isBot ? BOT() : p.name);
+  const ERRS = { badpw: ['Неверный пароль', 'Wrong password'], full: ['Сервер заполнен', 'Server is full'], playing: ['Игра уже идёт', 'Match already in progress'] };
+
+  function fmtLog(e) {
+    if (typeof e === 'string') return e;
+    if (!e || typeof e !== 'object') return '';
+    const who = e.b ? BOT() : String(e.n || '');
+    const card = KG.CARD_BY_ID[e.c];
+    const cn = card ? `${cardName(card)} ${KG.SUITS[card.suit].sym}` : T('нож', 'knife');
+    switch (e.k) {
+      case 'join': return T(`${e.n} зашёл на сервер`, `${e.n} joined the server`);
+      case 'bot': return T('Бот Ножовщик сел за стол', 'Knife Bot joined the table');
+      case 'leave': return T(`${who} покинул сервер`, `${who} left the server`);
+      case 'start': { const s = KG.SUITS[e.suit] || { sym: '' }; return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
+      case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
+      case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
+      case 'end': return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? BOT() : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? BOT() : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`);
+    }
+    return '';
+  }
+
+  // статичный текст страницы
+  const RULES = {
+    ru: `<li>Матчи на 20, 30 или 50 ножей. В каждой колоде 4 туза, остальное — хорошие и плохие ножи всех четырёх мастей.</li>
+      <li>Нижняя карта колоды открыта — её масть становится <b>козырем</b>. Козырные ножи получают +1 способность, +1 хорошее качество и летят ровнее.</li>
+      <li>Каждый раунд оба добирают карты до лимита руки: <b>2</b> в матче на 20, <b>3</b> — на 30, <b>5</b> — на 50.</li>
+      <li>Бросаете <b>одновременно</b>. Выбери карту — она станет ножом; зажми мышь на поле, тяни назад и отпусти.</li>
+      <li><b>Попал — бросаешь ещё</b>, пока есть карты в руке. Промахнулся — твой раунд окончен. Раунд кончается, когда закончили оба.</li>
+      <li><b>Ножи сталкиваются в воздухе.</b> Сбитый нож соперника не приносит ему очков, а ты получаешь половину его очков и бросаешь дальше.</li>
+      <li>Нож вращается и втыкается только лезвием. Красная полоса — яблочко (×2), белая — ×1,5, торец — ×1.</li>
+      <li>Когда все ножи брошены, побеждает тот, у кого больше очков.</li>`,
+    en: `<li>Matches of 20, 30 or 50 knives. Every deck has 4 aces; the rest are good and bad knives of all four suits.</li>
+      <li>The bottom card of the deck is face up — its suit is the <b>trump</b>. Trump knives get +1 ability, +1 good quality and fly steadier.</li>
+      <li>Each round both players refill their hand: up to <b>2</b> cards in a 20-knife match, <b>3</b> in 30, <b>5</b> in 50.</li>
+      <li>You throw <b>at the same time</b>. Pick a card — it turns into a knife; hold the mouse on the field, drag back and release.</li>
+      <li><b>Hit — throw again</b> while you have cards. Miss — your round is over. The round ends when both players are done.</li>
+      <li><b>Knives collide in mid-air.</b> A knocked-down knife scores nothing for your opponent, and you get half its points and keep throwing.</li>
+      <li>Knives spin and stick only blade-first. Red band — bullseye (×2), white band — ×1.5, top of the stump — ×1.</li>
+      <li>When every knife has been thrown, the higher score wins.</li>`,
+  };
+  function setText(sel, ru, en, prop) { document.querySelectorAll(sel).forEach(el => { el[prop || 'textContent'] = T(ru, en); }); }
+  function applyStatic() {
+    document.documentElement.lang = LANG;
+    document.title = T('Нож дурака', "Fool's Knife");
+    setText('.logo h1', 'Нож дурака', "Fool's Knife");
+    setText('.logo .tag', '20, 30 или 50 ножей · козырь · пни · кто больше настрелял — тот не дурак', "20, 30 or 50 knives · trumps · stumps · whoever scores less is the fool");
+    const h2 = document.querySelectorAll('#lobby .panel:first-child h2');
+    if (h2[0]) h2[0].textContent = T('Твоё имя', 'Your name');
+    if (h2[1]) h2[1].textContent = T('Создать сервер', 'Create a server');
+    setText('#lobby .row-between h2', 'Список серверов', 'Server list');
+    setText('#lobby .row-between span', 'обновляется сам', 'updates automatically');
+    setText('#nick', 'Например, Сеня-Метатель', 'e.g. Knife Master', 'placeholder');
+    setText('#room-name', 'Название сервера', 'Server name', 'placeholder');
+    setText('#room-pass', 'Пароль (необязательно)', 'Password (optional)', 'placeholder');
+    const opts = document.querySelectorAll('#deck-size option');
+    [['20', 2], ['30', 3], ['50', 5]].forEach(([n, h], i) => { if (opts[i]) opts[i].textContent = T(`Матч на ${n} ножей · рука ${h}`, `${n}-knife match · hand ${h}`); });
+    setText('#btn-create', 'Создать сервер', 'Create server');
+    setText('#lobby .or', 'или', 'or');
+    setText('#btn-bot', 'Быстрая игра против бота', 'Quick match vs bot');
+    const note = document.querySelector('#lobby .note');
+    if (note) note.textContent = ITCH ? T('Создай сервер — он сразу появится в списке у всех, кто сейчас открыл игру. Можно поставить пароль, чтобы зашёл только твой друг.', 'Create a server and it shows up instantly for everyone who has the game open. Set a password so only your friend can join.')
+      : T('Чтобы играть с другом, поделись этой страницей (кнопка «Поделиться» в claude.ai, роль не ниже «Участник»). Сервер виден в списке у всех, у кого игра открыта прямо сейчас.', 'To play with a friend, share this page (the Share button on claude.ai, role Contributor or higher). Your server is listed for everyone who has the game open right now.');
+    setText('.rules summary', 'Правила', 'Rules');
+    const ul = document.querySelector('.rules ul'); if (ul) ul.innerHTML = RULES[LANG];
+    const th = document.querySelectorAll('.servers thead th');
+    [['Сервер', 'Server'], ['Хост', 'Host'], ['Игроки', 'Players'], ['Статус', 'Status']].forEach(([r, e], i) => { if (th[i]) th[i].textContent = T(r, e); });
+    setText('#btn-leave', '← Выйти', '← Leave');
+    const hs = document.querySelectorAll('.hud-item > span');
+    [['Раунд', 'Round'], ['Козырь', 'Trump'], ['В колоде', 'Deck'], ['Твоя серия', 'Your streak'], ['Таймер', 'Timer']].forEach(([r, e], i) => { if (hs[i]) hs[i].textContent = T(r, e); });
+    setText('.log-box h3', 'Ход игры', 'Match log');
+    setText('#chat-input', 'Сообщение…', 'Message…', 'placeholder');
+    const sl = document.querySelectorAll('.slot-label');
+    if (sl[0]) sl[0].textContent = T('Твоя рука', 'Your hand');
+    if (sl[1]) sl[1].textContent = T('Колода', 'Deck');
+    setText('#modal h2', 'Пароль сервера', 'Server password');
+    setText('#modal-input', 'Пароль', 'Password', 'placeholder');
+    setText('#modal-cancel', 'Отмена', 'Cancel');
+    setText('#modal-ok', 'Войти', 'Join');
+    document.querySelectorAll('.lang-toggle').forEach(b => { b.innerHTML = `<span class="${LANG === 'ru' ? 'on' : ''}">RU</span><span class="${LANG === 'en' ? 'on' : ''}">EN</span>`; });
+  }
+  function setLang(l) {
+    LANG = l; try { localStorage.setItem('nd-lang', l); } catch (e) {}
+    applyStatic();
+    serversKey = ''; renderServers();
+    Object.keys(slotKeys).forEach(k => delete slotKeys[k]);
+    if (room) renderRoom();
+    setConn(R ? (R.connected ? R.connected() : true) : false, R ? undefined : connNoText());
+  }
+  function addLangToggles() {
+    const mk = () => { const b = document.createElement('button'); b.className = 'lang-toggle'; b.type = 'button'; b.title = 'Язык / Language'; b.onclick = () => setLang(LANG === 'ru' ? 'en' : 'ru'); return b; };
+    document.querySelector('.logo').appendChild(mk());
+    const tb = document.querySelector('.topbar'); tb.insertBefore(mk(), tb.querySelector('.hud'));
+  }
+  const connNoText = () => ITCH ? T('● нет связи с сервером сообщений — можно играть с ботом (перезагрузи страницу, чтобы попробовать снова)', '● cannot reach the message server — you can play the bot (reload the page to retry)') : T('● онлайн недоступен — можно играть с ботом', '● online is unavailable — you can play the bot');
+  const nick = () => ($('#nick').value.trim() || T('Игрок', 'Player')).slice(0, 20);
+  try { const s = localStorage.getItem('nd-nick'); if (s) $('#nick').value = s; } catch (e) {}
+  $('#nick').addEventListener('change', () => { try { localStorage.setItem('nd-nick', nick()); } catch (e) {} if (R) R.presence({ nick: nick() }).catch(() => {}); });
+
+  // ---------- Подключение к платформе ----------
+  function setConn(on, text) {
+    const c = $('#conn');
+    c.textContent = text || (on ? T('● онлайн — мультиплеер доступен', '● online — multiplayer ready') : T('● подключение…', '● connecting…'));
+    c.style.color = on ? '#6fcf7c' : '#d2a24a';
+  }
+  async function initRoom() {
+    setConn(false, T('● подключение к мультиплееру…', '● connecting to multiplayer…'));
+    try { R = (window.claude && window.claude.use) ? await window.claude.use('room') : null; } catch (e) { R = null; }
+    if (!R && window.NDMqtt) { try { R = await window.NDMqtt.connect(); } catch (e) { R = null; } }
+    if (!R) { setConn(false, connNoText()); renderServers(); return; }
+    R.onPeers((ch) => {
+      lobbyPeers = ch.peers;
+      const me = ch.peers.find(p => p.sameTab);
+      if (me) myPeer = me.peer;
+      renderServers();
+    }, () => { R = null; setConn(false, connNoText()); renderServers(); });
+    R.onConnection((c) => setConn(c));
+    R.presence({ nick: nick() }).catch(() => {});
+  }
+
+  // ---------- Лобби ----------
+  const ST = () => ({ lobby: T('Ожидание', 'Waiting'), playing: T('Идёт игра', 'In progress'), over: T('Завершена', 'Finished') });
+  let serversKey = '';
+  function renderServers() {
+    const tb = $('#server-list');
+    const list = lobbyPeers.filter(p => p.presence && p.presence.srv && typeof p.presence.srv === 'object' && p.presence.srv.id);
+    const key = (R ? '1' : '0') + JSON.stringify(lobbyPeers.map(p => [p.peer, p.sameTab, p.presence && p.presence.nick, p.presence && p.presence.srv]));
+    if (key === serversKey) return;
+    serversKey = key;
+    tb.innerHTML = '';
+    $('#no-servers').style.display = list.length ? 'none' : 'block';
+    $('#no-servers').textContent = R ? T('Пока нет ни одного сервера. Создай свой!', 'No servers yet. Create your own!') : ITCH ? T('Не удалось подключиться к онлайну. Проверь интернет и перезагрузи страницу. С ботом можно играть и без сети.', 'Could not connect to online play. Check your connection and reload the page. You can play the bot offline.') : T('Онлайн недоступен: страница открыта по публичной ссылке или без входа в claude.ai. Для игры с другом владелец страницы должен поделиться ею лично (роль «Участник»), а друг — войти в свой аккаунт claude.ai.', 'Online play is unavailable: this page was opened via a public link or without signing in to claude.ai. To play with a friend, the page owner must share it with them directly (Contributor role) and the friend must sign in to claude.ai.');
+    const others = lobbyPeers.filter(p => !p.sameTab);
+    $('#online').textContent = !R ? '' : others.length ? T(`Сейчас на странице ещё ${others.length}: `, `Also here right now (${others.length}): `) + others.map(p => String((p.presence && p.presence.nick) || T('Игрок', 'Player')).slice(0, 20)).join(', ') : T('Кроме тебя на странице сейчас никого нет', 'Nobody else is here right now');
+    for (const p of list) {
+      const r = p.presence.srv;
+      const host = String(p.presence.nick || T('Игрок', 'Player')).slice(0, 20);
+      const mine = p.sameTab;
+      const can = !mine && r.players < 2 && r.state !== 'playing';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.locked ? '🔒 ' : ''}${esc(String(r.name).slice(0, 32))}${mine ? ` <small style="color:var(--muted)">${T('(твой)', '(yours)')}</small>` : ''}<br><small style="color:var(--muted)">🗡 ${[20, 30, 50].includes(+r.size) ? +r.size : 20} ${T('ножей', 'knives')}</small></td><td>${esc(host)}${p.guest ? ' 🌐' : ''}</td><td>${+r.players || 0}/2${r.hasBot ? ' 🤖' : ''}</td>
+        <td class="st-${esc(r.state)}">${ST()[r.state] || '—'}${r.state === 'playing' ? ` · ${T('р.', 'r.')}${+r.round || 0}` : ''}</td>
+        <td><button class="btn small ${can ? 'gold' : ''}" ${can ? '' : 'disabled'}>${T('Войти', 'Join')}</button></td>`;
+      tr.querySelector('button').onclick = () => {
+        if (r.locked) askPassword((pw) => joinServer(p.peer, r, pw));
+        else joinServer(p.peer, r, '');
+      };
+      tb.appendChild(tr);
+    }
+  }
+
+  function askPassword(cb) {
+    const m = $('#modal');
+    m.classList.remove('hidden');
+    $('#modal-input').value = '';
+    $('#modal-input').focus();
+    $('#modal-ok').onclick = () => { m.classList.add('hidden'); cb($('#modal-input').value); };
+    $('#modal-cancel').onclick = () => m.classList.add('hidden');
+  }
+  $('#modal-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#modal-ok').click(); });
+
+  $('#btn-create').onclick = () => createServer(false);
+  $('#btn-bot').onclick = () => createServer(true);
+  $('#btn-leave').onclick = () => leave();
+
+  function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); }
+  const rid = () => Math.random().toString(36).slice(2, 10);
+
+  // ---------- Хост ----------
+  async function createServer(withBot) {
+    if (net || eng) return;
+    const online = !withBot;
+    if (online && (!R || !myPeer)) { toast(R ? T('Подключение ещё не готово, попробуй через секунду', 'Still connecting, try again in a second') : T('Мультиплеер недоступен в этом окне. Сыграй с ботом.', 'Multiplayer is unavailable here. Play the bot.')); return; }
+    myId = online ? myPeer : 'local';
+    const id = rid();
+    const name = ($('#room-name').value.trim() || T(`Сервер ${nick()}`, `${nick()}'s server`)).slice(0, 32);
+    logLines = [];
+    const size = +$('#deck-size').value || 20;
+    eng = NDEngine.create({ id, size, name: withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
+      state: hostPush,
+      log: (t) => { addLog(t); if (net) net.room.emit('lg', { t }).catch(() => {}); },
+      throwEv: (m) => { onThrow(m); if (net) net.room.emit('th', m).catch(() => {}); },
+      aim: (m) => { oppAim = { angle: m.a, power: m.p, at: performance.now() }; if (net) net.room.emit('am', m).catch(() => {}); },
+    });
+    if (online) {
+      let nr;
+      try { nr = await R.join('nd-' + id); } catch (e) { toast(T('Не удалось создать сервер', 'Could not create the server') + (e && e.code ? ` (${e.code})` : '') + T(', попробуй ещё раз', ', please try again')); eng.destroy(); eng = null; return; }
+      net = { isHost: true, hostPeer: myPeer, room: nr, srvId: id };
+      nr.on('jn', (m) => {
+        if (m.sameTab) return;
+        const d = m.data || {};
+        if (!eng.checkPassword(String(d.pw || ''))) return nr.emit('er', { to: m.peer, code: 'badpw', msg: 'Неверный пароль', fatal: true }).catch(() => {});
+        const r = eng.addPlayer(m.peer, String(d.nick || 'Player').replace(/[<>]/g, '').slice(0, 20) || 'Player');
+        if (!r.ok) nr.emit('er', { to: m.peer, code: r.code, msg: r.msg, fatal: true }).catch(() => {});
+        else hostPush();
+      });
+      nr.on('ac', (m) => {
+        if (m.sameTab) return;
+        const d = m.data || {};
+        if (d.k === 'take') eng.take(m.peer, String(d.c || ''));
+        if (d.k === 'throw') eng.doThrow(m.peer, d.a, d.p);
+      });
+      nr.on('am', (m) => { if (!m.sameTab) oppAim = { angle: +(m.data && m.data.a) || 0, power: +(m.data && m.data.p) || 0, at: performance.now() }; });
+      nr.on('ch', (m) => addChat(m.data && m.data.n, m.data && m.data.t));
+      nr.onPeers((ch) => { for (const p of ch.left) if (eng && eng.g.players.some(x => x.id === p.peer)) eng.removePlayer(p.peer); });
+      heartbeat = setInterval(() => { if (net && eng) net.room.emit('st', eng.pub()).catch(() => {}); }, 2500);
+    }
+    eng.addPlayer(myId, nick());
+    if (withBot) { eng.addBot(); eng.start(); }
+    enterRoom();
+  }
+
+  function hostPush() {
+    if (!eng) return;
+    const s = eng.pub();
+    applyState(s);
+    if (net && net.isHost) {
+      net.room.emit('st', s).catch(() => {});
+      R.presence({ nick: nick(), srv: eng.summary() }).catch(() => {});
+    }
+  }
+
+  // ---------- Гость ----------
+  async function joinServer(hostPeer, srv, pw) {
+    if (net || eng || !R || !myPeer) return;
+    myId = myPeer;
+    let nr;
+    try { nr = await R.join('nd-' + String(srv.id).replace(/[^a-z0-9]/g, '').slice(0, 40)); } catch (e) { toast(T('Не удалось подключиться к серверу', 'Could not connect to the server') + (e && e.code ? ` (${e.code})` : '')); return; }
+    net = { isHost: false, hostPeer, room: nr, srvId: srv.id };
+    logLines = [];
+    nr.on('st', (m) => { if (m.peer === hostPeer) applyState(m.data); });
+    nr.on('th', (m) => { if (m.peer === hostPeer) onThrow(m.data); });
+    nr.on('lg', (m) => { if (m.peer === hostPeer && m.data) addLog(m.data.t); });
+    nr.on('am', (m) => { if (!m.sameTab && m.data) oppAim = { angle: +m.data.a || 0, power: +m.data.p || 0, at: performance.now() }; });
+    nr.on('ch', (m) => addChat(m.data && m.data.n, m.data && m.data.t));
+    nr.on('er', (m) => {
+      if (m.peer !== hostPeer || !m.data || m.data.to !== myPeer) return;
+      toast(ERRS[m.data.code] ? T(...ERRS[m.data.code]) : String(m.data.msg || T('Ошибка', 'Error')));
+      if (m.data.fatal) leave(true);
+    });
+    nr.onPeers((ch) => { if (ch.left.some(p => p.peer === hostPeer)) { toast(T('Хост закрыл сервер', 'The host closed the server')); leave(true); } });
+    const send = () => nr.emit('jn', { nick: nick(), pw }).catch((e) => {
+      if (e && e.code === 'not_permitted') { toast(T('Нет прав на игру: владелец страницы должен дать тебе роль «Участник» (или выше)', 'No permission to play: the page owner must give you the Contributor role (or higher)')); leave(true); }
+    });
+    send();
+    let tries = 0;
+    joinRetry = setInterval(() => {
+      if (room && room.players.some(p => p.id === myId)) { clearInterval(joinRetry); joinRetry = null; return; }
+      if (++tries > 8) { clearInterval(joinRetry); joinRetry = null; toast(T('Сервер не отвечает', 'The server is not responding')); leave(true); return; }
+      send();
+    }, 1500);
+  }
+
+  function leave(silent) {
+    if (heartbeat) clearInterval(heartbeat); heartbeat = null;
+    if (joinRetry) clearInterval(joinRetry); joinRetry = null;
+    if (eng) { eng.destroy(); eng = null; }
+    if (net) { net.room.leave().catch(() => {}); net = null; }
+    if (R) R.presence({ nick: nick(), srv: null }).catch(() => {});
+    room = null; anims = []; floaters = []; booms = []; aim.active = false;
+    Object.keys(slotKeys).forEach(k => delete slotKeys[k]);
+    show('lobby');
+    renderServers();
+  }
+
+  // ---------- Действия игрока ----------
+  function act(k, data) {
+    if (eng) {
+      if (k === 'take') eng.take(myId, data && data.c);
+      if (k === 'throw') eng.doThrow(myId, data.a, data.p);
+      if (k === 'start') eng.start();
+      if (k === 'addBot') eng.addBot();
+      if (k === 'kickBot') eng.kickBot();
+    } else if (net) {
+      net.room.emit('ac', Object.assign({ k }, data || {})).catch((e) => { if (e && e.code === 'not_permitted') toast(T('Нет прав на ход: нужна роль «Участник»', 'No permission to move: Contributor role required')); });
+    }
+  }
+
+  function enterRoom() {
+    show('room');
+    $('#chat').innerHTML = '';
+    $('#chat-form').style.display = net ? '' : 'none';
+  }
+
+  // ---------- Состояние ----------
+  const cardOf = (id) => id && KG.CARD_BY_ID[id] ? KG.cardWithStats(KG.CARD_BY_ID[id], room ? room.trumpSuit : null) : null;
+  function applyState(s) {
+    if (!s || !Array.isArray(s.players)) return;
+    const prev = room;
+    if (prev && prev.ep !== s.ep) anims = [];
+    room = s; roomAt = performance.now();
+    syncFlights(s);
+    if (!prev) enterRoom();
+    if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; }
+    renderRoom();
+  }
+  function addLog(t) { logLines.push(t); if (logLines.length > 40) logLines.shift(); if (room) renderLog(); }
+
+  // ---------- DOM комнаты ----------
+  const me = () => room && room.players.find(p => p.id === myId);
+  const opp = () => room && room.players.find(p => p.id !== myId);
+  const PCOL = (id) => (id === myId ? '#5fb8ff' : '#ff7a59');
+
+  function renderLog() { $('#log').innerHTML = logLines.slice(-14).map(l => `<div>${esc(fmtLog(l))}</div>`).join(''); $('#log').scrollTop = 1e6; }
+
+  function renderRoom() {
+    if (!room) return;
+    $('#room-title').textContent = (room.locked ? '🔒 ' : '') + room.name + ` · ${room.size} ${T('ножей', 'knives')}`;
+    $('#hud-round').textContent = room.round || '—';
+    const ts = room.trumpSuit ? SUITS[room.trumpSuit] : null;
+    $('#hud-trump').innerHTML = ts ? `<span class="${ts.red ? 'red' : ''}">${ts.sym}</span>&nbsp;${suitName(room.trumpSuit)}` : '—';
+    $('#hud-deck').textContent = room.state === 'lobby' ? room.size : room.deckCount;
+    const m = me();
+    $('#hud-turn').textContent = m && m.streak ? `×${m.streak}` : '—';
+    const STAT = { aim: T('🎯 бросает', '🎯 throwing'), flying: T('🗡 нож летит', '🗡 knife in flight'), done: T('✓ закончил', '✓ done'), wait: '…', idle: '' };
+    $('#scores').innerHTML = room.players.map(p => `
+      <div class="pl ${p.status === 'aim' || p.status === 'flying' ? 'turn' : ''}">
+        <div class="dot" style="background:${PCOL(p.id)}"></div>
+        <div class="nm">${esc(pname(p))}${p.id === myId ? T(' (ты)', ' (you)') : ''}${p.isBot ? ' 🤖' : ''}${p.id === room.hostId ? ' 👑' : ''}
+          <small>${T('попаданий', 'hits')}: ${+p.hits || 0}${room.state === 'playing' ? ` · ${T('в руке', 'in hand')}: ${p.hand.length}${STAT[p.status] ? ' · ' + STAT[p.status] : ''}${p.streak > 1 ? ` · ${T('серия', 'streak')} ×${p.streak}` : ''}` : ''}</small></div>
+        <div class="sc">${+p.score || 0}</div>
+      </div>`).join('') + (room.players.length < 2 ? `<div class="pl"><div class="nm" style="color:var(--muted)">${T('Свободное место…', 'Open seat…')}</div></div>` : '');
+    renderLog();
+    renderSlots();
+    renderOverlay();
+  }
+
+  function renderOverlay() {
+    const ov = $('#overlay');
+    const isHost = room.hostId === myId;
+    if (room.state === 'lobby') {
+      const full = room.players.length === 2;
+      const hasBot = room.players.some(p => p.isBot);
+      ov.innerHTML = `<h2>${full ? T('Все на месте!', 'Everyone is here!') : T('Ждём соперника…', 'Waiting for an opponent…')}</h2>
+        <p>${full ? (isHost ? T('Можно начинать матч.', 'You can start the match.') : T('Ждём, пока хост начнёт матч.', 'Waiting for the host to start.')) : T('Твой сервер виден в списке у всех, кто сейчас открыл эту игру. Не хочешь ждать — позови бота.', 'Your server is listed for everyone who has the game open. Tired of waiting? Add the bot.')}</p>
+        <div class="btns">
+          ${isHost && !full ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
+          ${isHost && hasBot ? `<button class="btn" data-a="kickBot">${T('Убрать бота', 'Remove bot')}</button>` : ''}
+          ${isHost ? `<button class="btn gold" data-a="start" ${full ? '' : 'disabled'}>${T('Начать матч', 'Start match')}</button>` : ''}
+        </div>`;
+      ov.classList.remove('hidden');
+    } else if (room.state === 'over') {
+      const [a, b] = [me(), opp()];
+      const iWon = room.winnerId === myId;
+      const wp = room.players.find(p => p.id === room.winnerId);
+      const why = room.endReason === 'forfeit' ? T('Соперник сбежал — победа засчитана', 'Your opponent left — win by forfeit') : room.endReason === 'win' && wp ? T(`Победил ${pname(wp)}`, `${pname(wp)} wins`) : '';
+      ov.innerHTML = `<h2>${room.winnerId == null ? T('Ничья!', 'Draw!') : iWon ? T('Победа! 🏆', 'Victory! 🏆') : T('Ты — дурак 🤡', "You're the fool 🤡")}</h2>
+        <p>${esc(why)}</p>
+        <div class="final">
+          ${a ? `<div class="${room.winnerId === a.id ? 'win' : ''}">${esc(pname(a))}<b>${+a.score || 0}</b></div>` : ''}
+          ${b ? `<div class="${room.winnerId === b.id ? 'win' : ''}">${esc(pname(b))}<b>${+b.score || 0}</b></div>` : ''}
+        </div>
+        <div class="btns">
+          ${isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
+          ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
+          <button class="btn" data-a="leave">${T('В лобби', 'To lobby')}</button>
+        </div>`;
+      ov.classList.remove('hidden');
+    } else ov.classList.add('hidden');
+    ov.querySelectorAll('[data-a]').forEach(b => b.onclick = () => b.dataset.a === 'leave' ? leave() : act(b.dataset.a));
+  }
+
+  function renderSlots() {
+    const m = me(), o = opp();
+    $('#opp-label').textContent = o ? T(`Рука: ${pname(o)}`, `Hand: ${pname(o)}`) : T('Соперник', 'Opponent');
+    setSlot('#my-slot', m, true);
+    setSlot('#opp-slot', o, false);
+    const dk = `${room.state}|${room.deckCount}|${room.trumpCard}|${room.trumpSuit}`;
+    if (slotKeys.deck !== dk) {
+      slotKeys.deck = dk;
+      const el = $('#deck-slot'); el.innerHTML = '';
+      const st = document.createElement('div'); st.className = 'deck-stack';
+      const tc = cardOf(room.trumpCard);
+      if (room.state !== 'lobby' && tc && room.deckCount > 0) { const c = cardEl(tc); c.classList.add('trump-under'); st.appendChild(c); }
+      const n = room.state === 'lobby' ? 20 : room.deckCount;
+      const backs = n > 1 ? Math.min(4, Math.ceil((n - 1) / 4)) : 0;
+      for (let i = 0; i < backs; i++) {
+        const b = document.createElement('div'); b.className = 'card-back back'; b.textContent = '🗡';
+        b.style.left = (i * 2) + 'px'; b.style.top = (-i * 2) + 'px'; st.appendChild(b);
+      }
+      const cnt = document.createElement('div'); cnt.className = 'deck-count'; cnt.textContent = n; st.appendChild(cnt);
+      if (room.trumpSuit) {
+        const s = SUITS[room.trumpSuit];
+        const t = document.createElement('div'); t.className = 'trump-big';
+        t.innerHTML = `${T('Козырь', 'Trump')}: <b class="${s.red ? 'red' : ''}" style="font-size:18px">${s.sym}</b>`; st.appendChild(t);
+      }
+      el.appendChild(st);
+    }
+  }
+
+  function setSlot(sel, p, mine) {
+    const el = $(sel);
+    const key = !p ? 'none' : `${room.state}|${p.hand.join(',')}|${p.active}|${p.status}|${room.trumpSuit}|${room.phase}`;
+    if (slotKeys[sel] === key) return;
+    slotKeys[sel] = key;
+    el.innerHTML = '';
+    if (!p || room.state !== 'playing') {
+      el.innerHTML = `<div class="slot-empty">${!p ? T('Нет игрока', 'No player') : T(`Карты появятся, когда начнётся матч (в руке до ${room.handMax})`, `Cards appear when the match starts (hand up to ${room.handMax})`)}</div>`;
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'hand n' + Math.max(1, p.hand.length);
+    if (!p.hand.length) { el.innerHTML = `<div class="slot-empty">${p.status === 'flying' ? T('Нож в полёте', 'Knife in flight') : T('Карт нет', 'No cards')}</div>`; return; }
+    const canTake = mine && p.status === 'aim' && !p.active;
+    for (const id of p.hand) {
+      const card = cardOf(id); if (!card) continue;
+      if (id === p.active) { wrap.appendChild(knifeTile(card, mine)); continue; }
+      if (!mine) { const b = document.createElement('div'); b.className = 'card-back'; b.textContent = '🗡'; wrap.appendChild(b); continue; }
+      const c = cardEl(card);
+      if (canTake) {
+        c.classList.add('clickable', 'pulse');
+        c.title = T('Нажми, чтобы взять этот нож', 'Click to take this knife');
+        c.onclick = () => {
+          if (morphing) return;
+          morphing = true; c.classList.add('morph'); sfx('take');
+          setTimeout(() => { morphing = false; act('take', { c: id }); }, 450);
+        };
+      } else if (p.active) c.classList.add('dim');
+      wrap.appendChild(c);
+    }
+    el.appendChild(wrap);
+  }
+
+  function knifeTile(card, mine) {
+    const k = document.createElement('div');
+    k.className = 'knife-hand';
+    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 220;
+    const cx = cv.getContext('2d'); cx.translate(160, 110); cx.rotate(-0.5); cx.scale(2.6, 2.6);
+    KG.drawKnife(cx, card, { trump: card.stats.trump });
+    k.appendChild(cv);
+    const s = SUITS[card.suit];
+    k.insertAdjacentHTML('beforeend', `<div class="kn">${esc(cardName(card))} ${s.sym}</div>
+      <div class="kd">${mine ? T('Зажми мышь на поле, тяни назад и отпусти', 'Hold the mouse on the field, drag back and release') : T('В руке у соперника', "In your opponent's hand")}</div>`);
+    k.title = [...card.stats.abilities.map(a => '✦ ' + abil(a)[0]), ...card.stats.qualities.map(q => '+ ' + qual(q)[0]), ...card.stats.flaws.map(f => '− ' + flaw(f)[0])].join('\n');
+    return k;
+  }
+
+  function cardEl(card) {
+    const st = card.stats;
+    const s = SUITS[card.suit];
+    const c = document.createElement('div');
+    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''}`;
+    const items = [];
+    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${abil(a)[0]}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${abil(a)[1]}</li>`));
+    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${qual(q)[0]}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${qual(q)[1]}</li>`));
+    st.flaws.forEach(f => items.push(`<li class="fl">− ${flaw(f)[0]} — ${flaw(f)[1]}</li>`));
+    if (st.trump) items.push(`<li class="ab">★ ${T('Козырь: летит ровнее, меньше ветра', 'Trump: steadier flight, less wind')}</li>`);
+    c.innerHTML = `
+      <div class="corner"><span>${tierRank(card.tier)}${s.sym}</span>${st.trump ? `<span class="badge">${T('КОЗЫРЬ', 'TRUMP')}</span>` : ''}<span>${s.sym}</span></div>
+      <canvas width="312" height="156"></canvas>
+      <div class="cname">${esc(cardName(card))}</div>
+      <div class="ctier">${tierName(card.tier)} · ${suitName(card.suit)}</div>
+      <ul>${items.join('')}</ul>
+      <div class="nums"><span>${T('Очки', 'Pts')} ${st.points}</span><span>${T('Разброс', 'Spread')} ${st.spread}°</span><span>${T('Окно', 'Window')} ${st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2)}°</span></div>`;
+    const cv = c.querySelector('canvas'), cx = cv.getContext('2d');
+    cx.translate(156, 80); cx.rotate(-0.32); cx.scale(2.3, 2.3);
+    KG.drawKnife(cx, card, { trump: st.trump });
+    return c;
+  }
+
+  // чат
+  $('#chat-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('#chat-input').value.trim().slice(0, 200);
+    if (v && net) net.room.emit('ch', { n: nick(), t: v }).catch(() => {});
+    $('#chat-input').value = '';
+  });
+  function addChat(from, text) {
+    if (!text) return;
+    const d = document.createElement('div'); d.innerHTML = `<b>${esc(String(from || T('Игрок', 'Player')).slice(0, 20))}:</b> ${esc(String(text).slice(0, 200))}`;
+    $('#chat').appendChild(d); $('#chat').scrollTop = 1e6;
+  }
+
+  // ---------- Холст ----------
+  const cv = $('#cv'), ctx = cv.getContext('2d');
+  const view = (owner, x, y, r) => (owner === myId || !room || !room.players.some(p => p.id === myId)) ? { x, y, r } : { x: W - x, y, r: Math.PI - r };
+  function toWorld(e) {
+    const rc = cv.getBoundingClientRect();
+    return { x: (e.clientX - rc.left) * (W / rc.width), y: (e.clientY - rc.top) * (H / rc.height) };
+  }
+
+  const myAnim = () => anims.some(a => a.owner === myId);
+  const canAim = () => room && room.state === 'playing' && room.phase === 'play' && me() && me().status === 'aim' && me().active && !myAnim();
+
+  cv.addEventListener('pointerdown', (e) => {
+    if (!room || room.state !== 'playing') return;
+    if (room.phase === 'play' && me() && me().status === 'aim' && !me().active) { toast(T('Сначала выбери карту внизу — она станет ножом', 'First pick a card below — it turns into a knife')); return; }
+    if (!canAim()) return;
+    const p = toWorld(e);
+    aim = { active: true, sx: p.x, sy: p.y, cx: p.x, cy: p.y, csx: e.clientX, csy: e.clientY, angle: aim.angle, power: 0 };
+    try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!aim.active) return;
+    const p = toWorld(e);
+    aim.cx = p.x; aim.cy = p.y;
+    const dx = aim.sx - p.x, dy = aim.sy - p.y;
+    aim.power = Math.min(1, Math.hypot(dx, dy) / 230);
+    let a = Math.atan2(dy, dx);
+    if (dx <= 0) a = dy < 0 ? -1.45 : 0.6;
+    aim.angle = Math.max(-1.45, Math.min(0.6, a));
+    const now = performance.now();
+    if (net && now - lastAimSent > 120) { lastAimSent = now; net.room.emit('am', { o: myId, a: aim.angle, p: aim.power }).catch(() => {}); }
+  });
+  const release = () => {
+    if (!aim.active) return;
+    aim.active = false;
+    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); sfx('whoosh'); }
+  };
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', () => { aim.active = false; });
+
+  function onThrow(m) {
+    if (!m) return;
+    const key = (m.ep || '') + '|' + m.id;
+    if (seenThrows.has(key)) return;
+    seenThrows.add(key);
+    if (m.o === myId) aim.active = false; else oppAim = null;
+    const base = KG.CARD_BY_ID[m.c];
+    let full = [];
+    if (base && m.a != null) full = KG.simulate({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }).frames;
+    const cut = m.cut != null ? +m.cut : null;
+    const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
+    // этот бросок сбил чужой нож — перестраиваем его полёт
+    if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
+    const el = Math.max(0, +m.el || 0);
+    const a = { owner: m.o, full, cut, frames, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    if (!frames.length) finishAnim(a);
+    else if (el / 1000 * 60 >= frames.length) return;     // уже долетел, пока сообщение шло
+    else anims.push(a);
+  }
+  function knockAnim(id, at, res) {
+    const other = anims.find(x => x.throwId === id);
+    if (!other || other.cut === at || !other.full.length) return;
+    other.cut = at; other.frames = KG.knockFrames(other.full, at);
+    other.result = res || { hit: false, reason: 'Сбит в воздухе!', code: 'knocked' }; other.streak = 0;
+  }
+  // подхватить ножи в полёте из состояния (если сообщение о броске потерялось)
+  function syncFlights(s) {
+    if (!Array.isArray(s.fl)) return;
+    for (const f of s.fl) {
+      if (!f || f.id == null) continue;
+      const key = (f.ep || '') + '|' + f.id;
+      if (!seenThrows.has(key)) onThrow(f);
+      else if (f.cut != null) {
+        const an = anims.find(x => x.throwId === f.id);
+        if (an && an.cut == null) knockAnim(f.id, +f.cut, f.res);
+      }
+    }
+  }
+
+  function finishAnim(a) {
+    anims = anims.filter(x => x !== a);
+    const last = a.frames[a.frames.length - 1];
+    const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
+    const res = a.result;
+    let text = reasonText(res), color = '#ffffff';
+    if (res.knock) {
+      text = `+${+res.points || 0} ${text}`; color = '#7fd8ff';
+      if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
+    } else if (res.hit) {
+      text = `+${+res.points || 0} ${text}${res.steal ? T(` (украл ${+res.steal})`, ` (stole ${+res.steal})`) : ''}`;
+      color = res.zone === 'bull' ? '#ffd77a' : '#9ff0a6'; sfx('thunk');
+      if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
+    } else { color = '#ff9f8f'; sfx('clank'); }
+    floaters.push({ text, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(60, v.y - 30), t0: performance.now(), color });
+  }
+
+  // фон
+  const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
+  (function drawBg() {
+    const g = bg.getContext('2d');
+    const sky = g.createLinearGradient(0, 0, 0, GROUND);
+    sky.addColorStop(0, '#f2a65a'); sky.addColorStop(0.55, '#e7c38a'); sky.addColorStop(1, '#c9b48e');
+    g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(255,240,200,.85)'; g.beginPath(); g.arc(500, 180, 60, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#9a7c63';
+    g.beginPath(); g.moveTo(0, 360);
+    for (let x = 0; x <= W; x += 50) g.lineTo(x, 330 - Math.sin(x * 0.011) * 50 - Math.sin(x * 0.03) * 14);
+    g.lineTo(W, GROUND); g.lineTo(0, GROUND); g.fill();
+    g.fillStyle = '#5d6b46';
+    for (let x = -20; x < W + 40; x += 26) { const h = 60 + ((x * 37) % 45); g.beginPath(); g.moveTo(x, 430); g.lineTo(x + 14, 430 - h); g.lineTo(x + 28, 430); g.fill(); }
+    g.fillStyle = '#4c5a39'; g.fillRect(0, 425, W, GROUND - 425);
+    const gr = g.createLinearGradient(0, GROUND, 0, H);
+    gr.addColorStop(0, '#5f7d3a'); gr.addColorStop(0.12, '#4b3826'); gr.addColorStop(1, '#2c1f14');
+    g.fillStyle = gr; g.fillRect(0, GROUND, W, H - GROUND);
+    g.strokeStyle = '#7da04a'; g.lineWidth = 2;
+    for (let x = 0; x < W; x += 7) { g.beginPath(); g.moveTo(x, GROUND + 2); g.lineTo(x + 2, GROUND - 4 - (x * 13) % 6); g.stroke(); }
+    stump(g, FACE_X); stump(g, W - FACE_X - STUMP_W);
+  })();
+  function stump(g, x) {
+    const w = STUMP_W, top = STUMP_TOP;
+    const gr = g.createLinearGradient(x, 0, x + w, 0);
+    gr.addColorStop(0, '#5a3a20'); gr.addColorStop(0.5, '#7b5130'); gr.addColorStop(1, '#4a2f19');
+    g.fillStyle = gr;
+    g.beginPath(); g.moveTo(x, top); g.lineTo(x + w, top); g.lineTo(x + w + 6, GROUND); g.lineTo(x - 6, GROUND); g.fill();
+    g.beginPath(); g.moveTo(x - 6, GROUND); g.quadraticCurveTo(x - 18, GROUND - 4, x - 24, GROUND + 2); g.lineTo(x + 4, GROUND); g.fill();
+    g.beginPath(); g.moveTo(x + w + 6, GROUND); g.quadraticCurveTo(x + w + 18, GROUND - 4, x + w + 24, GROUND + 2); g.lineTo(x + w - 4, GROUND); g.fill();
+    g.strokeStyle = 'rgba(30,18,8,.45)'; g.lineWidth = 1.5;
+    for (let i = 0; i < 6; i++) { const xx = x + 6 + i * 11; g.beginPath(); g.moveTo(xx, top + 6); g.bezierCurveTo(xx + 3, top + 60, xx - 3, top + 120, xx + 1, GROUND - 2); g.stroke(); }
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(x - 1, BULL_Y - 50, w + 2, 100);
+    g.fillStyle = 'rgba(122,82,48,.95)'; g.fillRect(x - 1, BULL_Y - 34, w + 2, 68);
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(x - 1, BULL_Y - 34, w + 2, 2); g.fillRect(x - 1, BULL_Y + 32, w + 2, 2);
+    g.fillStyle = '#c8302a'; g.fillRect(x - 1, BULL_Y - 16, w + 2, 32);
+    g.fillStyle = '#c9a272'; g.beginPath(); g.ellipse(x + w / 2, top, w / 2, 9, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(110,70,35,.7)'; g.lineWidth = 1;
+    for (let r = 4; r < w / 2; r += 6) { g.beginPath(); g.ellipse(x + w / 2, top, r, r * 0.26, 0, 0, Math.PI * 2); g.stroke(); }
+  }
+
+  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn) {
+    const g = ctx;
+    g.save(); g.translate(x, GROUND);
+    g.strokeStyle = '#2a1d13'; g.lineWidth = 7; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(0, -80); g.lineTo(-12 * facing, 0); g.moveTo(0, -80); g.lineTo(12 * facing, 0); g.stroke();
+    g.strokeStyle = color; g.lineWidth = 16;
+    g.beginPath(); g.moveTo(0, -84); g.lineTo(0, -150); g.stroke();
+    g.fillStyle = '#f0c9a0'; g.beginPath(); g.arc(0, -170, 15, 0, Math.PI * 2); g.fill();
+    g.fillStyle = color; g.beginPath(); g.arc(0, -176, 15, Math.PI, 0); g.fill();
+    const sx = 0, sy = -145;
+    let ex = (HAND.x - 45) * facing, ey = HAND.y - GROUND;
+    if (armAngle != null) { ex = sx - Math.cos(armAngle) * 34 * facing; ey = sy - Math.sin(armAngle) * 34 - 10; }
+    g.strokeStyle = '#2a1d13'; g.lineWidth = 6;
+    g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+    g.beginPath(); g.moveTo(sx, sy); g.lineTo(18 * facing, -105); g.stroke();
+    if (holding && card) {
+      g.save(); g.translate(ex, ey);
+      const ang = armAngle != null ? armAngle : -0.9;
+      g.rotate(facing === 1 ? ang : Math.PI - ang);
+      g.translate(18, 0);
+      KG.drawKnife(g, card, { trump: card.stats && card.stats.trump });
+      g.restore();
+    }
+    g.restore();
+    g.font = '15px "Russo One", sans-serif'; g.textAlign = 'center';
+    const label = name + (isTurn ? ' ◆' : '');
+    const lw = g.measureText(label).width;
+    const lx = Math.max(lw / 2 + 8, Math.min(W - lw / 2 - 8, x));
+    g.lineWidth = 4; g.strokeStyle = 'rgba(30,18,8,.8)'; g.strokeText(label, lx, GROUND - 205);
+    g.fillStyle = isTurn ? '#ffe39a' : '#f6ead8'; g.fillText(label, lx, GROUND - 205);
+  }
+
+  function drawWind() {
+    if (!room || room.state !== 'playing' || room.phase === 'idle') return;
+    const w = +room.wind || 0;
+    const g = ctx, cx = 500, cy = 40;
+    g.save();
+    g.fillStyle = 'rgba(30,20,10,.55)'; g.beginPath(); (g.roundRect ? g.roundRect(cx - 95, cy - 22, 190, 44, 12) : g.rect(cx - 95, cy - 22, 190, 44)); g.fill();
+    g.fillStyle = '#fff'; g.font = '12px Rubik, sans-serif'; g.textAlign = 'center';
+    g.fillText(T(`Ветер ${Math.abs(w * 10).toFixed(1)} м/с ${w > 0.02 ? '— тебе в спину' : w < -0.02 ? '— тебе в лицо' : ''}`, `Wind ${Math.abs(w * 10).toFixed(1)} m/s ${w > 0.02 ? '— at your back' : w < -0.02 ? '— in your face' : ''}`), cx, cy - 6);
+    const len = 70 * Math.abs(w);
+    g.strokeStyle = '#bfe6ff'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx - len * Math.sign(w), cy + 10); g.lineTo(cx + len * Math.sign(w), cy + 10); g.stroke();
+    if (Math.abs(w) > 0.02) {
+      const tx = cx + len * Math.sign(w);
+      g.beginPath(); g.moveTo(tx, cy + 10); g.lineTo(tx - 8 * Math.sign(w), cy + 4); g.lineTo(tx - 8 * Math.sign(w), cy + 16); g.closePath(); g.fillStyle = '#bfe6ff'; g.fill();
+    }
+    g.restore();
+  }
+
+  function drawPreview() {
+    const m = me();
+    const card = m && cardOf(m.active);
+    if (!aim.active || !card || aim.power < 0.04) return;
+    const st = card.stats;
+    const { frames, result } = KG.simulate({ angle: aim.angle, power: aim.power, stats: st, wind: +room.wind || 0, noNoise: true });
+    const n = Math.max(3, Math.ceil(frames.length * st.preview));
+    const full = st.preview >= 1;
+    const col = full ? (result.hit ? '120,255,140' : '255,120,110') : '255,255,255';
+    for (let i = 0; i < n && i < frames.length; i += 3) {
+      const f = frames[i];
+      ctx.fillStyle = `rgba(${col},${0.9 - (i / n) * 0.6})`;
+      ctx.beginPath(); ctx.arc(f.x, f.y, 2.6, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 10; i < n && i < frames.length; i += 10) {
+      const f = frames[i];
+      ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(f.x, f.y); ctx.rotate(f.r); KG.drawKnife(ctx, card); ctx.restore();
+    }
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(aim.sx, aim.sy); ctx.lineTo(aim.cx, aim.cy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(20,12,6,.7)'; ctx.fillRect(20, 20, 160, 46);
+    ctx.fillStyle = `hsl(${120 - aim.power * 120},80%,55%)`; ctx.fillRect(28, 46, 144 * aim.power, 12);
+    ctx.strokeStyle = '#fff'; ctx.strokeRect(28, 46, 144, 12);
+    ctx.fillStyle = '#fff'; ctx.font = '12px Rubik, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(T(`Сила ${Math.round(aim.power * 100)}%   Угол ${Math.round(-aim.angle * 180 / Math.PI)}°`, `Power ${Math.round(aim.power * 100)}%   Angle ${Math.round(-aim.angle * 180 / Math.PI)}°`), 28, 38);
+    ctx.restore();
+  }
+
+  function frame(now) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(bg, 0, 0);
+    if (room) {
+      const m = me(), o = opp();
+      for (const s of room.stuck || []) {
+        if (!Array.isArray(s)) continue;
+        const [pi, cid, tr, x, y, r, tid] = s;
+        if (anims.some(a => a.throwId === tid)) continue;
+        const card = KG.CARD_BY_ID[cid]; const owner = room.players[pi];
+        if (!card || !owner) continue;
+        const v = view(owner.id, +x, +y, +r);
+        ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, card, { trump: !!tr }); ctx.restore();
+      }
+      const playing = room.state === 'playing';
+      if (m) {
+        const holding = playing && m.status === 'aim' && !!m.active;
+        drawPerson(45, PCOL(myId), pname(m), 1, aim.active ? aim.angle : null, holding, cardOf(m.active), m.status === 'aim');
+      }
+      if (o) {
+        const holding = playing && o.status === 'aim' && !!o.active;
+        const oa = oppAim && o.status === 'aim' && now - oppAim.at < 1500 ? oppAim.angle : null;
+        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim');
+        if (oa != null) {
+          ctx.fillStyle = 'rgba(20,12,6,.6)'; ctx.fillRect(W - 180, 20, 160, 22);
+          ctx.fillStyle = '#ff7a59'; ctx.fillRect(W - 176, 26, 152 * Math.max(0, Math.min(1, oppAim.power)), 10);
+        }
+      }
+      drawWind();
+      drawPreview();
+      for (const an of [...anims]) {
+        const i = Math.floor(((now - an.t0) / 1000) * 60);
+        const ci = Math.min(i, an.frames.length - 1);
+        const f = an.frames[ci];
+        if (f) {
+          for (let k = 1; k <= 6; k++) {
+            const pf = an.frames[Math.max(0, ci - k * 2)];
+            const pv = view(an.owner, pf.x, pf.y, 0);
+            ctx.fillStyle = `rgba(255,255,255,${0.25 - k * 0.035})`;
+            ctx.beginPath(); ctx.arc(pv.x, pv.y, 4 - k * 0.4, 0, Math.PI * 2); ctx.fill();
+          }
+          const v = view(an.owner, f.x, f.y, f.r);
+          if (an.card) { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore(); }
+        }
+        if (an.boomAt >= 0 && i >= an.boomAt) {
+          const bf = an.frames[an.boomAt]; an.boomAt = -1;
+          if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clank'); }
+        }
+        if (i >= an.frames.length) finishAnim(an);
+      }
+      booms = booms.filter(b => now - b.t0 < 450);
+      for (const b of booms) {
+        const t = (now - b.t0) / 450;
+        ctx.save(); ctx.globalAlpha = 1 - t; ctx.strokeStyle = '#fff4b0'; ctx.lineWidth = 3;
+        for (let k = 0; k < 10; k++) { const an2 = k * Math.PI / 5; const r1 = 8 + t * 30, r2 = 18 + t * 55; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(an2) * r1, b.y + Math.sin(an2) * r1); ctx.lineTo(b.x + Math.cos(an2) * r2, b.y + Math.sin(an2) * r2); ctx.stroke(); }
+        ctx.restore();
+      }
+      floaters = floaters.filter(fl => now - fl.t0 < 2000);
+      for (const fl of floaters) {
+        const t = (now - fl.t0) / 2000;
+        ctx.save(); ctx.globalAlpha = 1 - t * t;
+        ctx.font = '26px "Russo One", sans-serif'; ctx.textAlign = 'center';
+        ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,5,.85)'; ctx.strokeText(fl.text, fl.x, fl.y - t * 50);
+        ctx.fillStyle = fl.color; ctx.fillText(fl.text, fl.x, fl.y - t * 50);
+        ctx.restore();
+      }
+      if (playing && m && m.status === 'aim' && m.left) {
+        const left = Math.max(0, m.left - (now - roomAt));
+        $('#hud-timer').textContent = Math.ceil(left / 1000) + ' c';
+        $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
+      } else $('#hud-timer').textContent = '—';
+      $('#hint').textContent = hintText();
+    }
+    requestAnimationFrame(frame);
+  }
+  function hintText() {
+    if (!room || room.state !== 'playing') return '';
+    const m = me(), o = opp();
+    if (!m) return '';
+    if (room.phase === 'draw') return T(`Раунд ${room.round}: добор карт до ${room.handMax}`, `Round ${room.round}: drawing up to ${room.handMax}`);
+    if (room.phase === 'end') return T('Раунд окончен', 'Round over');
+    if (m.status === 'aim') {
+      if (!m.active) return m.streak ? T(`Попал! Серия ×${m.streak} — выбери следующий нож`, `Hit! Streak ×${m.streak} — pick your next knife`) : T('👇 Выбери карту внизу — она превратится в нож', '👇 Pick a card below — it turns into a knife');
+      return aim.active ? T('Отпусти, чтобы бросить', 'Release to throw') : T('Зажми мышь на поле и тяни назад-вниз, чтобы прицелиться', 'Hold the mouse on the field and drag back-down to aim');
+    }
+    if (m.status === 'flying') return '';
+    if (m.status === 'done' && o && (o.status === 'aim' || o.status === 'flying')) return T(`Твой раунд окончен. ${pname(o)} ещё бросает…`, `Your round is over. ${pname(o)} is still throwing…`);
+    return '';
+  }
+
+  // ---------- Звук и утилиты ----------
+  let ac;
+  function sfx(kind) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      const P = { whoosh: ['sawtooth', 500, 120, 0.25, 0.06], thunk: ['square', 140, 60, 0.18, 0.18], clank: ['triangle', 900, 400, 0.2, 0.08], take: ['sine', 400, 900, 0.18, 0.07] }[kind];
+      o.type = P[0]; o.frequency.setValueAtTime(P[1], t); o.frequency.exponentialRampToValueAtTime(P[2], t + P[3]);
+      g.gain.setValueAtTime(P[4], t); g.gain.exponentialRampToValueAtTime(0.001, t + P[3]);
+      o.start(t); o.stop(t + P[3] + 0.02);
+    } catch (e) {}
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  let toastT;
+  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
+
+  addLangToggles();
+  applyStatic();
+  renderServers();
+  initRoom();
+  requestAnimationFrame(frame);
+})();
+
+</script>
+
+</body>
+</html>
