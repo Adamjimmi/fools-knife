@@ -4,3 +4,4 @@ www/
 out/
 *.jks
 *.keystore
+__pycache__/
