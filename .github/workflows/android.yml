@@ -63,10 +63,10 @@ jobs:
         run: |
           set +e
           cd android-app/out || exit 0
-          echo "== jarsigner =="; jarsigner -verify -verbose -certs fools-knife.aab 2>&1 | tail -25
+          echo "== jarsigner =="; jarsigner -verify fools-knife.aab 2>&1 | grep -v "signed in JarFile" | head -15
           echo "== keytool cert =="; keytool -printcert -jarfile fools-knife.aab 2>&1 | head -20
           gh release download -R google/bundletool -p 'bundletool-all-*.jar' -O bundletool.jar --clobber
-          echo "== bundletool validate =="; java -jar bundletool.jar validate --bundle=fools-knife.aab 2>&1 | tail -20
+          echo "== bundletool validate =="; java -jar bundletool.jar validate --bundle=fools-knife.aab 2>&1 | grep -v "File: root/" | head -40
           echo "== manifest =="; java -jar bundletool.jar dump manifest --bundle=fools-knife.aab 2>&1 | head -60
           echo "== files =="; unzip -l fools-knife.aab | head -40
 
