@@ -1166,9 +1166,6 @@
 
   // =================== ЗАСТАВКА ПРИ ПЕРВОМ ЗАПУСКЕ (как в трейлере) ===================
   function playSplash() {
-    let seen = false;
-    try { seen = localStorage.getItem('nd-splash') === '1'; localStorage.setItem('nd-splash', '1'); } catch (e) {}
-    if (seen) return;
     const ov = document.createElement('div'); ov.id = 'splash';
     ov.innerHTML = '<canvas></canvas><div class="sp-hint">' + T('Нажми, чтобы пропустить', 'Tap to skip') + '</div>';
     document.body.appendChild(ov);
@@ -1223,24 +1220,30 @@
         g.setLineDash([3, 9]); g.strokeStyle = 'rgba(255,230,170,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy);
         for (let q = 0; q <= e; q += 0.02) { const [px, py] = bez(q); g.lineTo(px, py); }
         g.stroke(); g.setLineDash([]);
+        for (let i = 4; i >= 1; i--) { const [px, py] = bez(Math.max(0, e - i * 0.03)); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang, w * 0.15); }
+        g.globalAlpha = 1;
         knife(kx, ky, ang, w * 0.15);
       }
       if (t >= FLY) {
         if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
         knife(hx, hy, ang, w * 0.15);
+        const fl = clamp(1 - (t - sparkT) / 260);
+        if (fl > 0) { const fg = g.createRadialGradient(hx, hy, 0, hx, hy, w * 0.45); fg.addColorStop(0, 'rgba(255,236,180,' + (0.55 * fl) + ')'); fg.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = fg; g.fillRect(-30, -30, w + 60, h + 60); }
         if (t - sparkT < 380) sparks(hx, hy, (t - sparkT) / 380);
         // название: появляется и поднимается
-        const tt = clamp((t - FLY) / 500), up = ease(clamp((t - FLY - 300) / 500));
+        const tt = clamp((t - FLY) / 450), up = ease(clamp((t - FLY - 300) / 500));
         const ty = h * (0.5 - 0.07 * up);
-        g.save(); g.globalAlpha = tt; const sc = 1.08 - 0.08 * tt; g.translate(w / 2, ty); g.scale(sc, sc);
+        const sc = 0.7 + 0.3 * tt + 0.14 * Math.sin(tt * Math.PI) * (1 - tt);
+        g.save(); g.globalAlpha = Math.min(1, tt * 1.4); g.translate(w / 2, ty); g.scale(sc, sc);
         let fs = Math.min(w * 0.15, 160);
         g.font = '900 ' + fs + 'px DejaVu Sans, Russo One, Rubik, sans-serif';
         const mw = g.measureText(title).width; if (mw > w * 0.84) { fs = fs * (w * 0.84) / mw; g.font = '900 ' + fs + 'px DejaVu Sans, Russo One, Rubik, sans-serif'; }
         g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 18; g.shadowOffsetY = 6;
+        g.shadowColor = 'rgba(255,170,60,.45)'; g.shadowBlur = 34; g.shadowOffsetY = 0;
         g.lineJoin = 'round'; g.lineWidth = fs * 0.09; g.strokeStyle = '#3a1f0a'; g.strokeText(title, 0, 0);
         const gr = g.createLinearGradient(0, -fs / 2, 0, fs / 2); gr.addColorStop(0, '#fff0b0'); gr.addColorStop(0.5, '#f4c15a'); gr.addColorStop(1, '#c98a2a');
         g.fillStyle = gr; g.fillText(title, 0, 0);
+        g.shadowColor = 'rgba(0,0,0,.7)'; g.shadowBlur = 14; g.shadowOffsetY = 8; g.fillText(title, 0, 0);
         g.restore();
         // подпись
         const sa = clamp((t - 1800) / 500);
