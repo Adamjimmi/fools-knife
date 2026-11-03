@@ -1176,7 +1176,7 @@
     const T0 = performance.now(), FLY = 1000, END = 3500;
     const title = T('НОЖ ДУРАКА', "FOOL'S KNIFE");
     const sub = T('Карточный дурак, где каждая карта — нож', 'Durak where every card is a knife');
-    let done = false, hit = false, shake = 0, raf = 0, sparkT = -1;
+    let done = false, hit = false, shake = 0, raf = 0, sparkT = -1, splashSnd = null;
     const finish = () => { if (done) return; done = true; cancelAnimationFrame(raf); ov.classList.add('out'); setTimeout(() => ov.remove(), 500); };
     ov.onclick = finish;
     const ease = (x) => 1 - Math.pow(1 - x, 3), clamp = (x) => Math.max(0, Math.min(1, x));
@@ -1227,7 +1227,7 @@
         knife(kx, ky, ang - (1 - e) * Math.PI * 3.5, KL);
       }
       if (t >= FLY) {
-        if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
+        if (!hit) { hit = true; sparkT = t; shake = 12; if (splashSnd) splashSnd('thunk'); }
         const fl = clamp(1 - (t - sparkT) / 260);
         if (fl > 0) { const fg = g.createRadialGradient(hx, hy, 0, hx, hy, w * 0.45); fg.addColorStop(0, 'rgba(255,236,180,' + (0.55 * fl) + ')'); fg.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = fg; g.fillRect(-30, -30, w + 60, h + 60); }
         if (t - sparkT < 380) sparks(hx, hy, (t - sparkT) / 380);
@@ -1263,7 +1263,10 @@
       if (t > END) return finish();
       raf = requestAnimationFrame(loop);
     };
-    try { sfx('whoosh'); } catch (er) {}
+    try { X.Audio.warm(); } catch (er) {}
+    const snd = (k) => { try { if (X.Audio.ready()) sfx(k); } catch (er) {} };
+    splashSnd = snd;
+    snd('whoosh');
     raf = requestAnimationFrame(loop);
   }
 

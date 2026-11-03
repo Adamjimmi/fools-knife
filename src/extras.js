@@ -159,6 +159,9 @@
     if (CapApp && CapApp.addListener) CapApp.addListener('appStateChange', (st2) => (st2.isActive ? resumeAudio() : pauseAudio()));
     return {
       sfx,
+      // подготовка звука и проверка, разблокирован ли он (без очереди — иначе звук придёт с задержкой)
+      warm() { const a = ctx(); if (a && a.state === 'suspended') a.resume().catch(() => {}); },
+      ready() { return !!ac && ac.state === 'running'; },
       TRACKS,
       setSound(on) { st.sound = on; save(); apply(); },
       setMusic(on) { st.music = on; save(); apply(); if (ctx()) { if (on) startMusic(); else stopMusic(); } },
