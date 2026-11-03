@@ -35,7 +35,11 @@
   const flaw = (k) => (LANG === 'en' ? EN.flaws[k] : [KG.FLAWS[k].name, KG.FLAWS[k].desc]);
   const reasonText = (r) => (!r ? '' : LANG === 'en' ? (EN.reasons[r.code] || r.reason || '') : (KG.RU_REASONS[r.code] || r.reason || ''));
   const BOT = () => T('Бот Ножовщик', 'Knife Bot');
-  const pname = (p) => (p.isBot ? BOT() : p.name);
+  const LVL_NAME = { easy: ['лёгкий', 'easy'], medium: ['средний', 'medium'], hard: ['сложный', 'hard'] };
+  const pname = (p) => (p.isBot ? BOT() + (p.lvl && LVL_NAME[p.lvl] ? ` (${T(...LVL_NAME[p.lvl])})` : '') : p.name);
+  const X = window.NDX;
+  const myLook = () => X.Profile.look();
+  const botLevel = () => { const v = ($('#bot-level') || {}).value; return ['easy', 'medium', 'hard'].includes(v) ? v : 'medium'; };
   const ERRS = { badpw: ['Неверный пароль', 'Wrong password'], full: ['Сервер заполнен', 'Server is full'], playing: ['Игра уже идёт', 'Match already in progress'] };
 
   function fmtLog(e) {
@@ -110,6 +114,10 @@
     if (sl[0]) sl[0].textContent = T('Твоя рука', 'Your hand');
     if (sl[1]) sl[1].textContent = T('Колода', 'Deck');
     setText('#rotate p', 'Поверни телефон вертикально', 'Please turn your phone upright');
+    const bl = document.querySelectorAll('#bot-level option');
+    [['Бот: лёгкий', 'Bot: easy'], ['Бот: средний', 'Bot: medium'], ['Бот: сложный', 'Bot: hard']].forEach(([r, e], i) => { if (bl[i]) bl[i].textContent = T(r, e); });
+    if (typeof renderProfileCard === 'function' && $('#profile-card')) { renderProfileCard(); paintSnd(); }
+    if ($('#profile-modal') && !$('#profile-modal').classList.contains('hidden')) renderProfileModal();
     setText('#modal h2', 'Пароль сервера', 'Server password');
     setText('#modal-input', 'Пароль', 'Password', 'placeholder');
     setText('#modal-cancel', 'Отмена', 'Cancel');
@@ -213,7 +221,7 @@
     const name = ($('#room-name').value.trim() || T(`Сервер ${nick()}`, `${nick()}'s server`)).slice(0, 32);
     logLines = [];
     const size = +$('#deck-size').value || 20;
-    eng = NDEngine.create({ id, size, name: withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
+    eng = NDEngine.create({ id, size, arena: myLook().arena, botLevel: botLevel(), name: withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
       state: hostPush,
       log: (t) => { addLog(t); if (net) net.room.emit('lg', { t }).catch(() => {}); },
       throwEv: (m) => { onThrow(m); if (net) net.room.emit('th', m).catch(() => {}); },
@@ -227,7 +235,7 @@
         if (m.sameTab) return;
         const d = m.data || {};
         if (!eng.checkPassword(String(d.pw || ''))) return nr.emit('er', { to: m.peer, code: 'badpw', msg: 'Неверный пароль', fatal: true }).catch(() => {});
-        const r = eng.addPlayer(m.peer, String(d.nick || 'Player').replace(/[<>]/g, '').slice(0, 20) || 'Player');
+        const r = eng.addPlayer(m.peer, String(d.nick || 'Player').replace(/[<>]/g, '').slice(0, 20) || 'Player', X.cleanLook(d.look));
         if (!r.ok) nr.emit('er', { to: m.peer, code: r.code, msg: r.msg, fatal: true }).catch(() => {});
         else hostPush();
       });
@@ -242,8 +250,8 @@
       nr.onPeers((ch) => { for (const p of ch.left) if (eng && eng.g.players.some(x => x.id === p.peer)) eng.removePlayer(p.peer); });
       heartbeat = setInterval(() => { if (net && eng) net.room.emit('st', eng.pub()).catch(() => {}); }, 2500);
     }
-    eng.addPlayer(myId, nick());
-    if (withBot) { eng.addBot(); eng.start(); }
+    eng.addPlayer(myId, nick(), myLook());
+    if (withBot) { eng.addBot(botLevel()); eng.start(); }
     enterRoom();
   }
 
@@ -276,7 +284,7 @@
       if (m.data.fatal) leave(true);
     });
     nr.onPeers((ch) => { if (ch.left.some(p => p.peer === hostPeer)) { toast(T('Хост закрыл сервер', 'The host closed the server')); leave(true); } });
-    const send = () => nr.emit('jn', { nick: nick(), pw }).catch((e) => {
+    const send = () => nr.emit('jn', { nick: nick(), pw, look: myLook() }).catch((e) => {
       if (e && e.code === 'not_permitted') { toast(T('Нет прав на игру: владелец страницы должен дать тебе роль «Участник» (или выше)', 'No permission to play: the page owner must give you the Contributor role (or higher)')); leave(true); }
     });
     send();
@@ -306,7 +314,7 @@
       if (k === 'take') eng.take(myId, data && data.c);
       if (k === 'throw') eng.doThrow(myId, data.a, data.p);
       if (k === 'start') eng.start();
-      if (k === 'addBot') eng.addBot();
+      if (k === 'addBot') eng.addBot(botLevel());
       if (k === 'kickBot') eng.kickBot();
     } else if (net) {
       net.room.emit('ac', Object.assign({ k }, data || {})).catch((e) => { if (e && e.code === 'not_permitted') toast(T('Нет прав на ход: нужна роль «Участник»', 'No permission to move: Contributor role required')); });
@@ -328,9 +336,36 @@
     room = s; roomAt = performance.now();
     syncFlights(s);
     if (!prev) enterRoom();
-    if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; }
+    if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; reward = null; matchStartXp = X.Profile.data.xp; }
+    if (!prev && room.state === 'playing') matchStartXp = X.Profile.data.xp;
+    if (prev && prev.state === 'playing' && room.state === 'over') onMatchOver();
+    if (prev && room.state === 'playing' && room.phase === 'draw' && prev.phase !== 'draw') for (let i = 0; i < 3; i++) setTimeout(() => sfx('deal'), i * 90);
     renderRoom();
   }
+  let reward = null;
+  const doneMatches = new Set();
+  function onMatchOver() {
+    const m = me(), o = opp();
+    if (!m || doneMatches.has(room.ep)) return;
+    doneMatches.add(room.ep);
+    const result = room.winnerId == null ? 'draw' : room.winnerId === myId ? 'win' : 'loss';
+    const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
+    const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
+    X.Profile.onMatch(result, oppKind, room.size || 20, m.score);
+    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level };
+    matchXp = 0;
+    sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
+    if (result === 'win') X.burst('confetti', 0, 0, 140);
+    renderOverlay();
+  }
+  let matchXp = 0, matchStartXp = null;
+  X.Profile.on((ev) => {
+    if (ev.type === 'level') { sfx('levelup'); toast(T(`Новый уровень: ${ev.level}!`, `Level up: ${ev.level}!`) + (ev.items.length ? T(' Открыто: ', ' Unlocked: ') + ev.items.map(itemName).join(', ') : '')); }
+    if (ev.type === 'ach') { const a = X.ACH.find(x => x[0] === ev.id); if (a) { sfx('achieve'); toast('🏅 ' + T(a[1], a[2]) + (ev.items.length ? ' · ' + ev.items.map(itemName).join(', ') : '')); } }
+    renderProfileCard();
+  });
+  function itemName(key) { const [slot, id] = key.split(':'); const it = X.ITEMS[slot].find(x => x[0] === id); return it ? T(it[2], it[3]) : id; }
+
   function addLog(t) { logLines.push(t); if (logLines.length > 40) logLines.shift(); if (room) renderLog(); }
 
   // ---------- DOM комнаты ----------
@@ -387,6 +422,8 @@
           ${a ? `<div class="${room.winnerId === a.id ? 'win' : ''}">${esc(pname(a))}<b>${+a.score || 0}</b></div>` : ''}
           ${b ? `<div class="${room.winnerId === b.id ? 'win' : ''}">${esc(pname(b))}<b>${+b.score || 0}</b></div>` : ''}
         </div>
+        ${reward ? `<div class="reward">+${reward.xp} XP · ${T('уровень', 'level')} ${reward.after}${reward.after > reward.before ? ' ⬆' : ''}
+          <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div></div>` : ''}
         <div class="btns">
           ${isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
@@ -542,7 +579,7 @@
   const release = () => {
     if (!aim.active) return;
     aim.active = false;
-    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); sfx('whoosh'); }
+    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); }
   };
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', () => { aim.active = false; });
@@ -553,6 +590,8 @@
     if (seenThrows.has(key)) return;
     seenThrows.add(key);
     if (m.o === myId) aim.active = false; else oppAim = null;
+    swingAt[m.o] = performance.now();
+    if (m.a != null) sfx('whoosh');
     const base = KG.CARD_BY_ID[m.c];
     let full = [];
     if (base && m.a != null) full = KG.simulate({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }).frames;
@@ -566,6 +605,7 @@
     else if (el / 1000 * 60 >= frames.length) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
   }
+  const swingAt = {};
   function knockAnim(id, at, res) {
     const other = anims.find(x => x.throwId === id);
     if (!other || other.cut === at || !other.full.length) return;
@@ -591,6 +631,15 @@
     const last = a.frames[a.frames.length - 1];
     const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
     const res = a.result;
+    const dir = a.owner === myId || !room || !room.players.some(p => p.id === myId) ? 1 : -1;
+    if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, dir); X.shake(res.zone === 'bull' ? 7 : 3); if (a.streak > 1) setTimeout(() => sfx('streak', a.streak), 120); }
+    else if (res.code === 'bounce_face' || res.code === 'bounce_top') X.burst('sparks', v.x, v.y, 8);
+    else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
+    if (a.owner === myId && res.code !== 'knocked') {
+      const xp = X.Profile.onThrow(res, a.streak);
+      matchXp += 0;   // опыт уже начислен, итог считается по разнице
+      if (xp > 1) floaters.push({ text: `+${xp} XP`, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(110, v.y + 30), t0: performance.now(), color: '#c9b6ff', small: true });
+    }
     let text = reasonText(res), color = '#ffffff';
     if (res.knock) {
       text = `+${+res.points || 0} ${text}`; color = '#7fd8ff';
@@ -604,8 +653,18 @@
   }
 
   // фон
+  const bgCache = {};
+  function getBg(arena) {
+    const id = ['sunset', 'night', 'winter', 'desert'].includes(arena) ? arena : 'sunset';
+    if (bgCache[id]) return bgCache[id];
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    X.drawArena(g, id, W, H, GROUND);
+    stump(g, FACE_X, id); stump(g, W - FACE_X - STUMP_W, id);
+    return (bgCache[id] = c);
+  }
   const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
-  (function drawBg() {
+  (function drawBgOld() { return;
     const g = bg.getContext('2d');
     const sky = g.createLinearGradient(0, 0, 0, GROUND);
     sky.addColorStop(0, '#f2a65a'); sky.addColorStop(0.55, '#e7c38a'); sky.addColorStop(1, '#c9b48e');
@@ -625,7 +684,7 @@
     for (let x = 0; x < W; x += 7) { g.beginPath(); g.moveTo(x, GROUND + 2); g.lineTo(x + 2, GROUND - 4 - (x * 13) % 6); g.stroke(); }
     stump(g, FACE_X); stump(g, W - FACE_X - STUMP_W);
   })();
-  function stump(g, x) {
+  function stump(g, x, arena) {
     const w = STUMP_W, top = STUMP_TOP;
     const gr = g.createLinearGradient(x, 0, x + w, 0);
     gr.addColorStop(0, '#5a3a20'); gr.addColorStop(0.5, '#7b5130'); gr.addColorStop(1, '#4a2f19');
@@ -642,11 +701,13 @@
     g.fillStyle = '#c9a272'; g.beginPath(); g.ellipse(x + w / 2, top, w / 2, 9, 0, 0, Math.PI * 2); g.fill();
     g.strokeStyle = 'rgba(110,70,35,.7)'; g.lineWidth = 1;
     for (let r = 4; r < w / 2; r += 6) { g.beginPath(); g.ellipse(x + w / 2, top, r, r * 0.26, 0, 0, Math.PI * 2); g.stroke(); }
+    if (arena === 'winter') { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x + w / 2, top - 3, w / 2 + 3, 10, 0, Math.PI, 0); g.fill(); g.fillRect(x - 3, top - 3, w + 6, 6); }
   }
 
-  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn) {
+  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn, look, swing, now) {
     const g = ctx;
-    g.save(); g.translate(x, GROUND);
+    X.drawCharacter(g, { x, ground: GROUND, facing, color, look, arm: armAngle, swing, holdCard: holding ? card : null, now });
+    g.save(); g.translate(-10000, GROUND);
     g.strokeStyle = '#2a1d13'; g.lineWidth = 7; g.lineCap = 'round';
     g.beginPath(); g.moveTo(0, -80); g.lineTo(-12 * facing, 0); g.moveTo(0, -80); g.lineTo(12 * facing, 0); g.stroke();
     g.strokeStyle = color; g.lineWidth = 16;
@@ -724,9 +785,15 @@
     ctx.restore();
   }
 
+  let lastTick = 0;
   function frame(now) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(bg, 0, 0);
+    const [sx, sy] = X.shakeOffset(now);
+    ctx.setTransform(1, 0, 0, 1, sx, sy);
+    const arena = room && room.arena ? room.arena : myLook().arena;
+    ctx.drawImage(getBg(arena), -8, -8, W + 16, H + 16);
+    X.drawWeather(ctx, arena, now, W, H, GROUND);
     if (room) {
       const m = me(), o = opp();
       for (const s of room.stuck || []) {
@@ -741,12 +808,12 @@
       const playing = room.state === 'playing';
       if (m) {
         const holding = playing && m.status === 'aim' && !!m.active;
-        drawPerson(45, PCOL(myId), pname(m), 1, aim.active ? aim.angle : null, holding, cardOf(m.active), m.status === 'aim');
+        drawPerson(45, PCOL(myId), pname(m), 1, aim.active ? aim.angle : null, holding, cardOf(m.active), m.status === 'aim', m.look || myLook(), swingAt[myId] ? (now - swingAt[myId]) / 260 : null, now);
       }
       if (o) {
         const holding = playing && o.status === 'aim' && !!o.active;
         const oa = oppAim && o.status === 'aim' && now - oppAim.at < 1500 ? oppAim.angle : null;
-        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim');
+        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim', o.look, swingAt[o.id] ? (now - swingAt[o.id]) / 260 : null, now);
         if (oa != null) {
           ctx.fillStyle = 'rgba(20,12,6,.6)'; ctx.fillRect(W - 180, 20, 160, 22);
           ctx.fillStyle = '#ff7a59'; ctx.fillRect(W - 176, 26, 152 * Math.max(0, Math.min(1, oppAim.power)), 10);
@@ -759,18 +826,17 @@
         const ci = Math.min(i, an.frames.length - 1);
         const f = an.frames[ci];
         if (f) {
-          for (let k = 1; k <= 6; k++) {
-            const pf = an.frames[Math.max(0, ci - k * 2)];
-            const pv = view(an.owner, pf.x, pf.y, 0);
-            ctx.fillStyle = `rgba(255,255,255,${0.25 - k * 0.035})`;
-            ctx.beginPath(); ctx.arc(pv.x, pv.y, 4 - k * 0.4, 0, Math.PI * 2); ctx.fill();
-          }
+          const owner = room.players.find(p => p.id === an.owner);
+          const skin = X.cleanLook(owner && owner.look).trail;
+          const pts = [];
+          for (let k = 1; k <= 7; k++) { const pf = an.frames[Math.max(0, ci - k * 2)]; pts.push(view(an.owner, pf.x, pf.y, 0)); }
+          X.drawTrail(ctx, skin, pts, now);
           const v = view(an.owner, f.x, f.y, f.r);
           if (an.card) { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore(); }
         }
         if (an.boomAt >= 0 && i >= an.boomAt) {
           const bf = an.frames[an.boomAt]; an.boomAt = -1;
-          if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clank'); }
+          if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clang'); X.burst('sparks', bv.x, bv.y, 22); X.shake(9); }
         }
         if (i >= an.frames.length) finishAnim(an);
       }
@@ -781,22 +847,27 @@
         for (let k = 0; k < 10; k++) { const an2 = k * Math.PI / 5; const r1 = 8 + t * 30, r2 = 18 + t * 55; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(an2) * r1, b.y + Math.sin(an2) * r1); ctx.lineTo(b.x + Math.cos(an2) * r2, b.y + Math.sin(an2) * r2); ctx.stroke(); }
         ctx.restore();
       }
+      X.drawParts(ctx);
       floaters = floaters.filter(fl => now - fl.t0 < 2000);
       for (const fl of floaters) {
         const t = (now - fl.t0) / 2000;
+        const pop = Math.min(1, (now - fl.t0) / 140);
         ctx.save(); ctx.globalAlpha = 1 - t * t;
-        ctx.font = '26px "Russo One", sans-serif'; ctx.textAlign = 'center';
+        ctx.translate(fl.x, fl.y - t * 50); ctx.scale(0.6 + 0.4 * pop + (1 - pop) * 0.5, 0.6 + 0.4 * pop + (1 - pop) * 0.5); ctx.translate(-fl.x, -(fl.y - t * 50));
+        ctx.font = (fl.small ? '18px' : '26px') + ' "Russo One", sans-serif'; ctx.textAlign = 'center';
         ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,5,.85)'; ctx.strokeText(fl.text, fl.x, fl.y - t * 50);
         ctx.fillStyle = fl.color; ctx.fillText(fl.text, fl.x, fl.y - t * 50);
         ctx.restore();
       }
       if (playing && m && m.status === 'aim' && m.left) {
         const left = Math.max(0, m.left - (now - roomAt));
+        if (left < 5500 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); sfx('tick'); }
         $('#hud-timer').textContent = Math.ceil(left / 1000) + ' c';
         $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
       } else $('#hud-timer').textContent = '—';
       $('#hint').textContent = hintText();
     }
+    else X.drawParts(ctx);
     requestAnimationFrame(frame);
   }
   function hintText() {
@@ -815,23 +886,99 @@
   }
 
   // ---------- Звук и утилиты ----------
-  let ac;
-  function sfx(kind) {
-    try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-      o.connect(g); g.connect(ac.destination);
-      const P = { whoosh: ['sawtooth', 500, 120, 0.25, 0.06], thunk: ['square', 140, 60, 0.18, 0.18], clank: ['triangle', 900, 400, 0.2, 0.08], take: ['sine', 400, 900, 0.18, 0.07] }[kind];
-      o.type = P[0]; o.frequency.setValueAtTime(P[1], t); o.frequency.exponentialRampToValueAtTime(P[2], t + P[3]);
-      g.gain.setValueAtTime(P[4], t); g.gain.exponentialRampToValueAtTime(0.001, t + P[3]);
-      o.start(t); o.stop(t + P[3] + 0.02);
-    } catch (e) {}
-  }
+  function sfx(kind, arg) { try { X.Audio.sfx(kind, arg); } catch (e) {} }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
+
+  // =================== ПРОФИЛЬ, ГАРДЕРОБ, ЗВУК ===================
+  function avatar(canvas, look, withBg) {
+    const g = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h);
+    const sc = h / 260;
+    if (withBg) { const b = getBg(look.arena); g.drawImage(b, 330, 232, 260, 300, 0, 0, w, h); }
+    g.setTransform(sc, 0, 0, sc, w / 2, 0);
+    X.drawCharacter(g, { x: 0, ground: 245, facing: 1, color: '#5fb8ff', look, arm: null, swing: null, holdCard: null, now: performance.now() });
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  function renderProfileCard() {
+    const el = $('#profile-card'); if (!el) return;
+    const pr = X.Profile.progress();
+    el.querySelector('.pc-lvl').textContent = T(`Уровень ${pr.L}`, `Level ${pr.L}`);
+    el.querySelector('.pc-xp').textContent = pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`;
+    el.querySelector('.xpbar i').style.width = Math.round(pr.pct * 100) + '%';
+    el.querySelector('.pc-btn').textContent = T('👤 Профиль и гардероб', '👤 Profile & wardrobe');
+    avatar(el.querySelector('canvas'), myLook(), true);
+  }
+  let pmTab = 'wardrobe', pmSlot = 'hat';
+  function openProfile() { $('#profile-modal').classList.remove('hidden'); renderProfileModal(); }
+  function renderProfileModal() {
+    const M = $('#profile-modal .pm-body'); if (!M) return;
+    const pr = X.Profile.progress(), d = X.Profile.data, look = myLook();
+    const tabs = [['wardrobe', T('Гардероб', 'Wardrobe')], ['ach', T('Достижения', 'Achievements')], ['stats', T('Статистика', 'Stats')]];
+    let body = '';
+    if (pmTab === 'wardrobe') {
+      body = `<div class="pm-slots">${X.SLOTS.map(sl => `<button class="chip-btn ${sl === pmSlot ? 'on' : ''}" data-slot="${sl}">${T(...X.SLOT_NAMES[sl])}</button>`).join('')}</div>
+        <div class="pm-items">${X.ITEMS[pmSlot].map(([id, req, ru, en]) => {
+          const ok = X.Profile.isUnlocked(pmSlot, id), on = look[pmSlot] === id;
+          const lock = typeof req === 'number' ? T(`🔒 Уровень ${req}`, `🔒 Level ${req}`) : '🏅 ' + (() => { const a = X.ACH.find(x => x[0] === req); return a ? T(a[1], a[2]) : req; })();
+          return `<button class="item ${ok ? '' : 'locked'} ${on ? 'on' : ''}" data-item="${id}" ${ok ? '' : 'disabled'}><b>${T(ru, en)}</b><small>${on ? T('✓ Надето', '✓ Equipped') : ok ? T('Надеть', 'Equip') : lock}</small></button>`;
+        }).join('')}</div>`;
+    } else if (pmTab === 'ach') {
+      body = `<div class="pm-ach">${X.ACH.map(([id, ru, en, dru, den]) => `<div class="ach ${d.ach[id] ? 'got' : ''}"><span>${d.ach[id] ? '🏅' : '🔒'}</span><div><b>${T(ru, en)}</b><small>${T(dru, den)}</small></div></div>`).join('')}</div>`;
+    } else {
+      const st = d.stats, acc = st.throws ? Math.round(st.hits / st.throws * 100) : 0;
+      const rows = [[T('Матчей', 'Matches'), st.matches], [T('Побед', 'Wins'), st.wins], [T('Поражений', 'Losses'), st.losses], [T('Ничьих', 'Draws'), st.draws],
+        [T('Бросков', 'Throws'), st.throws], [T('Точность', 'Accuracy'), acc + '%'], [T('Яблочек', 'Bullseyes'), st.bulls], [T('Сбито ножей', 'Knives knocked'), st.knocks],
+        [T('Лучшая серия', 'Best streak'), '×' + st.bestStreak], [T('Всего очков', 'Total points'), st.points]];
+      body = `<div class="pm-stats">${rows.map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join('')}</div>`;
+    }
+    M.innerHTML = `<div class="pm-head"><canvas width="200" height="230"></canvas><div class="pm-info">
+        <h2>${esc(nick())}</h2><div class="pm-lvl">${T('Уровень', 'Level')} ${pr.L}</div>
+        <div class="xpbar big"><i style="width:${Math.round(pr.pct * 100)}%"></i></div><small>${pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`} · ${T('всего', 'total')} ${d.xp} XP</small>
+        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Progress is saved in this browser.')}</p>
+      </div></div>
+      <div class="pm-tabs">${tabs.map(([id, n]) => `<button class="chip-btn ${id === pmTab ? 'on' : ''}" data-tab="${id}">${n}</button>`).join('')}</div>${body}`;
+    avatar(M.querySelector('.pm-head canvas'), look, true);
+    M.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { pmTab = b.dataset.tab; sfx('click'); renderProfileModal(); });
+    M.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { pmSlot = b.dataset.slot; sfx('click'); renderProfileModal(); });
+    M.querySelectorAll('[data-item]').forEach(b => b.onclick = () => { if (X.Profile.equip(pmSlot, b.dataset.item)) { sfx('take'); renderProfileModal(); renderProfileCard(); } });
+  }
+  function buildProfileUI() {
+    const nickIn = $('#nick');
+    const card = document.createElement('div'); card.id = 'profile-card'; card.className = 'profile-card';
+    card.innerHTML = `<canvas width="72" height="84"></canvas><div class="pc-main"><div class="pc-top"><b class="pc-lvl"></b><small class="pc-xp"></small></div><div class="xpbar"><i></i></div><button class="btn small pc-btn" type="button"></button></div>`;
+    nickIn.insertAdjacentElement('afterend', card);
+    card.querySelector('.pc-btn').onclick = () => { sfx('click'); openProfile(); };
+    card.querySelector('canvas').onclick = () => openProfile();
+    const sel = document.createElement('select'); sel.id = 'bot-level';
+    sel.innerHTML = '<option value="easy"></option><option value="medium"></option><option value="hard"></option>';
+    try { sel.value = localStorage.getItem('nd-bot') || 'medium'; } catch (e) { sel.value = 'medium'; }
+    sel.onchange = () => { try { localStorage.setItem('nd-bot', sel.value); } catch (e) {} };
+    $('#btn-bot').insertAdjacentElement('beforebegin', sel);
+    const modal = document.createElement('div'); modal.id = 'profile-modal'; modal.className = 'modal hidden';
+    modal.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
+    modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
+    modal.querySelector('.pm-close').onclick = () => modal.classList.add('hidden');
+    document.body.appendChild(modal);
+    // звук и музыка
+    const mk = (kind) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'snd-toggle ' + kind;
+      b.onclick = () => { if (kind === 'snd') X.Audio.setSound(!X.Audio.sound); else X.Audio.setMusic(!X.Audio.music); paintSnd(); }; return b; };
+    const box = document.createElement('div'); box.className = 'snd-box'; box.append(mk('snd'), mk('mus'));
+    document.querySelector('.logo').appendChild(box);
+    const box2 = box.cloneNode(false); box2.append(mk('snd'), mk('mus'));
+    const tb = document.querySelector('.topbar'); tb.insertBefore(box2, tb.querySelector('.hud'));
+    paintSnd(); renderProfileCard();
+    setInterval(() => { if (!$('#profile-modal').classList.contains('hidden')) { const c = $('#profile-modal .pm-head canvas'); if (c) avatar(c, myLook(), true); } }, 60);
+  }
+  function paintSnd() {
+    document.querySelectorAll('.snd-toggle.snd').forEach(b => { b.textContent = X.Audio.sound ? '🔊' : '🔇'; b.title = T('Звуки', 'Sound'); b.classList.toggle('off', !X.Audio.sound); });
+    document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
+  }
+
   if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.documentElement.classList.add('touch');
+  buildProfileUI();
   addLangToggles();
   applyStatic();
   renderServers();

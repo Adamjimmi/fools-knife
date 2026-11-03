@@ -60,3 +60,52 @@ select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px
 #rotate p { font-family: 'Russo One', sans-serif; font-size: 20px; color: var(--gold); margin: 0; }
 @keyframes rot { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
 @media (orientation: landscape) and (max-height: 540px) { html.touch #rotate { display: flex; } html.touch body { overflow: hidden; } }
+
+/* ---------- профиль, гардероб, звук ---------- */
+.profile-card { display: flex; gap: 12px; align-items: center; background: #1a120b; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 2px 0 8px; }
+.profile-card canvas { width: 72px; height: 84px; border-radius: 9px; cursor: pointer; flex: none; border: 1px solid var(--line); }
+.profile-card .pc-main { flex: 1; min-width: 0; }
+.profile-card .pc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.profile-card .pc-lvl { color: var(--gold2); font-family: 'Russo One', sans-serif; font-weight: 400; }
+.profile-card .pc-xp { color: var(--muted); font-size: 12px; }
+.profile-card .pc-btn { width: 100%; margin-top: 6px; }
+.xpbar { height: 8px; background: #2a1d13; border-radius: 6px; overflow: hidden; margin-top: 4px; border: 1px solid rgba(90,64,38,.7); }
+.xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #8b6cff, #c9b6ff); border-radius: 6px; transition: width .4s; }
+.xpbar.big { height: 12px; }
+#bot-level { margin-bottom: 6px; }
+.reward { margin: 2px 0 8px; color: #d9ccff; font-family: 'Russo One', sans-serif; min-width: 240px; }
+.reward .xpbar { margin-top: 6px; }
+.snd-box { display: inline-flex; gap: 4px; }
+.logo .snd-box { position: absolute; top: 18px; left: 20px; }
+.snd-toggle { background: #1a120b; border: 1px solid var(--line); border-radius: 18px; width: 38px; height: 30px; cursor: pointer; font-size: 15px; line-height: 1; }
+.snd-toggle.off { opacity: .4; filter: grayscale(1); }
+.modal .panel.pm { width: min(760px, 94vw); max-height: 92vh; overflow-y: auto; position: relative; }
+.pm-close { position: absolute; top: 10px; right: 12px; background: none; border: 0; color: var(--muted); font-size: 20px; cursor: pointer; }
+.pm-head { display: flex; gap: 18px; align-items: center; margin-bottom: 12px; }
+.pm-head canvas { width: 160px; height: 184px; border-radius: 12px; border: 1px solid var(--line); flex: none; }
+.pm-info { flex: 1; min-width: 0; }
+.pm-info h2 { margin: 0 0 2px !important; }
+.pm-lvl { font-family: 'Russo One', sans-serif; color: var(--gold2); font-size: 22px; }
+.pm-info small { color: var(--muted); }
+.pm-note { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 8px 0 0; }
+.pm-tabs, .pm-slots { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+.chip-btn { background: #1a120b; border: 1px solid var(--line); color: var(--text); border-radius: 18px; padding: 6px 12px; cursor: pointer; font: 500 13.5px Rubik, sans-serif; }
+.chip-btn.on { background: var(--gold); color: #3a2208; border-color: #a77421; }
+.pm-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.item { text-align: left; background: linear-gradient(180deg, var(--wood2), var(--wood)); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; cursor: pointer; color: var(--text); }
+.item b { display: block; font: 500 14px Rubik, sans-serif; }
+.item small { color: var(--muted); font-size: 12px; }
+.item.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.item.on small { color: var(--gold2); }
+.item.locked { opacity: .55; cursor: not-allowed; }
+.pm-ach { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.ach { display: flex; gap: 10px; align-items: center; background: #1a120b; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; opacity: .55; }
+.ach.got { opacity: 1; border-color: #a77421; }
+.ach span { font-size: 22px; }
+.ach b { display: block; font: 500 14px Rubik, sans-serif; }
+.ach small { color: var(--muted); font-size: 12px; }
+.pm-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.pm-stats div { background: #1a120b; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.pm-stats small { display: block; color: var(--muted); font-size: 12px; }
+.pm-stats b { font-family: 'Russo One', sans-serif; font-weight: 400; font-size: 22px; color: var(--gold2); }
+@media (max-width: 760px) { .logo .snd-box { top: 10px; left: 10px; } .pm-head canvas { width: 110px; height: 126px; } .pm-head { gap: 10px; } }

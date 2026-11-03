@@ -265,6 +265,55 @@ select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px
 @keyframes rot { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
 @media (orientation: landscape) and (max-height: 540px) { html.touch #rotate { display: flex; } html.touch body { overflow: hidden; } }
 
+/* ---------- профиль, гардероб, звук ---------- */
+.profile-card { display: flex; gap: 12px; align-items: center; background: #1a120b; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 2px 0 8px; }
+.profile-card canvas { width: 72px; height: 84px; border-radius: 9px; cursor: pointer; flex: none; border: 1px solid var(--line); }
+.profile-card .pc-main { flex: 1; min-width: 0; }
+.profile-card .pc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.profile-card .pc-lvl { color: var(--gold2); font-family: 'Russo One', sans-serif; font-weight: 400; }
+.profile-card .pc-xp { color: var(--muted); font-size: 12px; }
+.profile-card .pc-btn { width: 100%; margin-top: 6px; }
+.xpbar { height: 8px; background: #2a1d13; border-radius: 6px; overflow: hidden; margin-top: 4px; border: 1px solid rgba(90,64,38,.7); }
+.xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #8b6cff, #c9b6ff); border-radius: 6px; transition: width .4s; }
+.xpbar.big { height: 12px; }
+#bot-level { margin-bottom: 6px; }
+.reward { margin: 2px 0 8px; color: #d9ccff; font-family: 'Russo One', sans-serif; min-width: 240px; }
+.reward .xpbar { margin-top: 6px; }
+.snd-box { display: inline-flex; gap: 4px; }
+.logo .snd-box { position: absolute; top: 18px; left: 20px; }
+.snd-toggle { background: #1a120b; border: 1px solid var(--line); border-radius: 18px; width: 38px; height: 30px; cursor: pointer; font-size: 15px; line-height: 1; }
+.snd-toggle.off { opacity: .4; filter: grayscale(1); }
+.modal .panel.pm { width: min(760px, 94vw); max-height: 92vh; overflow-y: auto; position: relative; }
+.pm-close { position: absolute; top: 10px; right: 12px; background: none; border: 0; color: var(--muted); font-size: 20px; cursor: pointer; }
+.pm-head { display: flex; gap: 18px; align-items: center; margin-bottom: 12px; }
+.pm-head canvas { width: 160px; height: 184px; border-radius: 12px; border: 1px solid var(--line); flex: none; }
+.pm-info { flex: 1; min-width: 0; }
+.pm-info h2 { margin: 0 0 2px !important; }
+.pm-lvl { font-family: 'Russo One', sans-serif; color: var(--gold2); font-size: 22px; }
+.pm-info small { color: var(--muted); }
+.pm-note { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 8px 0 0; }
+.pm-tabs, .pm-slots { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+.chip-btn { background: #1a120b; border: 1px solid var(--line); color: var(--text); border-radius: 18px; padding: 6px 12px; cursor: pointer; font: 500 13.5px Rubik, sans-serif; }
+.chip-btn.on { background: var(--gold); color: #3a2208; border-color: #a77421; }
+.pm-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.item { text-align: left; background: linear-gradient(180deg, var(--wood2), var(--wood)); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; cursor: pointer; color: var(--text); }
+.item b { display: block; font: 500 14px Rubik, sans-serif; }
+.item small { color: var(--muted); font-size: 12px; }
+.item.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.item.on small { color: var(--gold2); }
+.item.locked { opacity: .55; cursor: not-allowed; }
+.pm-ach { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.ach { display: flex; gap: 10px; align-items: center; background: #1a120b; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; opacity: .55; }
+.ach.got { opacity: 1; border-color: #a77421; }
+.ach span { font-size: 22px; }
+.ach b { display: block; font: 500 14px Rubik, sans-serif; }
+.ach small { color: var(--muted); font-size: 12px; }
+.pm-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.pm-stats div { background: #1a120b; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.pm-stats small { display: block; color: var(--muted); font-size: 12px; }
+.pm-stats b { font-family: 'Russo One', sans-serif; font-weight: 400; font-size: 22px; color: var(--gold2); }
+@media (max-width: 760px) { .logo .snd-box { top: 10px; left: 10px; } .pm-head canvas { width: 110px; height: 126px; } .pm-head { gap: 10px; } }
+
 </style>
 </head>
 <body>
@@ -863,7 +912,7 @@ window.NDEngine = (() => {
     const size = G.DECK_SIZES.includes(+opts.size) ? +opts.size : 20;
     const g = {
       id: opts.id, name: opts.name, password: opts.password || '', hostId: opts.hostId,
-      size, handMax: G.HAND_SIZE[size],
+      size, handMax: G.HAND_SIZE[size], arena: opts.arena || 'sunset', botLevel: ['easy', 'medium', 'hard'].includes(opts.botLevel) ? opts.botLevel : 'medium',
       players: [], state: 'lobby', phase: 'idle', deck: [], trumpSuit: null, trumpCard: null,
       round: 0, wind: 0, stuck: [], flights: [], timers: [], token: 0, winnerId: null, endReason: '', throwSeq: 0,
     };
@@ -877,11 +926,11 @@ window.NDEngine = (() => {
       const now = Date.now();
       return {
         id: g.id, name: g.name, hostId: g.hostId, state: g.state, phase: g.phase, round: g.round,
-        size: g.size, handMax: g.handMax,
+        size: g.size, handMax: g.handMax, arena: g.arena,
         trumpSuit: g.trumpSuit, trumpCard: g.trumpCard ? g.trumpCard.id : null, deckCount: g.deck.length,
         wind: g.wind, winnerId: g.winnerId, endReason: g.endReason, locked: !!g.password,
         players: g.players.map(p => ({
-          id: p.id, name: p.name, isBot: p.isBot, score: p.score, hits: p.hits,
+          id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
           status: p.status, streak: p.streak, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
@@ -895,21 +944,27 @@ window.NDEngine = (() => {
     function summary() {
       return { id: g.id, name: g.name, players: g.players.length, state: g.state, round: g.round, locked: !!g.password, hasBot: g.players.some(p => p.isBot), size: g.size };
     }
-    const newPlayer = (id, name, isBot) => ({ id, name, isBot: !!isBot, score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0, turnNo: 0 });
+    const newPlayer = (id, name, isBot, look, lvl) => ({ id, name, isBot: !!isBot, look: look || null, lvl: lvl || null, score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0, turnNo: 0 });
     const reset = (p) => Object.assign(p, { score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0 });
 
-    function addPlayer(id, name) {
+    function addPlayer(id, name, look) {
       if (P(id)) return { ok: true };
       if (g.players.length >= 2) return { ok: false, code: 'full', msg: 'Сервер заполнен' };
       if (g.state === 'playing') return { ok: false, code: 'playing', msg: 'Игра уже идёт' };
-      g.players.push(newPlayer(id, name, false));
+      g.players.push(newPlayer(id, name, false, look));
       log({ k: 'join', n: name });
       push();
       return { ok: true };
     }
-    function addBot() {
+    const BOT_LOOK = {
+      easy:   { hat: 'cap', shirt: 'basic', face: 'none', back: 'none', trail: 'plain' },
+      medium: { hat: 'bandana', shirt: 'leather', face: 'mustache', back: 'none', trail: 'plain' },
+      hard:   { hat: 'viking', shirt: 'armor', face: 'beard', back: 'cape', trail: 'fire' },
+    };
+    function addBot(level) {
       if (g.players.length >= 2 || g.state === 'playing') return;
-      g.players.push(newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true));
+      const lvl = ['easy', 'medium', 'hard'].includes(level) ? level : g.botLevel;
+      g.players.push(newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true, BOT_LOOK[lvl], lvl));
       log({ k: 'bot' }); push();
     }
     function kickBot() { if (g.state === 'playing') return; g.players = g.players.filter(p => !p.isBot); push(); }
@@ -1085,14 +1140,22 @@ window.NDEngine = (() => {
 
     // ---------- Бот ----------
     const TIER_RANK = { ace: 3, good: 2, bad: 1 };
+    // параметры сложности: ошибка угла (°), ошибка силы, шанс целиться в яблочко, шанс взять лучший нож, задержка
+    const DIFF = {
+      easy:   { angErr: 8.5, powErr: 0.075, bull: 0.1,  best: 0.2,  think: 1.8 },
+      medium: { angErr: 3.8, powErr: 0.035, bull: 0.4,  best: 0.6,  think: 1.3 },
+      hard:   { angErr: 1.1, powErr: 0.01,  bull: 0.8,  best: 1,    think: 1.0 },
+    };
     function botAim(bot, turnNo) {
       const mine = () => g.state === 'playing' && bot.status === 'aim' && bot.turnNo === turnNo;
-      later(900 + Math.random() * 900, () => {
+      const D = DIFF[bot.lvl] || DIFF.medium;
+      later((900 + Math.random() * 900) * D.think, () => {
         if (!mine()) return;
-        // бот берёт лучший нож (козырь важнее)
-        const pick = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)))[0];
+        // лучший нож (козырь важнее) — с вероятностью по сложности, иначе случайный
+        const sorted = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)));
+        const pick = Math.random() < D.best ? sorted[0] : sorted[Math.floor(Math.random() * sorted.length)];
         take(bot.id, pick.id);
-        later(1100 + Math.random() * 900, () => {
+        later((1100 + Math.random() * 900) * D.think, () => {
           if (!mine() || !bot.active) return;
           const st = G.knifeStats(bot.active, g.trumpSuit);
           const hits = [];
@@ -1103,9 +1166,9 @@ window.NDEngine = (() => {
           let a = -35, pw = 0.8;
           if (hits.length) {
             const best = hits.filter(h => h.w >= 1.5);
-            const pool = best.length && Math.random() < 0.6 ? best : hits;
+            const pool = best.length && Math.random() < D.bull ? best : hits;
             const h = pool[Math.floor(Math.random() * pool.length)];
-            a = h.a + G.gauss(Math.random) * 1.3; pw = h.pw + G.gauss(Math.random) * 0.012;
+            a = h.a + G.gauss(Math.random) * D.angErr; pw = h.pw + G.gauss(Math.random) * D.powErr;
           }
           out.aim({ o: bot.id, a: a * Math.PI / 180, p: pw });
           later(500, () => { if (mine()) doThrow(bot.id, a * Math.PI / 180, pw); });
@@ -1118,6 +1181,385 @@ window.NDEngine = (() => {
     return { g, pub, summary, addPlayer, addBot, kickBot, removePlayer, start, take, doThrow, destroy, checkPassword: (pw) => !g.password || g.password === pw };
   }
   return { create };
+})();
+
+</script>
+<script>
+// «Нож дурака»: звук и музыка, профиль игрока (опыт, уровни, достижения, гардероб),
+// персонажи в одежде, арены, частицы и следы ножей.
+(() => {
+  'use strict';
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+
+  // =====================================================================
+  // ЗВУК И МУЗЫКА (Web Audio, всё синтезируется на лету)
+  // =====================================================================
+  const Audio = (() => {
+    let ac = null, master, sfxBus, musBus, noiseBuf, musicTimer = null, nextNote = 0, step = 0;
+    const st = { sound: LS.get('nd-sound', true), music: LS.get('nd-music', true) };
+    function ctx() {
+      if (ac) return ac;
+      try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
+      sfxBus = ac.createGain(); sfxBus.gain.value = st.sound ? 1 : 0; sfxBus.connect(master);
+      musBus = ac.createGain(); musBus.gain.value = st.music ? 0.32 : 0; musBus.connect(master);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      return ac;
+    }
+    function unlock() { const a = ctx(); if (a && a.state === 'suspended') a.resume(); if (st.music) startMusic(); }
+    ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
+
+    function noise(t, dur, type, f0, f1, gain, bus, q = 1) {
+      const s = ac.createBufferSource(); s.buffer = noiseBuf;
+      const f = ac.createBiquadFilter(); f.type = type; f.Q.value = q;
+      f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+      const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.02, dur / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(f); f.connect(g); g.connect(bus || sfxBus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+    }
+    function tone(t, dur, type, f0, f1, gain, bus, attack = 0.005) {
+      const o = ac.createOscillator(); o.type = type;
+      o.frequency.setValueAtTime(f0, t); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(bus || sfxBus); o.start(t); o.stop(t + dur + 0.05);
+    }
+    const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12);
+    function sfx(kind, arg) {
+      const a = ctx(); if (!a || !st.sound) return;
+      const t = a.currentTime + 0.005;
+      switch (kind) {
+        case 'whoosh': noise(t, 0.32, 'bandpass', 400, 2600, 0.5, null, 2.5); noise(t + 0.05, 0.25, 'highpass', 2000, 5000, 0.12); break;
+        case 'thunk': tone(t, 0.16, 'sine', 170, 55, 0.9); noise(t, 0.07, 'lowpass', 2600, 400, 0.7); tone(t, 0.09, 'triangle', 420, 260, 0.18); break;
+        case 'clank': [1180, 1730, 2610, 3320].forEach((f, i) => tone(t, 0.35 - i * 0.05, 'sine', f, f * 0.98, 0.16 / (i + 1))); noise(t, 0.05, 'highpass', 3000, 6000, 0.25); break;
+        case 'clang': [880, 1397, 2093, 2794, 4186].forEach((f, i) => tone(t, 1.1 - i * 0.12, 'sine', f, f * 0.995, 0.22 / (i + 1))); noise(t, 0.08, 'highpass', 2500, 7000, 0.4); break;
+        case 'dirt': noise(t, 0.12, 'lowpass', 900, 200, 0.5); break;
+        case 'take': noise(t, 0.06, 'highpass', 2500, 6000, 0.3); tone(t + 0.02, 0.12, 'sine', 600, 1200, 0.12); break;
+        case 'deal': noise(t, 0.04, 'bandpass', 3000, 2000, 0.25, null, 4); break;
+        case 'click': tone(t, 0.05, 'square', 900, 700, 0.05); break;
+        case 'tick': tone(t, 0.04, 'square', 1500, 1500, 0.06); break;
+        case 'streak': { const n = Math.min(6, arg || 2); for (let i = 0; i < n; i++) tone(t + i * 0.07, 0.22, 'triangle', NOTE(72 + [0, 4, 7, 12, 16, 19][i]), 0, 0.15); break; }
+        case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.5, 'triangle', NOTE(n), 0, 0.16)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.2, 'sawtooth', NOTE(n), 0, 0.05, null, 0.05)); break;
+        case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.45, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.15)); break;
+        case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.35, 'sine', NOTE(n), 0, 0.14)); noise(t, 0.6, 'highpass', 6000, 9000, 0.05); break;
+        case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.5, 'triangle', NOTE(n), 0, 0.14)); break;
+      }
+    }
+    // Фоновая музыка: таверна в ля миноре, 104 удара в минуту
+    const BPM = 104, S16 = 60 / BPM / 4;
+    const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];       // Am F C G
+    const BASS = [45, 41, 36, 43];
+    const MEL = [76, -1, 74, 72, 69, -1, 72, -1, 74, -1, 76, 79, 76, -1, 74, -1,
+                 72, -1, 69, 72, 74, -1, 72, -1, 69, -1, 67, -1, 69, -1, -1, -1];
+    function schedule() {
+      while (nextNote < ac.currentTime + 0.15) {
+        const s = step % 64, bar = Math.floor(s / 16) % 4, b16 = s % 16, t = nextNote;
+        if (b16 % 4 === 0) tone(t, 0.22, 'sine', 120, 45, 0.55, musBus);                     // бочка
+        if (b16 === 4 || b16 === 12) noise(t, 0.14, 'bandpass', 1800, 1200, 0.28, musBus, 0.8);  // хлопок
+        if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, musBus);            // хэт
+        if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(BASS[bar]), 0, 0.32, musBus);
+        if (b16 === 0 || b16 === 8) CHORDS[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, musBus, 0.04));
+        const m = MEL[(step % 32)];
+        if (m > 0 && Math.floor(step / 32) % 2 === 1) tone(t, S16 * 1.8, 'triangle', NOTE(m), 0, 0.09, musBus);
+        nextNote += S16; step++;
+      }
+    }
+    function startMusic() { const a = ctx(); if (!a || musicTimer) return; nextNote = a.currentTime + 0.1; musicTimer = setInterval(schedule, 40); }
+    function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; }
+    function setSound(on) { st.sound = on; LS.set('nd-sound', on); if (ctx()) sfxBus.gain.value = on ? 1 : 0; }
+    function setMusic(on) { st.music = on; LS.set('nd-music', on); if (ctx()) { musBus.gain.value = on ? 0.32 : 0; if (on) startMusic(); else stopMusic(); } }
+    return { sfx, setSound, setMusic, get sound() { return st.sound; }, get music() { return st.music; } };
+  })();
+
+  // =====================================================================
+  // ГАРДЕРОБ, ДОСТИЖЕНИЯ, ПРОФИЛЬ
+  // =====================================================================
+  // unlock: число — уровень; строка — id достижения
+  const ITEMS = {
+    hat: [
+      ['none', 1, 'Без шапки', 'No hat'], ['cap', 2, 'Кепка', 'Cap'], ['bandana', 4, 'Бандана', 'Bandana'],
+      ['cowboy', 6, 'Ковбойская шляпа', 'Cowboy hat'], ['ushanka', 9, 'Ушанка', 'Ushanka'], ['viking', 12, 'Шлем викинга', 'Viking helmet'],
+      ['tophat', 18, 'Цилиндр', 'Top hat'], ['crown', 'streak5', 'Корона', 'Crown'],
+    ],
+    shirt: [
+      ['basic', 1, 'Футболка', 'T-shirt'], ['stripes', 3, 'Тельняшка', 'Sailor stripes'], ['leather', 7, 'Кожаная куртка', 'Leather jacket'],
+      ['kimono', 10, 'Кимоно', 'Kimono'], ['camo', 'beat_hard', 'Камуфляж', 'Camo'], ['armor', 25, 'Золотой доспех', 'Golden armor'],
+    ],
+    face: [
+      ['none', 1, 'Ничего', 'Nothing'], ['mustache', 5, 'Усы', 'Mustache'], ['eyepatch', 8, 'Повязка пирата', 'Eyepatch'],
+      ['shades', 11, 'Тёмные очки', 'Shades'], ['beard', 14, 'Борода', 'Beard'], ['ninja', 'knock5', 'Маска ниндзя', 'Ninja mask'],
+    ],
+    back: [['none', 1, 'Ничего', 'Nothing'], ['scarf', 15, 'Шарф', 'Scarf'], ['cape', 20, 'Плащ', 'Cape']],
+    trail: [
+      ['plain', 1, 'Обычный след', 'Plain trail'], ['fire', 13, 'Огненный след', 'Fire trail'], ['sparks', 16, 'Искры', 'Sparks'],
+      ['rainbow', 22, 'Радуга', 'Rainbow'], ['gold', 'win10', 'Золотой след', 'Gold trail'],
+    ],
+    arena: [['sunset', 1, 'Закат', 'Sunset'], ['night', 6, 'Ночь', 'Night'], ['winter', 9, 'Зима', 'Winter'], ['desert', 17, 'Пустыня', 'Desert']],
+  };
+  const SLOTS = ['hat', 'shirt', 'face', 'back', 'trail', 'arena'];
+  const SLOT_NAMES = { hat: ['Шапки', 'Hats'], shirt: ['Одежда', 'Outfits'], face: ['Лицо', 'Face'], back: ['Спина', 'Back'], trail: ['След ножа', 'Knife trail'], arena: ['Арена', 'Arena'] };
+  const DEFAULT_LOOK = { hat: 'none', shirt: 'basic', face: 'none', back: 'none', trail: 'plain', arena: 'sunset' };
+  const ACH = [
+    ['first_hit', 'Первая кровь', 'First blood', 'Попади в пень', 'Hit the stump'],
+    ['bull10', 'Снайпер', 'Sniper', '10 раз попади в яблочко', 'Hit 10 bullseyes'],
+    ['streak3', 'Серийный метатель', 'Combo thrower', 'Сделай серию ×3', 'Get a ×3 streak'],
+    ['streak5', 'Король серий', 'Streak king', 'Сделай серию ×5 → корона', 'Get a ×5 streak → crown'],
+    ['knock1', 'Перехватчик', 'Interceptor', 'Сбей нож в воздухе', 'Knock a knife out of the air'],
+    ['knock5', 'Ниндзя', 'Ninja', 'Сбей 5 ножей → маска ниндзя', 'Knock down 5 knives → ninja mask'],
+    ['win1', 'Не дурак', 'Not a fool', 'Выиграй первый матч', 'Win your first match'],
+    ['win10', 'Ветеран', 'Veteran', 'Выиграй 10 матчей → золотой след', 'Win 10 matches → gold trail'],
+    ['beat_hard', 'Сильнее машины', 'Beat the machine', 'Победи сложного бота → камуфляж', 'Beat the hard bot → camo'],
+    ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
+    ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
+  ];
+  const MAX_LEVEL = 30;
+  const xpFor = (L) => Math.round(60 * Math.pow(Math.max(0, L - 1), 1.6));   // всего опыта для уровня L
+  const levelOf = (xp) => { let L = 1; while (L < MAX_LEVEL && xp >= xpFor(L + 1)) L++; return L; };
+  const valid = (slot, id) => ITEMS[slot].some(x => x[0] === id);
+  function cleanLook(l) { const o = {}; for (const s of SLOTS) o[s] = l && valid(s, l[s]) ? l[s] : DEFAULT_LOOK[s]; return o; }
+
+  const Profile = (() => {
+    const blank = () => ({ xp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
+    let p = Object.assign(blank(), LS.get('nd-profile', {}));
+    p.stats = Object.assign(blank().stats, p.stats || {}); p.look = cleanLook(p.look); p.ach = p.ach || {};
+    const listeners = [];
+    const save = () => LS.set('nd-profile', p);
+    const emit = (ev) => listeners.forEach(f => f(ev));
+    const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
+    function unlockedSet() { const s = new Set(); for (const sl of SLOTS) for (const it of ITEMS[sl]) if (isUnlocked(sl, it[0])) s.add(sl + ':' + it[0]); return s; }
+    function addXp(n) {
+      if (n <= 0) return;
+      const before = levelOf(p.xp), had = unlockedSet();
+      p.xp += Math.round(n); const after = levelOf(p.xp);
+      save();
+      if (after > before) emit({ type: 'level', level: after, items: [...unlockedSet()].filter(x => !had.has(x)) });
+    }
+    function achieve(id) {
+      if (p.ach[id]) return;
+      const had = unlockedSet();
+      p.ach[id] = Date.now(); save();
+      emit({ type: 'ach', id, items: [...unlockedSet()].filter(x => !had.has(x)) });
+    }
+    function onThrow(res, streak) {
+      const s = p.stats;
+      if (!res || res.code === 'timeout') return 0;
+      s.throws++;
+      let xp = 1;
+      if (res.hit) { s.hits++; xp += 5; achieve('first_hit'); if (res.zone === 'bull') { s.bulls++; xp += 5; if (s.bulls >= 10) achieve('bull10'); } }
+      if (res.knock) { s.knocks++; xp += 15; achieve('knock1'); if (s.knocks >= 5) achieve('knock5'); }
+      if ((res.hit || res.knock) && streak > 1) { xp += 5 * (streak - 1); if (streak >= 3) achieve('streak3'); if (streak >= 5) achieve('streak5'); }
+      if (streak > s.bestStreak) s.bestStreak = streak;
+      s.points += res.points || 0;
+      save(); addXp(xp);
+      return xp;
+    }
+    // result: 'win' | 'loss' | 'draw'; opp: 'easy'|'medium'|'hard'|'human'
+    function onMatch(result, opp, size, myScore) {
+      const s = p.stats; s.matches++;
+      if (result === 'win') s.wins++; else if (result === 'loss') s.losses++; else s.draws++;
+      const mult = { easy: 0.6, medium: 1, hard: 1.5, human: 1.5 }[opp] || 1;
+      const base = result === 'win' ? 80 : result === 'draw' ? 50 : 30;
+      const xp = Math.round(base * mult * (size / 20));
+      if (result === 'win') { achieve('win1'); if (s.wins >= 10) achieve('win10'); if (opp === 'hard') achieve('beat_hard'); if (opp === 'human') achieve('online_win'); }
+      if (size === 50) achieve('full50');
+      save(); addXp(xp);
+      return xp;
+    }
+    function equip(slot, id) { if (!isUnlocked(slot, id)) return false; p.look[slot] = id; save(); emit({ type: 'look' }); return true; }
+    return {
+      get data() { return p; }, get level() { return levelOf(p.xp); },
+      progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
+      look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, on: (f) => listeners.push(f),
+    };
+  })();
+
+  // =====================================================================
+  // ПЕРСОНАЖ
+  // =====================================================================
+  // opts: { x, facing, color, look, arm (угол прицела|null), swing (0..1, бросок), holdCard, now }
+  function drawCharacter(g, o) {
+    const L = cleanLook(o.look), f = o.facing, now = o.now || 0;
+    const bob = Math.sin(now / 420 + (f > 0 ? 0 : 2)) * 1.5;
+    g.save(); g.translate(o.x, o.ground);
+    // плащ / шарф — позади тела
+    if (L.back === 'cape') {
+      const wave = Math.sin(now / 300) * 6;
+      g.fillStyle = '#8f1d24'; g.beginPath(); g.moveTo(-6 * f, -148 + bob); g.quadraticCurveTo(-30 * f + wave * f * -1, -100, -26 * f - wave * f, -40); g.lineTo(-4 * f, -60); g.closePath(); g.fill();
+      g.fillStyle = '#b8323b'; g.beginPath(); g.moveTo(-4 * f, -148 + bob); g.quadraticCurveTo(-20 * f, -110, -18 * f - wave * f, -50); g.lineTo(-2 * f, -70); g.closePath(); g.fill();
+    }
+    // ноги
+    g.strokeStyle = '#2a1d13'; g.lineWidth = 7; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(0, -80); g.lineTo(-12 * f, 0); g.moveTo(0, -80); g.lineTo(12 * f, 0); g.stroke();
+    g.fillStyle = '#1a120b'; g.fillRect(-12 * f - 6, -4, 12, 5); g.fillRect(12 * f - 6, -4, 12, 5);
+    // тело
+    g.save(); g.translate(0, bob);
+    const bx = -9, bw = 18, by = -152, bh = 72;
+    const body = new Path2D(); body.roundRect ? body.roundRect(bx, by, bw, bh, 7) : body.rect(bx, by, bw, bh);
+    switch (L.shirt) {
+      case 'stripes': g.fillStyle = '#f2f2f2'; g.fill(body); g.save(); g.clip(body); g.fillStyle = '#1d3d8f'; for (let y = by + 4; y < by + bh; y += 10) g.fillRect(bx, y, bw, 4); g.restore(); break;
+      case 'leather': g.fillStyle = '#3b2416'; g.fill(body); g.strokeStyle = '#7a4d2e'; g.lineWidth = 2; g.beginPath(); g.moveTo(-5, by + 2); g.lineTo(0, by + 18); g.lineTo(5, by + 2); g.stroke(); g.fillStyle = '#c9a26a'; g.fillRect(-1, by + 24, 2, 40); break;
+      case 'kimono': g.fillStyle = '#f4efe6'; g.fill(body); g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, by + 2); g.lineTo(4 * f, by + 30); g.stroke(); g.fillStyle = '#1a1a1a'; g.fillRect(bx, by + 38, bw, 8); break;
+      case 'camo': g.fillStyle = '#5d6b3c'; g.fill(body); g.save(); g.clip(body); [['#3d4a28', -4, by + 10, 7], ['#8a8f5a', 4, by + 28, 6], ['#2f3a1f', -2, by + 50, 8], ['#7d6a45', 5, by + 60, 5]].forEach(([c, x, y, r]) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, r, r * 0.7, 0.5, 0, 7); g.fill(); }); g.restore(); break;
+      case 'armor': { const gr = g.createLinearGradient(bx, 0, bx + bw, 0); gr.addColorStop(0, '#a87a1e'); gr.addColorStop(0.5, '#ffe08a'); gr.addColorStop(1, '#8a6214'); g.fillStyle = gr; g.fill(body); g.fillStyle = '#d9a93a'; g.beginPath(); g.ellipse(0, by + 4, 16, 7, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(90,60,10,.6)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(bx, by + 36); g.lineTo(bx + bw, by + 36); g.stroke(); break; }
+      default: g.fillStyle = o.color; g.fill(body);
+    }
+    // шарф
+    if (L.back === 'scarf') {
+      const wave = Math.sin(now / 250) * 5;
+      g.fillStyle = '#c8302a'; g.fillRect(-10, by - 2, 20, 8);
+      g.beginPath(); g.moveTo(-6 * f, by + 2); g.quadraticCurveTo(-22 * f, by + 6 + wave, -34 * f, by + wave); g.lineTo(-32 * f, by + 9 + wave); g.quadraticCurveTo(-20 * f, by + 14, -6 * f, by + 8); g.fill();
+    }
+    // голова
+    const hy = -170;
+    g.fillStyle = '#f0c9a0'; g.beginPath(); g.arc(0, hy, 15, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2a1d13'; g.beginPath(); g.arc(6 * f, hy - 3, 1.8, 0, 7); g.fill();          // глаз
+    // лицо
+    switch (L.face) {
+      case 'mustache': g.fillStyle = '#3b2416'; g.beginPath(); g.ellipse(7 * f, hy + 6, 6, 2.6, 0, 0, 7); g.fill(); break;
+      case 'eyepatch': g.strokeStyle = '#111'; g.lineWidth = 2; g.beginPath(); g.moveTo(-14 * f, hy - 9); g.lineTo(14 * f, hy - 1); g.stroke(); g.fillStyle = '#111'; g.beginPath(); g.ellipse(6 * f, hy - 3, 4.5, 4, 0, 0, 7); g.fill(); break;
+      case 'shades': g.fillStyle = '#111'; g.fillRect(f > 0 ? 1 : -13, hy - 6, 12, 6); g.fillRect(-15 * f - (f > 0 ? 0 : 0), hy - 5, 2, 2); break;
+      case 'beard': g.fillStyle = '#5a3a20'; g.beginPath(); g.moveTo(-8 * f, hy + 2); g.quadraticCurveTo(2 * f, hy + 22, 13 * f, hy + 4); g.lineTo(13 * f, hy + 2); g.closePath(); g.fill(); break;
+      case 'ninja': g.fillStyle = '#16161c'; g.beginPath(); g.arc(0, hy, 15.5, 0.15 * Math.PI, 0.85 * Math.PI); g.fill(); g.fillRect(-15, hy - 1, 30, 9); g.fillStyle = '#16161c'; g.fillRect(-15, hy - 15, 30, 7); break;
+    }
+    // шапка / волосы
+    switch (L.hat) {
+      case 'cap': g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 3, 15, Math.PI, 0); g.fill(); g.fillRect(f > 0 ? 0 : -24, hy - 5, 24, 4); break;
+      case 'bandana': g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 2, 15.5, Math.PI, 0); g.fill(); g.fillRect(-15, hy - 5, 30, 5); g.beginPath(); g.moveTo(-14 * f, hy - 4); g.lineTo(-26 * f, hy + 2); g.lineTo(-22 * f, hy - 8); g.fill(); break;
+      case 'cowboy': g.fillStyle = '#7a4d2e'; g.beginPath(); g.ellipse(0, hy - 10, 26, 5, 0, 0, 7); g.fill(); g.beginPath(); g.roundRect ? g.roundRect(-12, hy - 28, 24, 18, 6) : g.rect(-12, hy - 28, 24, 18); g.fill(); g.fillStyle = '#3b2416'; g.fillRect(-12, hy - 15, 24, 3); break;
+      case 'ushanka': g.fillStyle = '#6b5a4a'; g.beginPath(); g.arc(0, hy - 4, 17, Math.PI, 0); g.fill(); g.fillStyle = '#9a8770'; g.fillRect(-18, hy - 8, 36, 7); g.fillStyle = '#6b5a4a'; g.fillRect(-17, hy - 4, 6, 14); g.fillRect(11, hy - 4, 6, 14); break;
+      case 'viking': g.fillStyle = '#9aa3ad'; g.beginPath(); g.arc(0, hy - 3, 16, Math.PI, 0); g.fill(); g.fillStyle = '#6b737c'; g.fillRect(-16, hy - 5, 32, 4); g.fillStyle = '#efe4c8';
+        g.beginPath(); g.moveTo(-14, hy - 9); g.quadraticCurveTo(-28, hy - 14, -26, hy - 30); g.quadraticCurveTo(-20, hy - 18, -10, hy - 15); g.fill();
+        g.beginPath(); g.moveTo(14, hy - 9); g.quadraticCurveTo(28, hy - 14, 26, hy - 30); g.quadraticCurveTo(20, hy - 18, 10, hy - 15); g.fill(); break;
+      case 'tophat': g.fillStyle = '#16161c'; g.beginPath(); g.ellipse(0, hy - 12, 20, 4, 0, 0, 7); g.fill(); g.fillRect(-11, hy - 40, 22, 28); g.fillStyle = '#8f1d24'; g.fillRect(-11, hy - 18, 22, 4); break;
+      case 'crown': { g.fillStyle = '#f2c24a'; g.beginPath(); g.moveTo(-14, hy - 10); g.lineTo(-14, hy - 26); g.lineTo(-7, hy - 18); g.lineTo(0, hy - 30); g.lineTo(7, hy - 18); g.lineTo(14, hy - 26); g.lineTo(14, hy - 10); g.closePath(); g.fill();
+        g.strokeStyle = '#a87a1e'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 15, 2.5, 0, 7); g.fill(); g.fillStyle = '#3b82f6'; g.beginPath(); g.arc(-8, hy - 14, 2, 0, 7); g.arc(8, hy - 14, 2, 0, 7); g.fill();
+        g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill(); break; }
+      default: if (L.face !== 'ninja') { g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill(); }
+    }
+    // руки
+    const sx = 0, sy = -145;
+    let ex = 30 * f, ey = -195;
+    let ang = -0.9;
+    if (o.arm != null) { ang = o.arm; ex = sx - Math.cos(o.arm) * 34 * f; ey = sy - Math.sin(o.arm) * 34 - 10; }
+    else if (o.swing != null && o.swing < 1) {        // замах и бросок: рука идёт сзади вперёд
+      const s = o.swing; const a0 = -2.4, a1 = 0.5; ang = a0 + (a1 - a0) * (1 - Math.pow(1 - s, 3));
+      ex = Math.cos(ang) * 36 * f; ey = sy + Math.sin(ang) * 36;
+    }
+    g.strokeStyle = '#2a1d13'; g.lineWidth = 6;
+    g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+    g.beginPath(); g.moveTo(sx, sy); g.lineTo(18 * f, -105); g.stroke();
+    if (L.shirt === 'armor') { g.fillStyle = '#d9a93a'; g.beginPath(); g.arc(sx + 2 * f, sy + 2, 6, 0, 7); g.fill(); }
+    if (o.holdCard) {
+      g.save(); g.translate(ex, ey);
+      const ha = o.arm != null ? o.arm : -0.9;
+      g.rotate(f === 1 ? ha : Math.PI - ha); g.translate(18, 0);
+      KG.drawKnife(g, o.holdCard, { trump: o.holdCard.stats && o.holdCard.stats.trump });
+      g.restore();
+    }
+    g.restore();
+    g.restore();
+  }
+
+  // =====================================================================
+  // АРЕНЫ: статичный фон + живая погода
+  // =====================================================================
+  function drawArena(g, id, W, H, GROUND) {
+    const P = {
+      sunset: { sky: ['#f2a65a', '#e7c38a', '#c9b48e'], sun: 'rgba(255,240,200,.85)', mtn: '#9a7c63', tree: '#5d6b46', grass: '#4c5a39', g1: '#5f7d3a', g2: '#4b3826', g3: '#2c1f14', blade: '#7da04a' },
+      night:  { sky: ['#0b1028', '#1d2550', '#3a3460'], sun: 'rgba(235,240,255,.95)', mtn: '#2a2748', tree: '#162a26', grass: '#14241f', g1: '#1f3a2c', g2: '#1c1a22', g3: '#0c0b10', blade: '#2f5a44' },
+      winter: { sky: ['#9fc4e8', '#cfe3f3', '#eef4f8'], sun: 'rgba(255,255,240,.8)', mtn: '#c8d6e3', tree: '#3d5a54', grass: '#dfe9f0', g1: '#f4f8fb', g2: '#cfdbe4', g3: '#9fb1bf', blade: '#ffffff' },
+      desert: { sky: ['#f7b267', '#f8d49a', '#f3e2bd'], sun: 'rgba(255,248,215,.95)', mtn: '#d18e52', tree: '#6d8b4a', grass: '#e2b878', g1: '#e9c48a', g2: '#d3a568', g3: '#a87a46', blade: '#c79a5c' },
+    }[id] || null;
+    const p = P || { sky: ['#f2a65a', '#e7c38a', '#c9b48e'], sun: 'rgba(255,240,200,.85)', mtn: '#9a7c63', tree: '#5d6b46', grass: '#4c5a39', g1: '#5f7d3a', g2: '#4b3826', g3: '#2c1f14', blade: '#7da04a' };
+    const sky = g.createLinearGradient(0, 0, 0, GROUND);
+    sky.addColorStop(0, p.sky[0]); sky.addColorStop(0.55, p.sky[1]); sky.addColorStop(1, p.sky[2]);
+    g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    if (id === 'night') { for (let i = 0; i < 90; i++) { const x = (i * 211) % W, y = (i * 97) % 300; g.fillStyle = `rgba(255,255,255,${0.3 + (i % 5) * 0.12})`; g.fillRect(x, y, 1.6, 1.6); } }
+    g.fillStyle = p.sun; g.beginPath(); g.arc(id === 'night' ? 760 : 500, id === 'desert' ? 150 : 180, id === 'desert' ? 75 : id === 'night' ? 42 : 60, 0, Math.PI * 2); g.fill();
+    if (id === 'night') { g.fillStyle = p.sky[0]; g.beginPath(); g.arc(776, 170, 38, 0, 7); g.fill(); }
+    g.fillStyle = p.mtn; g.beginPath(); g.moveTo(0, 360);
+    for (let x = 0; x <= W; x += 50) g.lineTo(x, (id === 'desert' ? 360 : 330) - Math.sin(x * 0.011) * (id === 'desert' ? 25 : 50) - Math.sin(x * 0.03) * 14);
+    g.lineTo(W, GROUND); g.lineTo(0, GROUND); g.fill();
+    if (id === 'winter') { g.fillStyle = '#ffffff'; g.beginPath(); for (let x = 0; x <= W; x += 50) { const y = 330 - Math.sin(x * 0.011) * 50 - Math.sin(x * 0.03) * 14; g.moveTo(x - 18, y + 14); g.lineTo(x, y); g.lineTo(x + 18, y + 14); } g.fill(); }
+    if (id === 'desert') {
+      // кактусы
+      g.fillStyle = p.tree;
+      [[120, 1], [330, 0.8], [640, 1.1], [900, 0.9]].forEach(([x, s]) => { const h = 70 * s; g.fillRect(x, 430 - h, 10 * s, h); g.fillRect(x - 12 * s, 430 - h * 0.7, 8 * s, h * 0.35); g.fillRect(x - 12 * s, 430 - h * 0.7, 14 * s, 6 * s); g.fillRect(x + 12 * s, 430 - h * 0.85, 8 * s, h * 0.4); g.fillRect(x + 8 * s, 430 - h * 0.5, 12 * s, 6 * s); });
+    } else {
+      g.fillStyle = p.tree;
+      for (let x = -20; x < W + 40; x += 26) { const h = 60 + ((x * 37) % 45); g.beginPath(); g.moveTo(x, 430); g.lineTo(x + 14, 430 - h); g.lineTo(x + 28, 430); g.fill();
+        if (id === 'winter') { g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(x + 7, 430 - h * 0.5); g.lineTo(x + 14, 430 - h); g.lineTo(x + 21, 430 - h * 0.5); g.fill(); g.fillStyle = p.tree; } }
+    }
+    g.fillStyle = p.grass; g.fillRect(0, 425, W, GROUND - 425);
+    const gr = g.createLinearGradient(0, GROUND, 0, H);
+    gr.addColorStop(0, p.g1); gr.addColorStop(0.12, p.g2); gr.addColorStop(1, p.g3);
+    g.fillStyle = gr; g.fillRect(0, GROUND, W, H - GROUND);
+    g.strokeStyle = p.blade; g.lineWidth = 2;
+    if (id !== 'desert') for (let x = 0; x < W; x += 7) { g.beginPath(); g.moveTo(x, GROUND + 2); g.lineTo(x + 2, GROUND - 4 - (x * 13) % 6); g.stroke(); }
+  }
+  // живая погода поверх фона
+  const weather = [];
+  function drawWeather(g, id, now, W, H, GROUND) {
+    const want = { winter: 90, night: 14, desert: 20, sunset: 10 }[id] || 0;
+    while (weather.length < want) weather.push({ x: Math.random() * W, y: Math.random() * H, s: Math.random(), p: Math.random() * 6 });
+    weather.length = Math.min(weather.length, want);
+    g.save();
+    for (const w of weather) {
+      if (id === 'winter') { w.y += 0.6 + w.s * 1.2; w.x += Math.sin(now / 900 + w.p) * 0.5; if (w.y > GROUND + 40) { w.y = -5; w.x = Math.random() * W; } g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(w.x, w.y, 1.2 + w.s * 2, 0, 7); g.fill(); }
+      else if (id === 'night') { w.x += Math.sin(now / 1300 + w.p) * 0.4; w.y += Math.cos(now / 1100 + w.p) * 0.3; if (w.y < 250) w.y = 250 + Math.random() * 200; const a = 0.4 + 0.6 * Math.abs(Math.sin(now / 500 + w.p)); g.fillStyle = `rgba(220,255,140,${a})`; g.shadowColor = '#d8ff8a'; g.shadowBlur = 8; g.beginPath(); g.arc(w.x, Math.min(GROUND - 10, w.y), 2, 0, 7); g.fill(); }
+      else if (id === 'desert') { w.x += 1.2 + w.s * 1.5; w.y += Math.sin(now / 400 + w.p) * 0.2; if (w.x > W + 10) { w.x = -10; w.y = 300 + Math.random() * 220; } g.fillStyle = 'rgba(210,160,90,.35)'; g.beginPath(); g.arc(w.x, w.y, 1 + w.s * 1.5, 0, 7); g.fill(); }
+      else { w.x += 0.3 + w.s * 0.4; w.y += 0.25 + Math.sin(now / 700 + w.p) * 0.3; if (w.x > W + 10 || w.y > GROUND) { w.x = -10; w.y = 80 + Math.random() * 300; } g.fillStyle = 'rgba(255,230,170,.55)'; g.beginPath(); g.ellipse(w.x, w.y, 2.5, 1.2, now / 600 + w.p, 0, 7); g.fill(); }
+    }
+    g.restore();
+  }
+
+  // =====================================================================
+  // ЧАСТИЦЫ, СЛЕДЫ НОЖЕЙ, ТРЯСКА
+  // =====================================================================
+  let parts = [];
+  function burst(type, x, y, n, dir = 1) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 4;
+      if (type === 'chips') parts.push({ type, x, y, vx: -dir * (1 + Math.random() * 4), vy: -2 - Math.random() * 4, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, life: 1, c: ['#c9a272', '#8a5a32', '#e2c08f'][i % 3], w: 3 + Math.random() * 4 });
+      else if (type === 'sparks') parts.push({ type, x, y, vx: Math.cos(a) * sp * 1.6, vy: Math.sin(a) * sp * 1.6 - 1, life: 1, c: ['#fff4b0', '#ffd77a', '#ffffff'][i % 3] });
+      else if (type === 'dirt') parts.push({ type, x, y, vx: (Math.random() - 0.5) * 4, vy: -1 - Math.random() * 3, life: 1, c: ['#6b4a2e', '#4b3826', '#8a6a48'][i % 3], w: 2 + Math.random() * 3 });
+      else if (type === 'confetti') parts.push({ type, x: Math.random() * 1000, y: -10 - Math.random() * 200, vx: (Math.random() - 0.5) * 2, vy: 1.5 + Math.random() * 2, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, life: 3, c: ['#ffd77a', '#e8b64a', '#ff7a59', '#5fb8ff', '#9ff0a6'][i % 5], w: 5 + Math.random() * 4 });
+    }
+  }
+  function drawParts(g) {
+    parts = parts.filter(p => p.life > 0);
+    for (const p of parts) {
+      p.x += p.vx; p.y += p.vy; p.vy += p.type === 'confetti' ? 0.02 : 0.25;
+      if (p.type === 'confetti') { p.vx *= 0.99; p.r += p.vr; p.life -= 0.008; } else p.life -= p.type === 'sparks' ? 0.04 : 0.022;
+      g.save(); g.globalAlpha = Math.max(0, Math.min(1, p.life));
+      if (p.type === 'sparks') { g.strokeStyle = p.c; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 2, p.y - p.vy * 2); g.stroke(); }
+      else { g.translate(p.x, p.y); g.rotate(p.r || 0); g.fillStyle = p.c; g.fillRect(-p.w / 2, -p.w / 4, p.w, p.w / 2); }
+      g.restore();
+    }
+  }
+  function drawTrail(g, skin, pts, now) {
+    // pts: последние точки полёта, от новой к старой
+    pts.forEach((p, k) => {
+      const a = 1 - k / pts.length;
+      let col, r = 4.5 - k * 0.4;
+      switch (skin) {
+        case 'fire': col = `hsla(${20 + k * 6},100%,${55 + k * 3}%,${0.75 * a})`; r += 2; break;
+        case 'sparks': col = `rgba(255,${200 + (k * 20) % 55},120,${0.8 * a})`; p = { x: p.x + (Math.random() - 0.5) * 8, y: p.y + (Math.random() - 0.5) * 8 }; r = 2; break;
+        case 'rainbow': col = `hsla(${(now / 3 + k * 40) % 360},90%,60%,${0.75 * a})`; r += 1; break;
+        case 'gold': col = `rgba(255,${200 + k * 4},90,${0.8 * a})`; r += 0.5; break;
+        default: col = `rgba(255,255,255,${0.25 - k * 0.035})`;
+      }
+      if (r <= 0) return;
+      g.fillStyle = col; g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.fill();
+    });
+  }
+  let shakeT = 0, shakeA = 0;
+  function shake(amount) { shakeA = Math.max(shakeA, amount); shakeT = performance.now(); }
+  function shakeOffset(now) { const k = 1 - (now - shakeT) / 350; if (k <= 0) return [0, 0]; const a = shakeA * k * k; return [(Math.random() - 0.5) * a * 2, (Math.random() - 0.5) * a * 2]; }
+
+  window.NDX = { Audio, Profile, ITEMS, SLOTS, SLOT_NAMES, ACH, DEFAULT_LOOK, cleanLook, levelOf, xpFor, drawCharacter, drawArena, drawWeather, burst, drawParts, drawTrail, shake, shakeOffset };
 })();
 
 </script>
@@ -1386,7 +1828,11 @@ window.NDMqtt = (() => {
   const flaw = (k) => (LANG === 'en' ? EN.flaws[k] : [KG.FLAWS[k].name, KG.FLAWS[k].desc]);
   const reasonText = (r) => (!r ? '' : LANG === 'en' ? (EN.reasons[r.code] || r.reason || '') : (KG.RU_REASONS[r.code] || r.reason || ''));
   const BOT = () => T('Бот Ножовщик', 'Knife Bot');
-  const pname = (p) => (p.isBot ? BOT() : p.name);
+  const LVL_NAME = { easy: ['лёгкий', 'easy'], medium: ['средний', 'medium'], hard: ['сложный', 'hard'] };
+  const pname = (p) => (p.isBot ? BOT() + (p.lvl && LVL_NAME[p.lvl] ? ` (${T(...LVL_NAME[p.lvl])})` : '') : p.name);
+  const X = window.NDX;
+  const myLook = () => X.Profile.look();
+  const botLevel = () => { const v = ($('#bot-level') || {}).value; return ['easy', 'medium', 'hard'].includes(v) ? v : 'medium'; };
   const ERRS = { badpw: ['Неверный пароль', 'Wrong password'], full: ['Сервер заполнен', 'Server is full'], playing: ['Игра уже идёт', 'Match already in progress'] };
 
   function fmtLog(e) {
@@ -1461,6 +1907,10 @@ window.NDMqtt = (() => {
     if (sl[0]) sl[0].textContent = T('Твоя рука', 'Your hand');
     if (sl[1]) sl[1].textContent = T('Колода', 'Deck');
     setText('#rotate p', 'Поверни телефон вертикально', 'Please turn your phone upright');
+    const bl = document.querySelectorAll('#bot-level option');
+    [['Бот: лёгкий', 'Bot: easy'], ['Бот: средний', 'Bot: medium'], ['Бот: сложный', 'Bot: hard']].forEach(([r, e], i) => { if (bl[i]) bl[i].textContent = T(r, e); });
+    if (typeof renderProfileCard === 'function' && $('#profile-card')) { renderProfileCard(); paintSnd(); }
+    if ($('#profile-modal') && !$('#profile-modal').classList.contains('hidden')) renderProfileModal();
     setText('#modal h2', 'Пароль сервера', 'Server password');
     setText('#modal-input', 'Пароль', 'Password', 'placeholder');
     setText('#modal-cancel', 'Отмена', 'Cancel');
@@ -1564,7 +2014,7 @@ window.NDMqtt = (() => {
     const name = ($('#room-name').value.trim() || T(`Сервер ${nick()}`, `${nick()}'s server`)).slice(0, 32);
     logLines = [];
     const size = +$('#deck-size').value || 20;
-    eng = NDEngine.create({ id, size, name: withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
+    eng = NDEngine.create({ id, size, arena: myLook().arena, botLevel: botLevel(), name: withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
       state: hostPush,
       log: (t) => { addLog(t); if (net) net.room.emit('lg', { t }).catch(() => {}); },
       throwEv: (m) => { onThrow(m); if (net) net.room.emit('th', m).catch(() => {}); },
@@ -1578,7 +2028,7 @@ window.NDMqtt = (() => {
         if (m.sameTab) return;
         const d = m.data || {};
         if (!eng.checkPassword(String(d.pw || ''))) return nr.emit('er', { to: m.peer, code: 'badpw', msg: 'Неверный пароль', fatal: true }).catch(() => {});
-        const r = eng.addPlayer(m.peer, String(d.nick || 'Player').replace(/[<>]/g, '').slice(0, 20) || 'Player');
+        const r = eng.addPlayer(m.peer, String(d.nick || 'Player').replace(/[<>]/g, '').slice(0, 20) || 'Player', X.cleanLook(d.look));
         if (!r.ok) nr.emit('er', { to: m.peer, code: r.code, msg: r.msg, fatal: true }).catch(() => {});
         else hostPush();
       });
@@ -1593,8 +2043,8 @@ window.NDMqtt = (() => {
       nr.onPeers((ch) => { for (const p of ch.left) if (eng && eng.g.players.some(x => x.id === p.peer)) eng.removePlayer(p.peer); });
       heartbeat = setInterval(() => { if (net && eng) net.room.emit('st', eng.pub()).catch(() => {}); }, 2500);
     }
-    eng.addPlayer(myId, nick());
-    if (withBot) { eng.addBot(); eng.start(); }
+    eng.addPlayer(myId, nick(), myLook());
+    if (withBot) { eng.addBot(botLevel()); eng.start(); }
     enterRoom();
   }
 
@@ -1627,7 +2077,7 @@ window.NDMqtt = (() => {
       if (m.data.fatal) leave(true);
     });
     nr.onPeers((ch) => { if (ch.left.some(p => p.peer === hostPeer)) { toast(T('Хост закрыл сервер', 'The host closed the server')); leave(true); } });
-    const send = () => nr.emit('jn', { nick: nick(), pw }).catch((e) => {
+    const send = () => nr.emit('jn', { nick: nick(), pw, look: myLook() }).catch((e) => {
       if (e && e.code === 'not_permitted') { toast(T('Нет прав на игру: владелец страницы должен дать тебе роль «Участник» (или выше)', 'No permission to play: the page owner must give you the Contributor role (or higher)')); leave(true); }
     });
     send();
@@ -1657,7 +2107,7 @@ window.NDMqtt = (() => {
       if (k === 'take') eng.take(myId, data && data.c);
       if (k === 'throw') eng.doThrow(myId, data.a, data.p);
       if (k === 'start') eng.start();
-      if (k === 'addBot') eng.addBot();
+      if (k === 'addBot') eng.addBot(botLevel());
       if (k === 'kickBot') eng.kickBot();
     } else if (net) {
       net.room.emit('ac', Object.assign({ k }, data || {})).catch((e) => { if (e && e.code === 'not_permitted') toast(T('Нет прав на ход: нужна роль «Участник»', 'No permission to move: Contributor role required')); });
@@ -1679,9 +2129,36 @@ window.NDMqtt = (() => {
     room = s; roomAt = performance.now();
     syncFlights(s);
     if (!prev) enterRoom();
-    if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; }
+    if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; reward = null; matchStartXp = X.Profile.data.xp; }
+    if (!prev && room.state === 'playing') matchStartXp = X.Profile.data.xp;
+    if (prev && prev.state === 'playing' && room.state === 'over') onMatchOver();
+    if (prev && room.state === 'playing' && room.phase === 'draw' && prev.phase !== 'draw') for (let i = 0; i < 3; i++) setTimeout(() => sfx('deal'), i * 90);
     renderRoom();
   }
+  let reward = null;
+  const doneMatches = new Set();
+  function onMatchOver() {
+    const m = me(), o = opp();
+    if (!m || doneMatches.has(room.ep)) return;
+    doneMatches.add(room.ep);
+    const result = room.winnerId == null ? 'draw' : room.winnerId === myId ? 'win' : 'loss';
+    const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
+    const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
+    X.Profile.onMatch(result, oppKind, room.size || 20, m.score);
+    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level };
+    matchXp = 0;
+    sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
+    if (result === 'win') X.burst('confetti', 0, 0, 140);
+    renderOverlay();
+  }
+  let matchXp = 0, matchStartXp = null;
+  X.Profile.on((ev) => {
+    if (ev.type === 'level') { sfx('levelup'); toast(T(`Новый уровень: ${ev.level}!`, `Level up: ${ev.level}!`) + (ev.items.length ? T(' Открыто: ', ' Unlocked: ') + ev.items.map(itemName).join(', ') : '')); }
+    if (ev.type === 'ach') { const a = X.ACH.find(x => x[0] === ev.id); if (a) { sfx('achieve'); toast('🏅 ' + T(a[1], a[2]) + (ev.items.length ? ' · ' + ev.items.map(itemName).join(', ') : '')); } }
+    renderProfileCard();
+  });
+  function itemName(key) { const [slot, id] = key.split(':'); const it = X.ITEMS[slot].find(x => x[0] === id); return it ? T(it[2], it[3]) : id; }
+
   function addLog(t) { logLines.push(t); if (logLines.length > 40) logLines.shift(); if (room) renderLog(); }
 
   // ---------- DOM комнаты ----------
@@ -1738,6 +2215,8 @@ window.NDMqtt = (() => {
           ${a ? `<div class="${room.winnerId === a.id ? 'win' : ''}">${esc(pname(a))}<b>${+a.score || 0}</b></div>` : ''}
           ${b ? `<div class="${room.winnerId === b.id ? 'win' : ''}">${esc(pname(b))}<b>${+b.score || 0}</b></div>` : ''}
         </div>
+        ${reward ? `<div class="reward">+${reward.xp} XP · ${T('уровень', 'level')} ${reward.after}${reward.after > reward.before ? ' ⬆' : ''}
+          <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div></div>` : ''}
         <div class="btns">
           ${isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
@@ -1893,7 +2372,7 @@ window.NDMqtt = (() => {
   const release = () => {
     if (!aim.active) return;
     aim.active = false;
-    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); sfx('whoosh'); }
+    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); }
   };
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', () => { aim.active = false; });
@@ -1904,6 +2383,8 @@ window.NDMqtt = (() => {
     if (seenThrows.has(key)) return;
     seenThrows.add(key);
     if (m.o === myId) aim.active = false; else oppAim = null;
+    swingAt[m.o] = performance.now();
+    if (m.a != null) sfx('whoosh');
     const base = KG.CARD_BY_ID[m.c];
     let full = [];
     if (base && m.a != null) full = KG.simulate({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }).frames;
@@ -1917,6 +2398,7 @@ window.NDMqtt = (() => {
     else if (el / 1000 * 60 >= frames.length) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
   }
+  const swingAt = {};
   function knockAnim(id, at, res) {
     const other = anims.find(x => x.throwId === id);
     if (!other || other.cut === at || !other.full.length) return;
@@ -1942,6 +2424,15 @@ window.NDMqtt = (() => {
     const last = a.frames[a.frames.length - 1];
     const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
     const res = a.result;
+    const dir = a.owner === myId || !room || !room.players.some(p => p.id === myId) ? 1 : -1;
+    if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, dir); X.shake(res.zone === 'bull' ? 7 : 3); if (a.streak > 1) setTimeout(() => sfx('streak', a.streak), 120); }
+    else if (res.code === 'bounce_face' || res.code === 'bounce_top') X.burst('sparks', v.x, v.y, 8);
+    else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
+    if (a.owner === myId && res.code !== 'knocked') {
+      const xp = X.Profile.onThrow(res, a.streak);
+      matchXp += 0;   // опыт уже начислен, итог считается по разнице
+      if (xp > 1) floaters.push({ text: `+${xp} XP`, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(110, v.y + 30), t0: performance.now(), color: '#c9b6ff', small: true });
+    }
     let text = reasonText(res), color = '#ffffff';
     if (res.knock) {
       text = `+${+res.points || 0} ${text}`; color = '#7fd8ff';
@@ -1955,8 +2446,18 @@ window.NDMqtt = (() => {
   }
 
   // фон
+  const bgCache = {};
+  function getBg(arena) {
+    const id = ['sunset', 'night', 'winter', 'desert'].includes(arena) ? arena : 'sunset';
+    if (bgCache[id]) return bgCache[id];
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    X.drawArena(g, id, W, H, GROUND);
+    stump(g, FACE_X, id); stump(g, W - FACE_X - STUMP_W, id);
+    return (bgCache[id] = c);
+  }
   const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
-  (function drawBg() {
+  (function drawBgOld() { return;
     const g = bg.getContext('2d');
     const sky = g.createLinearGradient(0, 0, 0, GROUND);
     sky.addColorStop(0, '#f2a65a'); sky.addColorStop(0.55, '#e7c38a'); sky.addColorStop(1, '#c9b48e');
@@ -1976,7 +2477,7 @@ window.NDMqtt = (() => {
     for (let x = 0; x < W; x += 7) { g.beginPath(); g.moveTo(x, GROUND + 2); g.lineTo(x + 2, GROUND - 4 - (x * 13) % 6); g.stroke(); }
     stump(g, FACE_X); stump(g, W - FACE_X - STUMP_W);
   })();
-  function stump(g, x) {
+  function stump(g, x, arena) {
     const w = STUMP_W, top = STUMP_TOP;
     const gr = g.createLinearGradient(x, 0, x + w, 0);
     gr.addColorStop(0, '#5a3a20'); gr.addColorStop(0.5, '#7b5130'); gr.addColorStop(1, '#4a2f19');
@@ -1993,11 +2494,13 @@ window.NDMqtt = (() => {
     g.fillStyle = '#c9a272'; g.beginPath(); g.ellipse(x + w / 2, top, w / 2, 9, 0, 0, Math.PI * 2); g.fill();
     g.strokeStyle = 'rgba(110,70,35,.7)'; g.lineWidth = 1;
     for (let r = 4; r < w / 2; r += 6) { g.beginPath(); g.ellipse(x + w / 2, top, r, r * 0.26, 0, 0, Math.PI * 2); g.stroke(); }
+    if (arena === 'winter') { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x + w / 2, top - 3, w / 2 + 3, 10, 0, Math.PI, 0); g.fill(); g.fillRect(x - 3, top - 3, w + 6, 6); }
   }
 
-  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn) {
+  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn, look, swing, now) {
     const g = ctx;
-    g.save(); g.translate(x, GROUND);
+    X.drawCharacter(g, { x, ground: GROUND, facing, color, look, arm: armAngle, swing, holdCard: holding ? card : null, now });
+    g.save(); g.translate(-10000, GROUND);
     g.strokeStyle = '#2a1d13'; g.lineWidth = 7; g.lineCap = 'round';
     g.beginPath(); g.moveTo(0, -80); g.lineTo(-12 * facing, 0); g.moveTo(0, -80); g.lineTo(12 * facing, 0); g.stroke();
     g.strokeStyle = color; g.lineWidth = 16;
@@ -2075,9 +2578,15 @@ window.NDMqtt = (() => {
     ctx.restore();
   }
 
+  let lastTick = 0;
   function frame(now) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(bg, 0, 0);
+    const [sx, sy] = X.shakeOffset(now);
+    ctx.setTransform(1, 0, 0, 1, sx, sy);
+    const arena = room && room.arena ? room.arena : myLook().arena;
+    ctx.drawImage(getBg(arena), -8, -8, W + 16, H + 16);
+    X.drawWeather(ctx, arena, now, W, H, GROUND);
     if (room) {
       const m = me(), o = opp();
       for (const s of room.stuck || []) {
@@ -2092,12 +2601,12 @@ window.NDMqtt = (() => {
       const playing = room.state === 'playing';
       if (m) {
         const holding = playing && m.status === 'aim' && !!m.active;
-        drawPerson(45, PCOL(myId), pname(m), 1, aim.active ? aim.angle : null, holding, cardOf(m.active), m.status === 'aim');
+        drawPerson(45, PCOL(myId), pname(m), 1, aim.active ? aim.angle : null, holding, cardOf(m.active), m.status === 'aim', m.look || myLook(), swingAt[myId] ? (now - swingAt[myId]) / 260 : null, now);
       }
       if (o) {
         const holding = playing && o.status === 'aim' && !!o.active;
         const oa = oppAim && o.status === 'aim' && now - oppAim.at < 1500 ? oppAim.angle : null;
-        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim');
+        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim', o.look, swingAt[o.id] ? (now - swingAt[o.id]) / 260 : null, now);
         if (oa != null) {
           ctx.fillStyle = 'rgba(20,12,6,.6)'; ctx.fillRect(W - 180, 20, 160, 22);
           ctx.fillStyle = '#ff7a59'; ctx.fillRect(W - 176, 26, 152 * Math.max(0, Math.min(1, oppAim.power)), 10);
@@ -2110,18 +2619,17 @@ window.NDMqtt = (() => {
         const ci = Math.min(i, an.frames.length - 1);
         const f = an.frames[ci];
         if (f) {
-          for (let k = 1; k <= 6; k++) {
-            const pf = an.frames[Math.max(0, ci - k * 2)];
-            const pv = view(an.owner, pf.x, pf.y, 0);
-            ctx.fillStyle = `rgba(255,255,255,${0.25 - k * 0.035})`;
-            ctx.beginPath(); ctx.arc(pv.x, pv.y, 4 - k * 0.4, 0, Math.PI * 2); ctx.fill();
-          }
+          const owner = room.players.find(p => p.id === an.owner);
+          const skin = X.cleanLook(owner && owner.look).trail;
+          const pts = [];
+          for (let k = 1; k <= 7; k++) { const pf = an.frames[Math.max(0, ci - k * 2)]; pts.push(view(an.owner, pf.x, pf.y, 0)); }
+          X.drawTrail(ctx, skin, pts, now);
           const v = view(an.owner, f.x, f.y, f.r);
           if (an.card) { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore(); }
         }
         if (an.boomAt >= 0 && i >= an.boomAt) {
           const bf = an.frames[an.boomAt]; an.boomAt = -1;
-          if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clank'); }
+          if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clang'); X.burst('sparks', bv.x, bv.y, 22); X.shake(9); }
         }
         if (i >= an.frames.length) finishAnim(an);
       }
@@ -2132,22 +2640,27 @@ window.NDMqtt = (() => {
         for (let k = 0; k < 10; k++) { const an2 = k * Math.PI / 5; const r1 = 8 + t * 30, r2 = 18 + t * 55; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(an2) * r1, b.y + Math.sin(an2) * r1); ctx.lineTo(b.x + Math.cos(an2) * r2, b.y + Math.sin(an2) * r2); ctx.stroke(); }
         ctx.restore();
       }
+      X.drawParts(ctx);
       floaters = floaters.filter(fl => now - fl.t0 < 2000);
       for (const fl of floaters) {
         const t = (now - fl.t0) / 2000;
+        const pop = Math.min(1, (now - fl.t0) / 140);
         ctx.save(); ctx.globalAlpha = 1 - t * t;
-        ctx.font = '26px "Russo One", sans-serif'; ctx.textAlign = 'center';
+        ctx.translate(fl.x, fl.y - t * 50); ctx.scale(0.6 + 0.4 * pop + (1 - pop) * 0.5, 0.6 + 0.4 * pop + (1 - pop) * 0.5); ctx.translate(-fl.x, -(fl.y - t * 50));
+        ctx.font = (fl.small ? '18px' : '26px') + ' "Russo One", sans-serif'; ctx.textAlign = 'center';
         ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(30,15,5,.85)'; ctx.strokeText(fl.text, fl.x, fl.y - t * 50);
         ctx.fillStyle = fl.color; ctx.fillText(fl.text, fl.x, fl.y - t * 50);
         ctx.restore();
       }
       if (playing && m && m.status === 'aim' && m.left) {
         const left = Math.max(0, m.left - (now - roomAt));
+        if (left < 5500 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); sfx('tick'); }
         $('#hud-timer').textContent = Math.ceil(left / 1000) + ' c';
         $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
       } else $('#hud-timer').textContent = '—';
       $('#hint').textContent = hintText();
     }
+    else X.drawParts(ctx);
     requestAnimationFrame(frame);
   }
   function hintText() {
@@ -2166,23 +2679,99 @@ window.NDMqtt = (() => {
   }
 
   // ---------- Звук и утилиты ----------
-  let ac;
-  function sfx(kind) {
-    try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-      o.connect(g); g.connect(ac.destination);
-      const P = { whoosh: ['sawtooth', 500, 120, 0.25, 0.06], thunk: ['square', 140, 60, 0.18, 0.18], clank: ['triangle', 900, 400, 0.2, 0.08], take: ['sine', 400, 900, 0.18, 0.07] }[kind];
-      o.type = P[0]; o.frequency.setValueAtTime(P[1], t); o.frequency.exponentialRampToValueAtTime(P[2], t + P[3]);
-      g.gain.setValueAtTime(P[4], t); g.gain.exponentialRampToValueAtTime(0.001, t + P[3]);
-      o.start(t); o.stop(t + P[3] + 0.02);
-    } catch (e) {}
-  }
+  function sfx(kind, arg) { try { X.Audio.sfx(kind, arg); } catch (e) {} }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
+
+  // =================== ПРОФИЛЬ, ГАРДЕРОБ, ЗВУК ===================
+  function avatar(canvas, look, withBg) {
+    const g = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h);
+    const sc = h / 260;
+    if (withBg) { const b = getBg(look.arena); g.drawImage(b, 330, 232, 260, 300, 0, 0, w, h); }
+    g.setTransform(sc, 0, 0, sc, w / 2, 0);
+    X.drawCharacter(g, { x: 0, ground: 245, facing: 1, color: '#5fb8ff', look, arm: null, swing: null, holdCard: null, now: performance.now() });
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  function renderProfileCard() {
+    const el = $('#profile-card'); if (!el) return;
+    const pr = X.Profile.progress();
+    el.querySelector('.pc-lvl').textContent = T(`Уровень ${pr.L}`, `Level ${pr.L}`);
+    el.querySelector('.pc-xp').textContent = pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`;
+    el.querySelector('.xpbar i').style.width = Math.round(pr.pct * 100) + '%';
+    el.querySelector('.pc-btn').textContent = T('👤 Профиль и гардероб', '👤 Profile & wardrobe');
+    avatar(el.querySelector('canvas'), myLook(), true);
+  }
+  let pmTab = 'wardrobe', pmSlot = 'hat';
+  function openProfile() { $('#profile-modal').classList.remove('hidden'); renderProfileModal(); }
+  function renderProfileModal() {
+    const M = $('#profile-modal .pm-body'); if (!M) return;
+    const pr = X.Profile.progress(), d = X.Profile.data, look = myLook();
+    const tabs = [['wardrobe', T('Гардероб', 'Wardrobe')], ['ach', T('Достижения', 'Achievements')], ['stats', T('Статистика', 'Stats')]];
+    let body = '';
+    if (pmTab === 'wardrobe') {
+      body = `<div class="pm-slots">${X.SLOTS.map(sl => `<button class="chip-btn ${sl === pmSlot ? 'on' : ''}" data-slot="${sl}">${T(...X.SLOT_NAMES[sl])}</button>`).join('')}</div>
+        <div class="pm-items">${X.ITEMS[pmSlot].map(([id, req, ru, en]) => {
+          const ok = X.Profile.isUnlocked(pmSlot, id), on = look[pmSlot] === id;
+          const lock = typeof req === 'number' ? T(`🔒 Уровень ${req}`, `🔒 Level ${req}`) : '🏅 ' + (() => { const a = X.ACH.find(x => x[0] === req); return a ? T(a[1], a[2]) : req; })();
+          return `<button class="item ${ok ? '' : 'locked'} ${on ? 'on' : ''}" data-item="${id}" ${ok ? '' : 'disabled'}><b>${T(ru, en)}</b><small>${on ? T('✓ Надето', '✓ Equipped') : ok ? T('Надеть', 'Equip') : lock}</small></button>`;
+        }).join('')}</div>`;
+    } else if (pmTab === 'ach') {
+      body = `<div class="pm-ach">${X.ACH.map(([id, ru, en, dru, den]) => `<div class="ach ${d.ach[id] ? 'got' : ''}"><span>${d.ach[id] ? '🏅' : '🔒'}</span><div><b>${T(ru, en)}</b><small>${T(dru, den)}</small></div></div>`).join('')}</div>`;
+    } else {
+      const st = d.stats, acc = st.throws ? Math.round(st.hits / st.throws * 100) : 0;
+      const rows = [[T('Матчей', 'Matches'), st.matches], [T('Побед', 'Wins'), st.wins], [T('Поражений', 'Losses'), st.losses], [T('Ничьих', 'Draws'), st.draws],
+        [T('Бросков', 'Throws'), st.throws], [T('Точность', 'Accuracy'), acc + '%'], [T('Яблочек', 'Bullseyes'), st.bulls], [T('Сбито ножей', 'Knives knocked'), st.knocks],
+        [T('Лучшая серия', 'Best streak'), '×' + st.bestStreak], [T('Всего очков', 'Total points'), st.points]];
+      body = `<div class="pm-stats">${rows.map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join('')}</div>`;
+    }
+    M.innerHTML = `<div class="pm-head"><canvas width="200" height="230"></canvas><div class="pm-info">
+        <h2>${esc(nick())}</h2><div class="pm-lvl">${T('Уровень', 'Level')} ${pr.L}</div>
+        <div class="xpbar big"><i style="width:${Math.round(pr.pct * 100)}%"></i></div><small>${pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`} · ${T('всего', 'total')} ${d.xp} XP</small>
+        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Progress is saved in this browser.')}</p>
+      </div></div>
+      <div class="pm-tabs">${tabs.map(([id, n]) => `<button class="chip-btn ${id === pmTab ? 'on' : ''}" data-tab="${id}">${n}</button>`).join('')}</div>${body}`;
+    avatar(M.querySelector('.pm-head canvas'), look, true);
+    M.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { pmTab = b.dataset.tab; sfx('click'); renderProfileModal(); });
+    M.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { pmSlot = b.dataset.slot; sfx('click'); renderProfileModal(); });
+    M.querySelectorAll('[data-item]').forEach(b => b.onclick = () => { if (X.Profile.equip(pmSlot, b.dataset.item)) { sfx('take'); renderProfileModal(); renderProfileCard(); } });
+  }
+  function buildProfileUI() {
+    const nickIn = $('#nick');
+    const card = document.createElement('div'); card.id = 'profile-card'; card.className = 'profile-card';
+    card.innerHTML = `<canvas width="72" height="84"></canvas><div class="pc-main"><div class="pc-top"><b class="pc-lvl"></b><small class="pc-xp"></small></div><div class="xpbar"><i></i></div><button class="btn small pc-btn" type="button"></button></div>`;
+    nickIn.insertAdjacentElement('afterend', card);
+    card.querySelector('.pc-btn').onclick = () => { sfx('click'); openProfile(); };
+    card.querySelector('canvas').onclick = () => openProfile();
+    const sel = document.createElement('select'); sel.id = 'bot-level';
+    sel.innerHTML = '<option value="easy"></option><option value="medium"></option><option value="hard"></option>';
+    try { sel.value = localStorage.getItem('nd-bot') || 'medium'; } catch (e) { sel.value = 'medium'; }
+    sel.onchange = () => { try { localStorage.setItem('nd-bot', sel.value); } catch (e) {} };
+    $('#btn-bot').insertAdjacentElement('beforebegin', sel);
+    const modal = document.createElement('div'); modal.id = 'profile-modal'; modal.className = 'modal hidden';
+    modal.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
+    modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
+    modal.querySelector('.pm-close').onclick = () => modal.classList.add('hidden');
+    document.body.appendChild(modal);
+    // звук и музыка
+    const mk = (kind) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'snd-toggle ' + kind;
+      b.onclick = () => { if (kind === 'snd') X.Audio.setSound(!X.Audio.sound); else X.Audio.setMusic(!X.Audio.music); paintSnd(); }; return b; };
+    const box = document.createElement('div'); box.className = 'snd-box'; box.append(mk('snd'), mk('mus'));
+    document.querySelector('.logo').appendChild(box);
+    const box2 = box.cloneNode(false); box2.append(mk('snd'), mk('mus'));
+    const tb = document.querySelector('.topbar'); tb.insertBefore(box2, tb.querySelector('.hud'));
+    paintSnd(); renderProfileCard();
+    setInterval(() => { if (!$('#profile-modal').classList.contains('hidden')) { const c = $('#profile-modal .pm-head canvas'); if (c) avatar(c, myLook(), true); } }, 60);
+  }
+  function paintSnd() {
+    document.querySelectorAll('.snd-toggle.snd').forEach(b => { b.textContent = X.Audio.sound ? '🔊' : '🔇'; b.title = T('Звуки', 'Sound'); b.classList.toggle('off', !X.Audio.sound); });
+    document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
+  }
+
   if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.documentElement.classList.add('touch');
+  buildProfileUI();
   addLangToggles();
   applyStatic();
   renderServers();

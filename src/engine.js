@@ -10,7 +10,7 @@ window.NDEngine = (() => {
     const size = G.DECK_SIZES.includes(+opts.size) ? +opts.size : 20;
     const g = {
       id: opts.id, name: opts.name, password: opts.password || '', hostId: opts.hostId,
-      size, handMax: G.HAND_SIZE[size],
+      size, handMax: G.HAND_SIZE[size], arena: opts.arena || 'sunset', botLevel: ['easy', 'medium', 'hard'].includes(opts.botLevel) ? opts.botLevel : 'medium',
       players: [], state: 'lobby', phase: 'idle', deck: [], trumpSuit: null, trumpCard: null,
       round: 0, wind: 0, stuck: [], flights: [], timers: [], token: 0, winnerId: null, endReason: '', throwSeq: 0,
     };
@@ -24,11 +24,11 @@ window.NDEngine = (() => {
       const now = Date.now();
       return {
         id: g.id, name: g.name, hostId: g.hostId, state: g.state, phase: g.phase, round: g.round,
-        size: g.size, handMax: g.handMax,
+        size: g.size, handMax: g.handMax, arena: g.arena,
         trumpSuit: g.trumpSuit, trumpCard: g.trumpCard ? g.trumpCard.id : null, deckCount: g.deck.length,
         wind: g.wind, winnerId: g.winnerId, endReason: g.endReason, locked: !!g.password,
         players: g.players.map(p => ({
-          id: p.id, name: p.name, isBot: p.isBot, score: p.score, hits: p.hits,
+          id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
           status: p.status, streak: p.streak, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
@@ -42,21 +42,27 @@ window.NDEngine = (() => {
     function summary() {
       return { id: g.id, name: g.name, players: g.players.length, state: g.state, round: g.round, locked: !!g.password, hasBot: g.players.some(p => p.isBot), size: g.size };
     }
-    const newPlayer = (id, name, isBot) => ({ id, name, isBot: !!isBot, score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0, turnNo: 0 });
+    const newPlayer = (id, name, isBot, look, lvl) => ({ id, name, isBot: !!isBot, look: look || null, lvl: lvl || null, score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0, turnNo: 0 });
     const reset = (p) => Object.assign(p, { score: 0, hits: 0, hand: [], active: null, status: 'idle', streak: 0, deadline: 0 });
 
-    function addPlayer(id, name) {
+    function addPlayer(id, name, look) {
       if (P(id)) return { ok: true };
       if (g.players.length >= 2) return { ok: false, code: 'full', msg: 'Сервер заполнен' };
       if (g.state === 'playing') return { ok: false, code: 'playing', msg: 'Игра уже идёт' };
-      g.players.push(newPlayer(id, name, false));
+      g.players.push(newPlayer(id, name, false, look));
       log({ k: 'join', n: name });
       push();
       return { ok: true };
     }
-    function addBot() {
+    const BOT_LOOK = {
+      easy:   { hat: 'cap', shirt: 'basic', face: 'none', back: 'none', trail: 'plain' },
+      medium: { hat: 'bandana', shirt: 'leather', face: 'mustache', back: 'none', trail: 'plain' },
+      hard:   { hat: 'viking', shirt: 'armor', face: 'beard', back: 'cape', trail: 'fire' },
+    };
+    function addBot(level) {
       if (g.players.length >= 2 || g.state === 'playing') return;
-      g.players.push(newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true));
+      const lvl = ['easy', 'medium', 'hard'].includes(level) ? level : g.botLevel;
+      g.players.push(newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true, BOT_LOOK[lvl], lvl));
       log({ k: 'bot' }); push();
     }
     function kickBot() { if (g.state === 'playing') return; g.players = g.players.filter(p => !p.isBot); push(); }
@@ -232,14 +238,22 @@ window.NDEngine = (() => {
 
     // ---------- Бот ----------
     const TIER_RANK = { ace: 3, good: 2, bad: 1 };
+    // параметры сложности: ошибка угла (°), ошибка силы, шанс целиться в яблочко, шанс взять лучший нож, задержка
+    const DIFF = {
+      easy:   { angErr: 8.5, powErr: 0.075, bull: 0.1,  best: 0.2,  think: 1.8 },
+      medium: { angErr: 3.8, powErr: 0.035, bull: 0.4,  best: 0.6,  think: 1.3 },
+      hard:   { angErr: 1.1, powErr: 0.01,  bull: 0.8,  best: 1,    think: 1.0 },
+    };
     function botAim(bot, turnNo) {
       const mine = () => g.state === 'playing' && bot.status === 'aim' && bot.turnNo === turnNo;
-      later(900 + Math.random() * 900, () => {
+      const D = DIFF[bot.lvl] || DIFF.medium;
+      later((900 + Math.random() * 900) * D.think, () => {
         if (!mine()) return;
-        // бот берёт лучший нож (козырь важнее)
-        const pick = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)))[0];
+        // лучший нож (козырь важнее) — с вероятностью по сложности, иначе случайный
+        const sorted = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)));
+        const pick = Math.random() < D.best ? sorted[0] : sorted[Math.floor(Math.random() * sorted.length)];
         take(bot.id, pick.id);
-        later(1100 + Math.random() * 900, () => {
+        later((1100 + Math.random() * 900) * D.think, () => {
           if (!mine() || !bot.active) return;
           const st = G.knifeStats(bot.active, g.trumpSuit);
           const hits = [];
@@ -250,9 +264,9 @@ window.NDEngine = (() => {
           let a = -35, pw = 0.8;
           if (hits.length) {
             const best = hits.filter(h => h.w >= 1.5);
-            const pool = best.length && Math.random() < 0.6 ? best : hits;
+            const pool = best.length && Math.random() < D.bull ? best : hits;
             const h = pool[Math.floor(Math.random() * pool.length)];
-            a = h.a + G.gauss(Math.random) * 1.3; pw = h.pw + G.gauss(Math.random) * 0.012;
+            a = h.a + G.gauss(Math.random) * D.angErr; pw = h.pw + G.gauss(Math.random) * D.powErr;
           }
           out.aim({ o: bot.id, a: a * Math.PI / 180, p: pw });
           later(500, () => { if (mine()) doThrow(bot.id, a * Math.PI / 180, pw); });
