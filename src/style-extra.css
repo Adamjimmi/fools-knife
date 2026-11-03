@@ -105,6 +105,10 @@ html.layout-phone .conn { position: static; display: block; text-align: center; 
 .snd-toggle.tut-btn { width: auto; padding: 0 14px; font-size: 14px; }
 .coach { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 60; max-width: min(560px, 94vw); display: flex; gap: 10px; align-items: flex-start; background: rgba(40,30,18,.96); border: 1px solid var(--gold2); border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
 .coach.hidden { display: none; }
+#splash { position: fixed; inset: 0; z-index: 200; background: #0d0906; transition: opacity .5s; }
+#splash canvas { width: 100%; height: 100%; display: block; }
+#splash.out { opacity: 0; pointer-events: none; }
+#splash .sp-hint { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; color: #b09a80; font-size: 13px; }
 html.native-app body { padding-top: max(env(safe-area-inset-top, 0px), 28px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 html.native-app { overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
 html.native-app input, html.native-app textarea { -webkit-user-select: text; user-select: text; }

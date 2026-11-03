@@ -309,6 +309,10 @@ html.layout-phone .conn { position: static; display: block; text-align: center; 
 .snd-toggle.tut-btn { width: auto; padding: 0 14px; font-size: 14px; }
 .coach { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 60; max-width: min(560px, 94vw); display: flex; gap: 10px; align-items: flex-start; background: rgba(40,30,18,.96); border: 1px solid var(--gold2); border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
 .coach.hidden { display: none; }
+#splash { position: fixed; inset: 0; z-index: 200; background: #0d0906; transition: opacity .5s; }
+#splash canvas { width: 100%; height: 100%; display: block; }
+#splash.out { opacity: 0; pointer-events: none; }
+#splash .sp-hint { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; color: #b09a80; font-size: 13px; }
 html.native-app body { padding-top: max(env(safe-area-inset-top, 0px), 28px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 html.native-app { overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
 html.native-app input, html.native-app textarea { -webkit-user-select: text; user-select: text; }
@@ -1298,7 +1302,9 @@ window.NDEngine = (() => {
         mel: [76, 77, 80, -1, 81, -1, 80, 77, 76, -1, -1, -1, 77, 76, 74, -1, 76, -1, 80, 81, 83, -1, 81, 80, 77, -1, 76, -1, -1, -1, -1, -1], style: 'darbuka' },
     };
     const AUTO = { lobby: 'tavern', sunset: 'duel', night: 'night', winter: 'winter', desert: 'desert' };
-    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return context === 'lobby' ? AUTO.lobby : (AUTO[arena] || 'duel'); }
+    // авто-режим: трек меняется сам каждую минуту по кругу
+    const KEYS = Object.keys(TRACKS); let rot = Math.floor(Math.random() * KEYS.length);
+    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return KEYS[rot]; }
     function schedule() {
       const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
@@ -1362,10 +1368,19 @@ window.NDEngine = (() => {
     function startMusic() { const a = ctx(); if (!a || musicTimer) return; startTrack(wanted(), FADE_IN); musicTimer = setInterval(schedule, 40); }
     function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; if (ac) fadeVoice(voice, 0.6); voice = null; current = null; }
     function retarget() { const w = wanted(); if (!musicTimer || w === current) return; startTrack(w, FADE_IN); }
+    setInterval(() => { if (st.track !== 'auto' || !musicTimer || document.hidden) return; rot = (rot + 1) % KEYS.length; retarget(); }, 60000);
     function apply() {
       if (!ac) return; const t = ac.currentTime;
       master.gain.setTargetAtTime(st.vMaster / 100, t, 0.05); sfxBus.gain.setTargetAtTime(sfxGain(), t, 0.05); musBus.gain.setTargetAtTime(musGain(), t, 0.15);
     }
+    // фон: звук стоит, пока приложение не на экране (сворачивание, блокировка, другая вкладка)
+    function pauseAudio() { if (ac && ac.state === 'running') ac.suspend(); }
+    function resumeAudio() { if (ac && ac.state === 'suspended' && (st.music || st.sound)) ac.resume(); }
+    document.addEventListener('visibilitychange', () => (document.hidden ? pauseAudio() : resumeAudio()));
+    window.addEventListener('pagehide', pauseAudio);
+    window.addEventListener('pageshow', resumeAudio);
+    const CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp && CapApp.addListener) CapApp.addListener('appStateChange', (st2) => (st2.isActive ? resumeAudio() : pauseAudio()));
     return {
       sfx,
       TRACKS,
@@ -1683,10 +1698,13 @@ window.ND_ITCH = true;
 // с тем же интерфейсом, что и комнаты claude.ai (presence / onPeers / join / emit / on).
 window.NDMqtt = (() => {
   'use strict';
+  // несколько публичных брокеров: если один недоступен, клиент перебирает остальные по кругу
   const BROKERS = [
     'wss://broker.hivemq.com:8884/mqtt',
     'wss://broker.emqx.io:8084/mqtt',
     'wss://test.mosquitto.org:8081/mqtt',
+    'wss://mqtt.eclipseprojects.io:443/mqtt',
+    'wss://broker.mqttdashboard.com:8884/mqtt',
   ];
   const BASE = 'nozh-duraka-game/v1';
   const enc = new TextEncoder(), dec = new TextDecoder();
@@ -3080,6 +3098,66 @@ window.NDMqtt = (() => {
     document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
   }
 
+  // =================== ЗАСТАВКА ПРИ ПЕРВОМ ЗАПУСКЕ ===================
+  function playSplash() {
+    let seen = false;
+    try { seen = localStorage.getItem('nd-splash') === '1'; localStorage.setItem('nd-splash', '1'); } catch (e) {}
+    if (seen) return;
+    const ov = document.createElement('div'); ov.id = 'splash';
+    ov.innerHTML = '<canvas></canvas><div class="sp-hint">' + T('Нажми, чтобы пропустить', 'Tap to skip') + '</div>';
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('canvas'), g = cv.getContext('2d');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    fit(); window.addEventListener('resize', fit);
+    const HIT = 1100, END = 3200, T0 = performance.now();
+    const title = T('Нож дурака', "Fool's Knife");
+    const sub = T('Карточный дурак, где каждая карта — нож', 'Durak where every card is a knife');
+    let done = false, hit = false, shake = 0, raf = 0;
+    const finish = () => { if (done) return; done = true; cancelAnimationFrame(raf); ov.classList.add('out'); setTimeout(() => ov.remove(), 500); };
+    ov.onclick = finish;
+    const knife = (x, y, a, s, alpha) => {
+      g.save(); g.globalAlpha = alpha; g.translate(x, y); g.rotate(a); g.scale(s, s);
+      g.fillStyle = '#c9d6e0'; g.beginPath(); g.moveTo(60, 0); g.lineTo(-10, -9); g.lineTo(-40, -6); g.lineTo(-40, 6); g.lineTo(-10, 9); g.closePath(); g.fill();
+      g.fillStyle = '#ffffff'; g.fillRect(-36, -1.5, 80, 2);
+      g.fillStyle = '#e8b64a'; g.fillRect(-46, -12, 8, 24);
+      g.fillStyle = '#5a3420'; g.fillRect(-82, -6, 36, 12);
+      g.restore();
+    };
+    const loop = (now) => {
+      if (done) return;
+      const t = now - T0, w = innerWidth, h = innerHeight;
+      const tx = w / 2, ty = h * 0.34, sx = -90, sy = h * 0.95;
+      const pos = (q) => { const k = 1 - Math.pow(1 - q, 3); return [sx + (tx - sx) * k, sy + (ty - sy) * k - Math.sin(q * Math.PI) * h * 0.2]; };
+      const p = Math.min(1, t / HIT);
+      const ang = Math.atan2(ty - sy, tx - sx);
+      g.save();
+      if (shake > 0) { g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.85; }
+      const grd = g.createRadialGradient(w / 2, h * 0.4, 40, w / 2, h * 0.4, Math.max(w, h) * 0.75);
+      grd.addColorStop(0, '#3a2716'); grd.addColorStop(1, '#0d0906');
+      g.fillStyle = grd; g.fillRect(-20, -20, w + 40, h + 40);
+      if (t < HIT) {
+        for (let i = 5; i >= 1; i--) { const [gx, gy] = pos(Math.max(0, p - i * 0.05)); knife(gx, gy, ang, 2.1, 0.12 * (6 - i) / 5); }
+        const [kx, ky] = pos(p); knife(kx, ky, ang, 2.1, 1);
+      } else {
+        if (!hit) { hit = true; shake = 16; try { sfx('thunk'); } catch (e) {} }
+        knife(tx, ty, ang, 2.1, 1);
+        g.globalAlpha = Math.min(1, (t - HIT) / 350); g.fillStyle = '#ffd77a'; g.textAlign = 'center';
+        g.font = 'bold ' + Math.min(78, w * 0.13) + 'px Russo One, Rubik, sans-serif';
+        g.fillText(title, w / 2, h * 0.5);
+        g.globalAlpha = Math.max(0, Math.min(1, (t - HIT - 350) / 400));
+        g.fillStyle = '#f1e6d6'; g.font = Math.min(22, w * 0.045) + 'px Rubik, sans-serif';
+        g.fillText(sub, w / 2, h * 0.5 + 44);
+        g.globalAlpha = 1;
+      }
+      g.restore();
+      if (t > END) return finish();
+      raf = requestAnimationFrame(loop);
+    };
+    try { sfx('whoosh'); } catch (e) {}
+    raf = requestAnimationFrame(loop);
+  }
+
   applyDevice();
   buildProfileUI();
   buildExtraUI();
@@ -3088,6 +3166,7 @@ window.NDMqtt = (() => {
   renderServers();
   initRoom();
   requestAnimationFrame(frame);
+  playSplash();
 })();
 
 </script>

@@ -78,7 +78,9 @@
         mel: [76, 77, 80, -1, 81, -1, 80, 77, 76, -1, -1, -1, 77, 76, 74, -1, 76, -1, 80, 81, 83, -1, 81, 80, 77, -1, 76, -1, -1, -1, -1, -1], style: 'darbuka' },
     };
     const AUTO = { lobby: 'tavern', sunset: 'duel', night: 'night', winter: 'winter', desert: 'desert' };
-    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return context === 'lobby' ? AUTO.lobby : (AUTO[arena] || 'duel'); }
+    // авто-режим: трек меняется сам каждую минуту по кругу
+    const KEYS = Object.keys(TRACKS); let rot = Math.floor(Math.random() * KEYS.length);
+    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return KEYS[rot]; }
     function schedule() {
       const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
@@ -142,10 +144,19 @@
     function startMusic() { const a = ctx(); if (!a || musicTimer) return; startTrack(wanted(), FADE_IN); musicTimer = setInterval(schedule, 40); }
     function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; if (ac) fadeVoice(voice, 0.6); voice = null; current = null; }
     function retarget() { const w = wanted(); if (!musicTimer || w === current) return; startTrack(w, FADE_IN); }
+    setInterval(() => { if (st.track !== 'auto' || !musicTimer || document.hidden) return; rot = (rot + 1) % KEYS.length; retarget(); }, 60000);
     function apply() {
       if (!ac) return; const t = ac.currentTime;
       master.gain.setTargetAtTime(st.vMaster / 100, t, 0.05); sfxBus.gain.setTargetAtTime(sfxGain(), t, 0.05); musBus.gain.setTargetAtTime(musGain(), t, 0.15);
     }
+    // фон: звук стоит, пока приложение не на экране (сворачивание, блокировка, другая вкладка)
+    function pauseAudio() { if (ac && ac.state === 'running') ac.suspend(); }
+    function resumeAudio() { if (ac && ac.state === 'suspended' && (st.music || st.sound)) ac.resume(); }
+    document.addEventListener('visibilitychange', () => (document.hidden ? pauseAudio() : resumeAudio()));
+    window.addEventListener('pagehide', pauseAudio);
+    window.addEventListener('pageshow', resumeAudio);
+    const CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp && CapApp.addListener) CapApp.addListener('appStateChange', (st2) => (st2.isActive ? resumeAudio() : pauseAudio()));
     return {
       sfx,
       TRACKS,

@@ -1164,6 +1164,66 @@
     document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
   }
 
+  // =================== ЗАСТАВКА ПРИ ПЕРВОМ ЗАПУСКЕ ===================
+  function playSplash() {
+    let seen = false;
+    try { seen = localStorage.getItem('nd-splash') === '1'; localStorage.setItem('nd-splash', '1'); } catch (e) {}
+    if (seen) return;
+    const ov = document.createElement('div'); ov.id = 'splash';
+    ov.innerHTML = '<canvas></canvas><div class="sp-hint">' + T('Нажми, чтобы пропустить', 'Tap to skip') + '</div>';
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('canvas'), g = cv.getContext('2d');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    fit(); window.addEventListener('resize', fit);
+    const HIT = 1100, END = 3200, T0 = performance.now();
+    const title = T('Нож дурака', "Fool's Knife");
+    const sub = T('Карточный дурак, где каждая карта — нож', 'Durak where every card is a knife');
+    let done = false, hit = false, shake = 0, raf = 0;
+    const finish = () => { if (done) return; done = true; cancelAnimationFrame(raf); ov.classList.add('out'); setTimeout(() => ov.remove(), 500); };
+    ov.onclick = finish;
+    const knife = (x, y, a, s, alpha) => {
+      g.save(); g.globalAlpha = alpha; g.translate(x, y); g.rotate(a); g.scale(s, s);
+      g.fillStyle = '#c9d6e0'; g.beginPath(); g.moveTo(60, 0); g.lineTo(-10, -9); g.lineTo(-40, -6); g.lineTo(-40, 6); g.lineTo(-10, 9); g.closePath(); g.fill();
+      g.fillStyle = '#ffffff'; g.fillRect(-36, -1.5, 80, 2);
+      g.fillStyle = '#e8b64a'; g.fillRect(-46, -12, 8, 24);
+      g.fillStyle = '#5a3420'; g.fillRect(-82, -6, 36, 12);
+      g.restore();
+    };
+    const loop = (now) => {
+      if (done) return;
+      const t = now - T0, w = innerWidth, h = innerHeight;
+      const tx = w / 2, ty = h * 0.34, sx = -90, sy = h * 0.95;
+      const pos = (q) => { const k = 1 - Math.pow(1 - q, 3); return [sx + (tx - sx) * k, sy + (ty - sy) * k - Math.sin(q * Math.PI) * h * 0.2]; };
+      const p = Math.min(1, t / HIT);
+      const ang = Math.atan2(ty - sy, tx - sx);
+      g.save();
+      if (shake > 0) { g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.85; }
+      const grd = g.createRadialGradient(w / 2, h * 0.4, 40, w / 2, h * 0.4, Math.max(w, h) * 0.75);
+      grd.addColorStop(0, '#3a2716'); grd.addColorStop(1, '#0d0906');
+      g.fillStyle = grd; g.fillRect(-20, -20, w + 40, h + 40);
+      if (t < HIT) {
+        for (let i = 5; i >= 1; i--) { const [gx, gy] = pos(Math.max(0, p - i * 0.05)); knife(gx, gy, ang, 2.1, 0.12 * (6 - i) / 5); }
+        const [kx, ky] = pos(p); knife(kx, ky, ang, 2.1, 1);
+      } else {
+        if (!hit) { hit = true; shake = 16; try { sfx('thunk'); } catch (e) {} }
+        knife(tx, ty, ang, 2.1, 1);
+        g.globalAlpha = Math.min(1, (t - HIT) / 350); g.fillStyle = '#ffd77a'; g.textAlign = 'center';
+        g.font = 'bold ' + Math.min(78, w * 0.13) + 'px Russo One, Rubik, sans-serif';
+        g.fillText(title, w / 2, h * 0.5);
+        g.globalAlpha = Math.max(0, Math.min(1, (t - HIT - 350) / 400));
+        g.fillStyle = '#f1e6d6'; g.font = Math.min(22, w * 0.045) + 'px Rubik, sans-serif';
+        g.fillText(sub, w / 2, h * 0.5 + 44);
+        g.globalAlpha = 1;
+      }
+      g.restore();
+      if (t > END) return finish();
+      raf = requestAnimationFrame(loop);
+    };
+    try { sfx('whoosh'); } catch (e) {}
+    raf = requestAnimationFrame(loop);
+  }
+
   applyDevice();
   buildProfileUI();
   buildExtraUI();
@@ -1172,4 +1232,5 @@
   renderServers();
   initRoom();
   requestAnimationFrame(frame);
+  playSplash();
 })();

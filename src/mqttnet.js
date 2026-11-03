@@ -2,10 +2,13 @@
 // с тем же интерфейсом, что и комнаты claude.ai (presence / onPeers / join / emit / on).
 window.NDMqtt = (() => {
   'use strict';
+  // несколько публичных брокеров: если один недоступен, клиент перебирает остальные по кругу
   const BROKERS = [
     'wss://broker.hivemq.com:8884/mqtt',
     'wss://broker.emqx.io:8084/mqtt',
     'wss://test.mosquitto.org:8081/mqtt',
+    'wss://mqtt.eclipseprojects.io:443/mqtt',
+    'wss://broker.mqttdashboard.com:8884/mqtt',
   ];
   const BASE = 'nozh-duraka-game/v1';
   const enc = new TextEncoder(), dec = new TextDecoder();
