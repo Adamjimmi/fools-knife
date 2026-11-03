@@ -1206,7 +1206,7 @@
       // точка попадания — правый верх надписи
       const hx = w * 0.79, hy = h * 0.38;
       const sx = -w * 0.06, sy = h * 0.68, cx = w * 0.35, cy = h * 0.02;
-      const p = clamp(t / FLY), e = ease(p);
+      const p = clamp(t / FLY), e = p;   // равномерный полёт, без торможения к концу
       const bez = (q) => { const k = 1 - q; return [k * k * sx + 2 * k * q * cx + q * q * hx, k * k * sy + 2 * k * q * cy + q * q * hy]; };
       const [kx, ky] = bez(e);
       const ang = Math.atan2(hy - cy, hx - cx) + 0.1;
@@ -1220,7 +1220,7 @@
         g.setLineDash([3, 9]); g.strokeStyle = 'rgba(255,230,170,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy);
         for (let q = 0; q <= e; q += 0.02) { const [px, py] = bez(q); g.lineTo(px, py); }
         g.stroke(); g.setLineDash([]);
-        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(ease(q)); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang - (1 - ease(q)) * Math.PI * 3.5, w * 0.15); }
+        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(q); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang - (1 - q) * Math.PI * 3.5, w * 0.15); }
         g.globalAlpha = 1;
         knife(kx, ky, ang - (1 - e) * Math.PI * 3.5, w * 0.15);
       }
