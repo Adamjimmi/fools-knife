@@ -22,32 +22,43 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Check signing secrets
+      - name: Prepare signing key
+        id: sign
         env:
           B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          K_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$B64" ]; then
-            echo "::error::Secret ANDROID_KEYSTORE_B64 is missing. See android-app/README.md"
-            exit 1
+          if [ -n "$B64" ]; then
+            echo "$B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=$KS_ALIAS" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$K_PASS" >> "$GITHUB_ENV"
+            echo "kind=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No signing secrets found. Building with a throw-away TEST key. Do not upload this file to Google Play."
+            TMP_PASS="test-$(date +%s)"
+            keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/upload.jks" -alias test -keyalg RSA -keysize 2048 -validity 30 -storepass "$TMP_PASS" -keypass "$TMP_PASS" -dname "CN=TEST ONLY"
+            echo "KEYSTORE_PASSWORD=$TMP_PASS" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=test" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$TMP_PASS" >> "$GITHUB_ENV"
+            echo "kind=TEST-ONLY" >> "$GITHUB_OUTPUT"
           fi
-          echo "$B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
 
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Build
         env:
-          KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VERSION_CODE: ${{ github.run_number }}
           VERSION_NAME: ${{ inputs.version_name }}
         run: bash android-app/build.sh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: fools-knife-android
+          name: fools-knife-android-${{ steps.sign.outputs.kind }}
           path: |
             android-app/out/fools-knife.aab
             android-app/out/fools-knife.apk
