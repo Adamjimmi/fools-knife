@@ -1204,6 +1204,7 @@
     const loop = (now) => {
       if (done) return;
       const t = now - T0, w = innerWidth, h = innerHeight;
+      const KL = Math.min(w * 0.2, h * 0.14, 170);   // длина ножа: зависит от экрана
       // точка попадания — правый верх надписи
       const hx = w * 0.79, hy = h * 0.38;
       const sx = -w * 0.06, sy = h * 0.68, cx = w * 0.35, cy = h * 0.02;
@@ -1221,9 +1222,9 @@
         g.setLineDash([3, 9]); g.strokeStyle = 'rgba(255,230,170,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy);
         for (let q = 0; q <= e; q += 0.02) { const [px, py] = bez(q); g.lineTo(px, py); }
         g.stroke(); g.setLineDash([]);
-        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(q); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang - (1 - q) * Math.PI * 3.5, w * 0.15); }
+        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(q); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang - (1 - q) * Math.PI * 3.5, KL); }
         g.globalAlpha = 1;
-        knife(kx, ky, ang - (1 - e) * Math.PI * 3.5, w * 0.15);
+        knife(kx, ky, ang - (1 - e) * Math.PI * 3.5, KL);
       }
       if (t >= FLY) {
         if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
@@ -1248,10 +1249,15 @@
         // подпись
         const sa = clamp((t - 1250) / 350);
         g.save(); g.globalAlpha = sa; g.fillStyle = '#f3e7d2'; g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.font = Math.min(26, w * 0.05) + 'px Rubik, DejaVu Sans, sans-serif';
+        let sf = Math.min(26, w * 0.05); g.font = sf + 'px Rubik, DejaVu Sans, sans-serif';
+        let lines = [sub];
+        if (g.measureText(sub).width > w * 0.86) { const ws = sub.split(' '), mid = Math.ceil(ws.length / 2); lines = [ws.slice(0, mid).join(' '), ws.slice(mid).join(' ')]; }
+        const mx = Math.max(...lines.map(l => g.measureText(l).width));
+        if (mx > w * 0.86) { sf *= w * 0.86 / mx; g.font = sf + 'px Rubik, DejaVu Sans, sans-serif'; }
         g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8;
-        g.fillText(sub, w / 2, h * 0.6); g.restore();
-        knife(hx, hy, ang, w * 0.15);   // нож поверх надписи
+        lines.forEach((l, i) => g.fillText(l, w / 2, h * 0.6 + i * sf * 1.4));
+        g.restore();
+        knife(hx, hy, ang, KL);   // нож поверх надписи
       }
       g.restore();
       if (t > END) return finish();
