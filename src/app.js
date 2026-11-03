@@ -914,6 +914,7 @@
     h.classList.toggle('touch', touch);
     h.classList.toggle('dev-phone', DEV.phone); h.classList.toggle('dev-tablet', DEV.tablet); h.classList.toggle('dev-desktop', !touch);
     h.classList.toggle('layout-phone', layoutPhone);
+    h.classList.toggle('native-app', !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
   }
   window.addEventListener('resize', applyDevice);
   window.addEventListener('orientationchange', () => setTimeout(applyDevice, 200));

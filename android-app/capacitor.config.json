@@ -1,0 +1,9 @@
+{
+  "appId": "com.morstudio.foolsknife",
+  "appName": "Fool's Knife",
+  "webDir": "www",
+  "backgroundColor": "#17110c",
+  "android": {
+    "allowMixedContent": false
+  }
+}

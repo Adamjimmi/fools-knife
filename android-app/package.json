@@ -1,0 +1,14 @@
+{
+  "name": "fools-knife-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android wrapper (Capacitor) for Fool's Knife",
+  "dependencies": {
+    "@capacitor/android": "latest",
+    "@capacitor/cli": "latest",
+    "@capacitor/core": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "latest"
+  }
+}
