@@ -203,7 +203,18 @@ window.NDMqtt = (() => {
       return Promise.resolve(api);
     }
 
+    // таблица лидеров: по одному закреплённому сообщению на игрока
+    function kvPut(key, obj) { if (client && client.ready) client.publish(`${BASE}/lb/${String(key).replace(/[^a-z0-9]/gi, '').slice(0, 24)}`, JSON.stringify(obj), true); }
+    function kvList(ms) {
+      return new Promise((res) => {
+        const rows = new Map(); const filter = `${BASE}/lb/+`;
+        const fn = (topic, payload) => { if (!payload) return; try { rows.set(topic.split('/').pop(), JSON.parse(payload)); } catch (e) {} };
+        subscribe(filter, fn);
+        setTimeout(() => { unsubscribe(filter); res([...rows].map(([id, v]) => Object.assign({ id }, v))); }, ms || 2500);
+      });
+    }
     return Object.freeze({
+      kvPut, kvList,
       presence: (patch) => {
         myPresence = Object.assign({}, myPresence, patch);
         for (const k of Object.keys(myPresence)) if (myPresence[k] === null) delete myPresence[k];

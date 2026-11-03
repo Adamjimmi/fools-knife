@@ -22,38 +22,36 @@ select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px
 .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.45; }
 
 /* ---------- Телефон: вертикальный режим ---------- */
-@media (max-width: 760px) {
-  #room.active { display: flex; flex-direction: column; padding: 6px 6px 14px; }
-  #room .topbar { order: 0; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
-  #room .room-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-  #btn-leave { padding: 5px 10px; }
-  #room .hud { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; }
-  #room .hud-item { min-width: 0; padding: 3px 2px; }
-  #room .hud-item > span { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #room .hud-item b { font-size: 14px; }
-  #room .hud-item.trump b { font-size: 12px; }
-  #room .game-wrap { display: contents; }
-  #room .stage { order: 1; border-radius: 10px; }
-  #room .hint { position: static; transform: none; white-space: normal; text-align: center; border-radius: 0; border: 0; border-top: 1px solid var(--line); width: 100%; font-size: 12.5px; padding: 6px 8px; }
-  #room .hint:empty { display: none; }
-  #room .overlay { padding: 10px; gap: 6px; }
-  #room .overlay h2 { font-size: 20px; }
-  #room .overlay p { font-size: 12px; }
-  #room .overlay .btn { min-width: 0; padding: 8px 12px; font-size: 13px; }
-  #room .final { gap: 16px; margin: 0; }
-  #room .final b { font-size: 26px; }
-  #room .table { order: 2; margin-top: 8px; padding: 8px 6px 10px; border-width: 4px; grid-template-columns: 1fr 1fr; grid-template-areas: "opp deck" "mine mine"; gap: 4px 6px; }
-  #room .table .slot:nth-child(1) { grid-area: mine; }
-  #room .table .slot:nth-child(2) { grid-area: deck; }
-  #room .table .slot:nth-child(3) { grid-area: opp; }
-  #room .slot-label { font-size: 10px; margin-bottom: 2px; }
-  #my-slot { zoom: .9; }
-  #deck-slot, #opp-slot { zoom: .42; }
-  #room .side { order: 3; margin-top: 8px; }
-  #room .log { max-height: 140px; }
-  .logo .lang-toggle { top: 10px; right: 10px; }
-  .conn { position: static; display: block; text-align: center; margin-top: 14px; }
-}
+html.layout-phone #room.active { display: flex; flex-direction: column; padding: 6px 6px 14px; }
+html.layout-phone #room .topbar { order: 0; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+html.layout-phone #room .room-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+html.layout-phone #btn-leave { padding: 5px 10px; }
+html.layout-phone #room .hud { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; }
+html.layout-phone #room .hud-item { min-width: 0; padding: 3px 2px; }
+html.layout-phone #room .hud-item > span { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.layout-phone #room .hud-item b { font-size: 14px; }
+html.layout-phone #room .hud-item.trump b { font-size: 12px; }
+html.layout-phone #room .game-wrap { display: contents; }
+html.layout-phone #room .stage { order: 1; border-radius: 10px; }
+html.layout-phone #room .hint { position: static; transform: none; white-space: normal; text-align: center; border-radius: 0; border: 0; border-top: 1px solid var(--line); width: 100%; font-size: 12.5px; padding: 6px 8px; }
+html.layout-phone #room .hint:empty { display: none; }
+html.layout-phone #room .overlay { padding: 10px; gap: 6px; }
+html.layout-phone #room .overlay h2 { font-size: 20px; }
+html.layout-phone #room .overlay p { font-size: 12px; }
+html.layout-phone #room .overlay .btn { min-width: 0; padding: 8px 12px; font-size: 13px; }
+html.layout-phone #room .final { gap: 16px; margin: 0; }
+html.layout-phone #room .final b { font-size: 26px; }
+html.layout-phone #room .table { order: 2; margin-top: 8px; padding: 8px 6px 10px; border-width: 4px; grid-template-columns: 1fr 1fr; grid-template-areas: "opp deck" "mine mine"; gap: 4px 6px; }
+html.layout-phone #room .table .slot:nth-child(1) { grid-area: mine; }
+html.layout-phone #room .table .slot:nth-child(2) { grid-area: deck; }
+html.layout-phone #room .table .slot:nth-child(3) { grid-area: opp; }
+html.layout-phone #room .slot-label { font-size: 10px; margin-bottom: 2px; }
+html.layout-phone #my-slot { zoom: .9; }
+html.layout-phone #deck-slot, html.layout-phone #opp-slot { zoom: .42; }
+html.layout-phone #room .side { order: 3; margin-top: 8px; }
+html.layout-phone #room .log { max-height: 140px; }
+html.layout-phone .logo .lang-toggle { top: 10px; right: 10px; }
+html.layout-phone .conn { position: static; display: block; text-align: center; margin-top: 14px; }
 /* Только вертикально: на повёрнутом телефоне просим вернуть его */
 #rotate { display: none; position: fixed; inset: 0; z-index: 100; background: #120c07; color: var(--text); align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; padding: 24px; }
 #rotate .ic { font-size: 54px; animation: rot 2s ease-in-out infinite; }
@@ -88,6 +86,22 @@ select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px
 .pm-lvl { font-family: 'Russo One', sans-serif; color: var(--gold2); font-size: 22px; }
 .pm-info small { color: var(--muted); }
 .pm-note { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 8px 0 0; }
+.lb { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.lb-row { display: grid; grid-template-columns: 38px 1fr 58px 78px 54px; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,.035); border: 1px solid transparent; font-size: 14px; }
+.lb-row.me { border-color: var(--gold2); background: rgba(240,190,90,.12); }
+.lb-pos { font-family: 'Russo One', sans-serif; text-align: center; color: var(--muted); }
+.lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-lvl { color: var(--gold2); } .lb-xp { color: #c9b6ff; text-align: right; } .lb-w { color: var(--muted); text-align: right; }
+.pc-lb { margin-top: 8px; }
+.set-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.set-row > span { flex: 0 0 150px; }
+.set-row input[type=range] { flex: 1; accent-color: var(--gold2); }
+.set-row b { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+.set-row select { flex: 1; }
+.set-row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--gold2); }
+html.layout-phone .lb-row { grid-template-columns: 30px 1fr 46px 64px; font-size: 13px; }
+html.layout-phone .lb-w { display: none; }
+html.layout-phone .set-row > span { flex-basis: 110px; }
 .pm-tabs, .pm-slots { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
 .chip-btn { background: #1a120b; border: 1px solid var(--line); color: var(--text); border-radius: 18px; padding: 6px 12px; cursor: pointer; font: 500 13.5px Rubik, sans-serif; }
 .chip-btn.on { background: var(--gold); color: #3a2208; border-color: #a77421; }

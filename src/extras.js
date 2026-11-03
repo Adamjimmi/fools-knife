@@ -12,20 +12,23 @@
   // =====================================================================
   const Audio = (() => {
     let ac = null, master, sfxBus, musBus, noiseBuf, musicTimer = null, nextNote = 0, step = 0;
-    const st = { sound: LS.get('nd-sound', true), music: LS.get('nd-music', true) };
+    const st = Object.assign({ sound: true, music: true, vMaster: 80, vMusic: 55, vSfx: 60, track: 'auto' }, LS.get('nd-audio', {}));
+    let context = 'lobby', arena = 'sunset', current = null, pending = null;
+    const save = () => LS.set('nd-audio', st);
+    const musGain = () => (st.music ? st.vMusic / 100 * 0.42 : 0);
+    const sfxGain = () => (st.sound ? st.vSfx / 100 * 0.7 : 0);
     function ctx() {
       if (ac) return ac;
       try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
-      master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
-      sfxBus = ac.createGain(); sfxBus.gain.value = st.sound ? 1 : 0; sfxBus.connect(master);
-      musBus = ac.createGain(); musBus.gain.value = st.music ? 0.32 : 0; musBus.connect(master);
+      master = ac.createGain(); master.gain.value = st.vMaster / 100; master.connect(ac.destination);
+      sfxBus = ac.createGain(); sfxBus.gain.value = sfxGain(); sfxBus.connect(master);
+      musBus = ac.createGain(); musBus.gain.value = musGain(); musBus.connect(master);
       noiseBuf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       return ac;
     }
     function unlock() { const a = ctx(); if (a && a.state === 'suspended') a.resume(); if (st.music) startMusic(); }
     ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
-
     function noise(t, dur, type, f0, f1, gain, bus, q = 1) {
       const s = ac.createBufferSource(); s.buffer = noiseBuf;
       const f = ac.createBiquadFilter(); f.type = type; f.Q.value = q;
@@ -44,46 +47,102 @@
       const a = ctx(); if (!a || !st.sound) return;
       const t = a.currentTime + 0.005;
       switch (kind) {
-        case 'whoosh': noise(t, 0.32, 'bandpass', 400, 2600, 0.5, null, 2.5); noise(t + 0.05, 0.25, 'highpass', 2000, 5000, 0.12); break;
-        case 'thunk': tone(t, 0.16, 'sine', 170, 55, 0.9); noise(t, 0.07, 'lowpass', 2600, 400, 0.7); tone(t, 0.09, 'triangle', 420, 260, 0.18); break;
-        case 'clank': [1180, 1730, 2610, 3320].forEach((f, i) => tone(t, 0.35 - i * 0.05, 'sine', f, f * 0.98, 0.16 / (i + 1))); noise(t, 0.05, 'highpass', 3000, 6000, 0.25); break;
-        case 'clang': [880, 1397, 2093, 2794, 4186].forEach((f, i) => tone(t, 1.1 - i * 0.12, 'sine', f, f * 0.995, 0.22 / (i + 1))); noise(t, 0.08, 'highpass', 2500, 7000, 0.4); break;
-        case 'dirt': noise(t, 0.12, 'lowpass', 900, 200, 0.5); break;
-        case 'take': noise(t, 0.06, 'highpass', 2500, 6000, 0.3); tone(t + 0.02, 0.12, 'sine', 600, 1200, 0.12); break;
-        case 'deal': noise(t, 0.04, 'bandpass', 3000, 2000, 0.25, null, 4); break;
-        case 'click': tone(t, 0.05, 'square', 900, 700, 0.05); break;
-        case 'tick': tone(t, 0.04, 'square', 1500, 1500, 0.06); break;
-        case 'streak': { const n = Math.min(6, arg || 2); for (let i = 0; i < n; i++) tone(t + i * 0.07, 0.22, 'triangle', NOTE(72 + [0, 4, 7, 12, 16, 19][i]), 0, 0.15); break; }
-        case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.5, 'triangle', NOTE(n), 0, 0.16)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.2, 'sawtooth', NOTE(n), 0, 0.05, null, 0.05)); break;
-        case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.45, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.15)); break;
-        case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.35, 'sine', NOTE(n), 0, 0.14)); noise(t, 0.6, 'highpass', 6000, 9000, 0.05); break;
-        case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.5, 'triangle', NOTE(n), 0, 0.14)); break;
+        case 'whoosh': noise(t, 0.3, 'bandpass', 400, 2400, 0.32, null, 2.5); noise(t + 0.05, 0.22, 'highpass', 2000, 5000, 0.07); break;
+        case 'thunk': tone(t, 0.15, 'sine', 170, 55, 0.6); noise(t, 0.06, 'lowpass', 2400, 400, 0.4); tone(t, 0.08, 'triangle', 420, 260, 0.1); break;
+        case 'clank': [1180, 1730, 2610, 3320].forEach((f, i) => tone(t, 0.3 - i * 0.05, 'sine', f, f * 0.98, 0.09 / (i + 1))); noise(t, 0.05, 'highpass', 3000, 6000, 0.14); break;
+        case 'clang': [880, 1397, 2093, 2794, 4186].forEach((f, i) => tone(t, 1 - i * 0.12, 'sine', f, f * 0.995, 0.13 / (i + 1))); noise(t, 0.07, 'highpass', 2500, 7000, 0.22); break;
+        case 'dirt': noise(t, 0.12, 'lowpass', 900, 200, 0.3); break;
+        case 'take': noise(t, 0.05, 'highpass', 2500, 6000, 0.16); tone(t + 0.02, 0.1, 'sine', 600, 1200, 0.07); break;
+        case 'deal': noise(t, 0.04, 'bandpass', 3000, 2000, 0.14, null, 4); break;
+        case 'click': tone(t, 0.04, 'square', 900, 700, 0.03); break;
+        case 'tick': tone(t, 0.035, 'square', 1500, 1500, 0.035); break;
+        case 'streak': { const n = Math.min(6, arg || 2); for (let i = 0; i < n; i++) tone(t + i * 0.07, 0.2, 'triangle', NOTE(72 + [0, 4, 7, 12, 16, 19][i]), 0, 0.08); break; }
+        case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.45, 'triangle', NOTE(n), 0, 0.1)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.1, 'sawtooth', NOTE(n), 0, 0.03, null, 0.05)); break;
+        case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.4, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.09)); break;
+        case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.32, 'sine', NOTE(n), 0, 0.08)); noise(t, 0.5, 'highpass', 6000, 9000, 0.03); break;
+        case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.45, 'triangle', NOTE(n), 0, 0.08)); break;
       }
     }
-    // Фоновая музыка: таверна в ля миноре, 104 удара в минуту
-    const BPM = 104, S16 = 60 / BPM / 4;
-    const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];       // Am F C G
-    const BASS = [45, 41, 36, 43];
-    const MEL = [76, -1, 74, 72, 69, -1, 72, -1, 74, -1, 76, 79, 76, -1, 74, -1,
-                 72, -1, 69, 72, 74, -1, 72, -1, 69, -1, 67, -1, 69, -1, -1, -1];
+    // ---------- музыка: несколько треков ----------
+    // ch — аккорды (MIDI), bass — бас по тактам, mel — мелодия на 32 шестнадцатых (-1 пауза), style — ударные и тембры
+    const TRACKS = {
+      tavern: { name: ['Таверна', 'Tavern'], bpm: 104, ch: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], bass: [45, 41, 36, 43],
+        mel: [76, -1, 74, 72, 69, -1, 72, -1, 74, -1, 76, 79, 76, -1, 74, -1, 72, -1, 69, 72, 74, -1, 72, -1, 69, -1, 67, -1, 69, -1, -1, -1], style: 'folk' },
+      duel: { name: ['Дуэль', 'Duel'], bpm: 124, ch: [[52, 55, 59], [48, 52, 55], [55, 59, 62], [50, 54, 57]], bass: [40, 36, 43, 38],
+        mel: [71, -1, 71, 74, 76, -1, 74, 71, 69, -1, 67, -1, 69, 71, -1, -1, 71, -1, 74, -1, 79, 78, 76, -1, 74, -1, 71, 69, 71, -1, -1, -1], style: 'drive' },
+      night: { name: ['Ночь', 'Night'], bpm: 78, ch: [[50, 53, 57], [46, 50, 53], [53, 57, 60], [48, 52, 55]], bass: [38, 34, 41, 36],
+        mel: [74, -1, -1, 77, -1, -1, 76, -1, 74, -1, -1, -1, 69, -1, -1, -1, 72, -1, -1, 74, -1, -1, 72, -1, 70, -1, 69, -1, -1, -1, -1, -1], style: 'calm' },
+      winter: { name: ['Зима', 'Winter'], bpm: 96, ch: [[48, 52, 55], [55, 59, 62], [57, 60, 64], [53, 57, 60]], bass: [36, 43, 45, 41],
+        mel: [79, -1, 76, -1, 72, -1, 74, 76, 77, -1, 76, -1, 74, -1, -1, -1, 76, -1, 72, -1, 69, -1, 71, 72, 74, -1, 72, -1, 72, -1, -1, -1], style: 'bells' },
+      desert: { name: ['Пустыня', 'Desert'], bpm: 92, ch: [[52, 56, 59], [53, 57, 60], [52, 56, 59], [50, 53, 57]], bass: [40, 41, 40, 38],
+        mel: [76, 77, 80, -1, 81, -1, 80, 77, 76, -1, -1, -1, 77, 76, 74, -1, 76, -1, 80, 81, 83, -1, 81, 80, 77, -1, 76, -1, -1, -1, -1, -1], style: 'darbuka' },
+    };
+    const AUTO = { lobby: 'tavern', sunset: 'duel', night: 'night', winter: 'winter', desert: 'desert' };
+    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return context === 'lobby' ? AUTO.lobby : (AUTO[arena] || 'duel'); }
     function schedule() {
+      const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
         const s = step % 64, bar = Math.floor(s / 16) % 4, b16 = s % 16, t = nextNote;
-        if (b16 % 4 === 0) tone(t, 0.22, 'sine', 120, 45, 0.55, musBus);                     // бочка
-        if (b16 === 4 || b16 === 12) noise(t, 0.14, 'bandpass', 1800, 1200, 0.28, musBus, 0.8);  // хлопок
-        if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, musBus);            // хэт
-        if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(BASS[bar]), 0, 0.32, musBus);
-        if (b16 === 0 || b16 === 8) CHORDS[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, musBus, 0.04));
-        const m = MEL[(step % 32)];
-        if (m > 0 && Math.floor(step / 32) % 2 === 1) tone(t, S16 * 1.8, 'triangle', NOTE(m), 0, 0.09, musBus);
+        if (s === 0 && pending) { current = pending; pending = null; return; }
+        const B = musBus;
+        switch (tr.style) {
+          case 'drive':
+            if (b16 % 4 === 0) tone(t, 0.2, 'sine', 125, 45, 0.6, B);
+            if (b16 === 4 || b16 === 12) noise(t, 0.16, 'bandpass', 1900, 1300, 0.32, B, 0.8);
+            noise(t, 0.03, 'highpass', 7500, 9000, b16 % 2 ? 0.06 : 0.035, B);
+            if (b16 % 2 === 0) tone(t, S16 * 1.6, 'sawtooth', NOTE(tr.bass[bar] + (b16 % 8 === 6 ? 12 : 0)), 0, 0.13, B);
+            break;
+          case 'calm':
+            if (b16 === 0) tone(t, 0.5, 'sine', 70, 40, 0.35, B);
+            if (b16 === 0) tr.ch[bar].forEach(n => tone(t, S16 * 15, 'sine', NOTE(n), 0, 0.05, B, 0.4));
+            if (b16 === 0 || b16 === 8) tone(t, S16 * 7, 'triangle', NOTE(tr.bass[bar]), 0, 0.22, B, 0.05);
+            if (b16 % 4 === 2) noise(t, 0.05, 'highpass', 8000, 9500, 0.025, B);
+            break;
+          case 'bells':
+            if (b16 % 4 === 0) tone(t, 0.2, 'sine', 110, 45, 0.45, B);
+            if (b16 === 8) noise(t, 0.12, 'bandpass', 2000, 1500, 0.2, B, 0.8);
+            if (b16 % 2 === 1) noise(t, 0.06, 'highpass', 6000, 9000, 0.08, B);      // бубенцы
+            if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 7, 'triangle', NOTE(n + 12), 0, 0.03, B, 0.02));
+            if (b16 === 0 || b16 === 10) tone(t, S16 * 5, 'triangle', NOTE(tr.bass[bar]), 0, 0.28, B);
+            break;
+          case 'darbuka':
+            if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, 0.18, 'sine', 95, 50, 0.55, B);
+            if (b16 === 3 || b16 === 8 || b16 === 12 || b16 === 14) tone(t, 0.07, 'triangle', 520, 380, 0.12, B);
+            if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 5000, 8000, 0.04, B);
+            if (b16 === 0) tr.ch[bar].forEach(n => tone(t, S16 * 15, 'sawtooth', NOTE(n), 0, 0.018, B, 0.3));
+            if (b16 === 0 || b16 === 8) tone(t, S16 * 6, 'triangle', NOTE(tr.bass[bar]), 0, 0.26, B);
+            break;
+          default: // folk
+            if (b16 % 4 === 0) tone(t, 0.22, 'sine', 120, 45, 0.55, B);
+            if (b16 === 4 || b16 === 12) noise(t, 0.14, 'bandpass', 1800, 1200, 0.28, B, 0.8);
+            if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, B);
+            if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(tr.bass[bar]), 0, 0.32, B);
+            if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, B, 0.04));
+        }
+        const m = tr.mel[step % 32];
+        if (m > 0 && Math.floor(step / 32) % 2 === 1) {
+          const wave = tr.style === 'calm' || tr.style === 'bells' ? 'sine' : 'triangle';
+          tone(t, S16 * (tr.style === 'calm' ? 3.5 : 1.8), wave, NOTE(m), 0, tr.style === 'calm' ? 0.07 : 0.09, B, tr.style === 'calm' ? 0.03 : 0.005);
+          if (tr.style === 'bells') tone(t, S16 * 2.5, 'sine', NOTE(m + 12), 0, 0.03, B);
+        }
         nextNote += S16; step++;
       }
     }
-    function startMusic() { const a = ctx(); if (!a || musicTimer) return; nextNote = a.currentTime + 0.1; musicTimer = setInterval(schedule, 40); }
+    function startMusic() { const a = ctx(); if (!a || musicTimer) return; current = wanted(); pending = null; step = 0; nextNote = a.currentTime + 0.1; musicTimer = setInterval(schedule, 40); }
     function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; }
-    function setSound(on) { st.sound = on; LS.set('nd-sound', on); if (ctx()) sfxBus.gain.value = on ? 1 : 0; }
-    function setMusic(on) { st.music = on; LS.set('nd-music', on); if (ctx()) { musBus.gain.value = on ? 0.32 : 0; if (on) startMusic(); else stopMusic(); } }
-    return { sfx, setSound, setMusic, get sound() { return st.sound; }, get music() { return st.music; } };
+    function retarget() { const w = wanted(); if (!musicTimer) return; if (w !== current) pending = w; }
+    function apply() { if (!ac) return; master.gain.value = st.vMaster / 100; sfxBus.gain.value = sfxGain(); musBus.gain.value = musGain(); }
+    return {
+      sfx,
+      TRACKS,
+      setSound(on) { st.sound = on; save(); apply(); },
+      setMusic(on) { st.music = on; save(); apply(); if (ctx()) { if (on) startMusic(); else stopMusic(); } },
+      setVolume(kind, v) { st[kind] = Math.max(0, Math.min(100, Math.round(v))); save(); apply(); },
+      setTrack(id) { st.track = TRACKS[id] ? id : 'auto'; save(); retarget(); },
+      setContext(c, a) { context = c; if (a) arena = a; retarget(); },
+      get sound() { return st.sound; }, get music() { return st.music; }, get state() { return Object.assign({}, st); },
+      get nowPlaying() { return current; },
+    };
   })();
 
   // =====================================================================
@@ -137,6 +196,7 @@
     const blank = () => ({ xp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
     let p = Object.assign(blank(), LS.get('nd-profile', {}));
     p.stats = Object.assign(blank().stats, p.stats || {}); p.look = cleanLook(p.look); p.ach = p.ach || {};
+    if (!p.pid) { p.pid = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 8); LS.set('nd-profile', p); }
     const listeners = [];
     const save = () => LS.set('nd-profile', p);
     const emit = (ev) => listeners.forEach(f => f(ev));
@@ -146,7 +206,7 @@
       if (n <= 0) return;
       const before = levelOf(p.xp), had = unlockedSet();
       p.xp += Math.round(n); const after = levelOf(p.xp);
-      save();
+      save(); emit({ type: 'xp' });
       if (after > before) emit({ type: 'level', level: after, items: [...unlockedSet()].filter(x => !had.has(x)) });
     }
     function achieve(id) {

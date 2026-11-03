@@ -226,38 +226,36 @@ select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px
 .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; line-height: 1.45; }
 
 /* ---------- Телефон: вертикальный режим ---------- */
-@media (max-width: 760px) {
-  #room.active { display: flex; flex-direction: column; padding: 6px 6px 14px; }
-  #room .topbar { order: 0; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
-  #room .room-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-  #btn-leave { padding: 5px 10px; }
-  #room .hud { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; }
-  #room .hud-item { min-width: 0; padding: 3px 2px; }
-  #room .hud-item > span { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #room .hud-item b { font-size: 14px; }
-  #room .hud-item.trump b { font-size: 12px; }
-  #room .game-wrap { display: contents; }
-  #room .stage { order: 1; border-radius: 10px; }
-  #room .hint { position: static; transform: none; white-space: normal; text-align: center; border-radius: 0; border: 0; border-top: 1px solid var(--line); width: 100%; font-size: 12.5px; padding: 6px 8px; }
-  #room .hint:empty { display: none; }
-  #room .overlay { padding: 10px; gap: 6px; }
-  #room .overlay h2 { font-size: 20px; }
-  #room .overlay p { font-size: 12px; }
-  #room .overlay .btn { min-width: 0; padding: 8px 12px; font-size: 13px; }
-  #room .final { gap: 16px; margin: 0; }
-  #room .final b { font-size: 26px; }
-  #room .table { order: 2; margin-top: 8px; padding: 8px 6px 10px; border-width: 4px; grid-template-columns: 1fr 1fr; grid-template-areas: "opp deck" "mine mine"; gap: 4px 6px; }
-  #room .table .slot:nth-child(1) { grid-area: mine; }
-  #room .table .slot:nth-child(2) { grid-area: deck; }
-  #room .table .slot:nth-child(3) { grid-area: opp; }
-  #room .slot-label { font-size: 10px; margin-bottom: 2px; }
-  #my-slot { zoom: .9; }
-  #deck-slot, #opp-slot { zoom: .42; }
-  #room .side { order: 3; margin-top: 8px; }
-  #room .log { max-height: 140px; }
-  .logo .lang-toggle { top: 10px; right: 10px; }
-  .conn { position: static; display: block; text-align: center; margin-top: 14px; }
-}
+html.layout-phone #room.active { display: flex; flex-direction: column; padding: 6px 6px 14px; }
+html.layout-phone #room .topbar { order: 0; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+html.layout-phone #room .room-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+html.layout-phone #btn-leave { padding: 5px 10px; }
+html.layout-phone #room .hud { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; }
+html.layout-phone #room .hud-item { min-width: 0; padding: 3px 2px; }
+html.layout-phone #room .hud-item > span { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.layout-phone #room .hud-item b { font-size: 14px; }
+html.layout-phone #room .hud-item.trump b { font-size: 12px; }
+html.layout-phone #room .game-wrap { display: contents; }
+html.layout-phone #room .stage { order: 1; border-radius: 10px; }
+html.layout-phone #room .hint { position: static; transform: none; white-space: normal; text-align: center; border-radius: 0; border: 0; border-top: 1px solid var(--line); width: 100%; font-size: 12.5px; padding: 6px 8px; }
+html.layout-phone #room .hint:empty { display: none; }
+html.layout-phone #room .overlay { padding: 10px; gap: 6px; }
+html.layout-phone #room .overlay h2 { font-size: 20px; }
+html.layout-phone #room .overlay p { font-size: 12px; }
+html.layout-phone #room .overlay .btn { min-width: 0; padding: 8px 12px; font-size: 13px; }
+html.layout-phone #room .final { gap: 16px; margin: 0; }
+html.layout-phone #room .final b { font-size: 26px; }
+html.layout-phone #room .table { order: 2; margin-top: 8px; padding: 8px 6px 10px; border-width: 4px; grid-template-columns: 1fr 1fr; grid-template-areas: "opp deck" "mine mine"; gap: 4px 6px; }
+html.layout-phone #room .table .slot:nth-child(1) { grid-area: mine; }
+html.layout-phone #room .table .slot:nth-child(2) { grid-area: deck; }
+html.layout-phone #room .table .slot:nth-child(3) { grid-area: opp; }
+html.layout-phone #room .slot-label { font-size: 10px; margin-bottom: 2px; }
+html.layout-phone #my-slot { zoom: .9; }
+html.layout-phone #deck-slot, html.layout-phone #opp-slot { zoom: .42; }
+html.layout-phone #room .side { order: 3; margin-top: 8px; }
+html.layout-phone #room .log { max-height: 140px; }
+html.layout-phone .logo .lang-toggle { top: 10px; right: 10px; }
+html.layout-phone .conn { position: static; display: block; text-align: center; margin-top: 14px; }
 /* Только вертикально: на повёрнутом телефоне просим вернуть его */
 #rotate { display: none; position: fixed; inset: 0; z-index: 100; background: #120c07; color: var(--text); align-items: center; justify-content: center; flex-direction: column; gap: 14px; text-align: center; padding: 24px; }
 #rotate .ic { font-size: 54px; animation: rot 2s ease-in-out infinite; }
@@ -292,6 +290,22 @@ select { width: 100%; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px
 .pm-lvl { font-family: 'Russo One', sans-serif; color: var(--gold2); font-size: 22px; }
 .pm-info small { color: var(--muted); }
 .pm-note { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 8px 0 0; }
+.lb { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.lb-row { display: grid; grid-template-columns: 38px 1fr 58px 78px 54px; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,.035); border: 1px solid transparent; font-size: 14px; }
+.lb-row.me { border-color: var(--gold2); background: rgba(240,190,90,.12); }
+.lb-pos { font-family: 'Russo One', sans-serif; text-align: center; color: var(--muted); }
+.lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-lvl { color: var(--gold2); } .lb-xp { color: #c9b6ff; text-align: right; } .lb-w { color: var(--muted); text-align: right; }
+.pc-lb { margin-top: 8px; }
+.set-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.set-row > span { flex: 0 0 150px; }
+.set-row input[type=range] { flex: 1; accent-color: var(--gold2); }
+.set-row b { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+.set-row select { flex: 1; }
+.set-row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--gold2); }
+html.layout-phone .lb-row { grid-template-columns: 30px 1fr 46px 64px; font-size: 13px; }
+html.layout-phone .lb-w { display: none; }
+html.layout-phone .set-row > span { flex-basis: 110px; }
 .pm-tabs, .pm-slots { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
 .chip-btn { background: #1a120b; border: 1px solid var(--line); color: var(--text); border-radius: 18px; padding: 6px 12px; cursor: pointer; font: 500 13.5px Rubik, sans-serif; }
 .chip-btn.on { background: var(--gold); color: #3a2208; border-color: #a77421; }
@@ -1199,20 +1213,23 @@ window.NDEngine = (() => {
   // =====================================================================
   const Audio = (() => {
     let ac = null, master, sfxBus, musBus, noiseBuf, musicTimer = null, nextNote = 0, step = 0;
-    const st = { sound: LS.get('nd-sound', true), music: LS.get('nd-music', true) };
+    const st = Object.assign({ sound: true, music: true, vMaster: 80, vMusic: 55, vSfx: 60, track: 'auto' }, LS.get('nd-audio', {}));
+    let context = 'lobby', arena = 'sunset', current = null, pending = null;
+    const save = () => LS.set('nd-audio', st);
+    const musGain = () => (st.music ? st.vMusic / 100 * 0.42 : 0);
+    const sfxGain = () => (st.sound ? st.vSfx / 100 * 0.7 : 0);
     function ctx() {
       if (ac) return ac;
       try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
-      master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
-      sfxBus = ac.createGain(); sfxBus.gain.value = st.sound ? 1 : 0; sfxBus.connect(master);
-      musBus = ac.createGain(); musBus.gain.value = st.music ? 0.32 : 0; musBus.connect(master);
+      master = ac.createGain(); master.gain.value = st.vMaster / 100; master.connect(ac.destination);
+      sfxBus = ac.createGain(); sfxBus.gain.value = sfxGain(); sfxBus.connect(master);
+      musBus = ac.createGain(); musBus.gain.value = musGain(); musBus.connect(master);
       noiseBuf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       return ac;
     }
     function unlock() { const a = ctx(); if (a && a.state === 'suspended') a.resume(); if (st.music) startMusic(); }
     ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
-
     function noise(t, dur, type, f0, f1, gain, bus, q = 1) {
       const s = ac.createBufferSource(); s.buffer = noiseBuf;
       const f = ac.createBiquadFilter(); f.type = type; f.Q.value = q;
@@ -1231,46 +1248,102 @@ window.NDEngine = (() => {
       const a = ctx(); if (!a || !st.sound) return;
       const t = a.currentTime + 0.005;
       switch (kind) {
-        case 'whoosh': noise(t, 0.32, 'bandpass', 400, 2600, 0.5, null, 2.5); noise(t + 0.05, 0.25, 'highpass', 2000, 5000, 0.12); break;
-        case 'thunk': tone(t, 0.16, 'sine', 170, 55, 0.9); noise(t, 0.07, 'lowpass', 2600, 400, 0.7); tone(t, 0.09, 'triangle', 420, 260, 0.18); break;
-        case 'clank': [1180, 1730, 2610, 3320].forEach((f, i) => tone(t, 0.35 - i * 0.05, 'sine', f, f * 0.98, 0.16 / (i + 1))); noise(t, 0.05, 'highpass', 3000, 6000, 0.25); break;
-        case 'clang': [880, 1397, 2093, 2794, 4186].forEach((f, i) => tone(t, 1.1 - i * 0.12, 'sine', f, f * 0.995, 0.22 / (i + 1))); noise(t, 0.08, 'highpass', 2500, 7000, 0.4); break;
-        case 'dirt': noise(t, 0.12, 'lowpass', 900, 200, 0.5); break;
-        case 'take': noise(t, 0.06, 'highpass', 2500, 6000, 0.3); tone(t + 0.02, 0.12, 'sine', 600, 1200, 0.12); break;
-        case 'deal': noise(t, 0.04, 'bandpass', 3000, 2000, 0.25, null, 4); break;
-        case 'click': tone(t, 0.05, 'square', 900, 700, 0.05); break;
-        case 'tick': tone(t, 0.04, 'square', 1500, 1500, 0.06); break;
-        case 'streak': { const n = Math.min(6, arg || 2); for (let i = 0; i < n; i++) tone(t + i * 0.07, 0.22, 'triangle', NOTE(72 + [0, 4, 7, 12, 16, 19][i]), 0, 0.15); break; }
-        case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.5, 'triangle', NOTE(n), 0, 0.16)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.2, 'sawtooth', NOTE(n), 0, 0.05, null, 0.05)); break;
-        case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.45, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.15)); break;
-        case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.35, 'sine', NOTE(n), 0, 0.14)); noise(t, 0.6, 'highpass', 6000, 9000, 0.05); break;
-        case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.5, 'triangle', NOTE(n), 0, 0.14)); break;
+        case 'whoosh': noise(t, 0.3, 'bandpass', 400, 2400, 0.32, null, 2.5); noise(t + 0.05, 0.22, 'highpass', 2000, 5000, 0.07); break;
+        case 'thunk': tone(t, 0.15, 'sine', 170, 55, 0.6); noise(t, 0.06, 'lowpass', 2400, 400, 0.4); tone(t, 0.08, 'triangle', 420, 260, 0.1); break;
+        case 'clank': [1180, 1730, 2610, 3320].forEach((f, i) => tone(t, 0.3 - i * 0.05, 'sine', f, f * 0.98, 0.09 / (i + 1))); noise(t, 0.05, 'highpass', 3000, 6000, 0.14); break;
+        case 'clang': [880, 1397, 2093, 2794, 4186].forEach((f, i) => tone(t, 1 - i * 0.12, 'sine', f, f * 0.995, 0.13 / (i + 1))); noise(t, 0.07, 'highpass', 2500, 7000, 0.22); break;
+        case 'dirt': noise(t, 0.12, 'lowpass', 900, 200, 0.3); break;
+        case 'take': noise(t, 0.05, 'highpass', 2500, 6000, 0.16); tone(t + 0.02, 0.1, 'sine', 600, 1200, 0.07); break;
+        case 'deal': noise(t, 0.04, 'bandpass', 3000, 2000, 0.14, null, 4); break;
+        case 'click': tone(t, 0.04, 'square', 900, 700, 0.03); break;
+        case 'tick': tone(t, 0.035, 'square', 1500, 1500, 0.035); break;
+        case 'streak': { const n = Math.min(6, arg || 2); for (let i = 0; i < n; i++) tone(t + i * 0.07, 0.2, 'triangle', NOTE(72 + [0, 4, 7, 12, 16, 19][i]), 0, 0.08); break; }
+        case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.45, 'triangle', NOTE(n), 0, 0.1)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.1, 'sawtooth', NOTE(n), 0, 0.03, null, 0.05)); break;
+        case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.4, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.09)); break;
+        case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.32, 'sine', NOTE(n), 0, 0.08)); noise(t, 0.5, 'highpass', 6000, 9000, 0.03); break;
+        case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.45, 'triangle', NOTE(n), 0, 0.08)); break;
       }
     }
-    // Фоновая музыка: таверна в ля миноре, 104 удара в минуту
-    const BPM = 104, S16 = 60 / BPM / 4;
-    const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];       // Am F C G
-    const BASS = [45, 41, 36, 43];
-    const MEL = [76, -1, 74, 72, 69, -1, 72, -1, 74, -1, 76, 79, 76, -1, 74, -1,
-                 72, -1, 69, 72, 74, -1, 72, -1, 69, -1, 67, -1, 69, -1, -1, -1];
+    // ---------- музыка: несколько треков ----------
+    // ch — аккорды (MIDI), bass — бас по тактам, mel — мелодия на 32 шестнадцатых (-1 пауза), style — ударные и тембры
+    const TRACKS = {
+      tavern: { name: ['Таверна', 'Tavern'], bpm: 104, ch: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], bass: [45, 41, 36, 43],
+        mel: [76, -1, 74, 72, 69, -1, 72, -1, 74, -1, 76, 79, 76, -1, 74, -1, 72, -1, 69, 72, 74, -1, 72, -1, 69, -1, 67, -1, 69, -1, -1, -1], style: 'folk' },
+      duel: { name: ['Дуэль', 'Duel'], bpm: 124, ch: [[52, 55, 59], [48, 52, 55], [55, 59, 62], [50, 54, 57]], bass: [40, 36, 43, 38],
+        mel: [71, -1, 71, 74, 76, -1, 74, 71, 69, -1, 67, -1, 69, 71, -1, -1, 71, -1, 74, -1, 79, 78, 76, -1, 74, -1, 71, 69, 71, -1, -1, -1], style: 'drive' },
+      night: { name: ['Ночь', 'Night'], bpm: 78, ch: [[50, 53, 57], [46, 50, 53], [53, 57, 60], [48, 52, 55]], bass: [38, 34, 41, 36],
+        mel: [74, -1, -1, 77, -1, -1, 76, -1, 74, -1, -1, -1, 69, -1, -1, -1, 72, -1, -1, 74, -1, -1, 72, -1, 70, -1, 69, -1, -1, -1, -1, -1], style: 'calm' },
+      winter: { name: ['Зима', 'Winter'], bpm: 96, ch: [[48, 52, 55], [55, 59, 62], [57, 60, 64], [53, 57, 60]], bass: [36, 43, 45, 41],
+        mel: [79, -1, 76, -1, 72, -1, 74, 76, 77, -1, 76, -1, 74, -1, -1, -1, 76, -1, 72, -1, 69, -1, 71, 72, 74, -1, 72, -1, 72, -1, -1, -1], style: 'bells' },
+      desert: { name: ['Пустыня', 'Desert'], bpm: 92, ch: [[52, 56, 59], [53, 57, 60], [52, 56, 59], [50, 53, 57]], bass: [40, 41, 40, 38],
+        mel: [76, 77, 80, -1, 81, -1, 80, 77, 76, -1, -1, -1, 77, 76, 74, -1, 76, -1, 80, 81, 83, -1, 81, 80, 77, -1, 76, -1, -1, -1, -1, -1], style: 'darbuka' },
+    };
+    const AUTO = { lobby: 'tavern', sunset: 'duel', night: 'night', winter: 'winter', desert: 'desert' };
+    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return context === 'lobby' ? AUTO.lobby : (AUTO[arena] || 'duel'); }
     function schedule() {
+      const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
         const s = step % 64, bar = Math.floor(s / 16) % 4, b16 = s % 16, t = nextNote;
-        if (b16 % 4 === 0) tone(t, 0.22, 'sine', 120, 45, 0.55, musBus);                     // бочка
-        if (b16 === 4 || b16 === 12) noise(t, 0.14, 'bandpass', 1800, 1200, 0.28, musBus, 0.8);  // хлопок
-        if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, musBus);            // хэт
-        if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(BASS[bar]), 0, 0.32, musBus);
-        if (b16 === 0 || b16 === 8) CHORDS[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, musBus, 0.04));
-        const m = MEL[(step % 32)];
-        if (m > 0 && Math.floor(step / 32) % 2 === 1) tone(t, S16 * 1.8, 'triangle', NOTE(m), 0, 0.09, musBus);
+        if (s === 0 && pending) { current = pending; pending = null; return; }
+        const B = musBus;
+        switch (tr.style) {
+          case 'drive':
+            if (b16 % 4 === 0) tone(t, 0.2, 'sine', 125, 45, 0.6, B);
+            if (b16 === 4 || b16 === 12) noise(t, 0.16, 'bandpass', 1900, 1300, 0.32, B, 0.8);
+            noise(t, 0.03, 'highpass', 7500, 9000, b16 % 2 ? 0.06 : 0.035, B);
+            if (b16 % 2 === 0) tone(t, S16 * 1.6, 'sawtooth', NOTE(tr.bass[bar] + (b16 % 8 === 6 ? 12 : 0)), 0, 0.13, B);
+            break;
+          case 'calm':
+            if (b16 === 0) tone(t, 0.5, 'sine', 70, 40, 0.35, B);
+            if (b16 === 0) tr.ch[bar].forEach(n => tone(t, S16 * 15, 'sine', NOTE(n), 0, 0.05, B, 0.4));
+            if (b16 === 0 || b16 === 8) tone(t, S16 * 7, 'triangle', NOTE(tr.bass[bar]), 0, 0.22, B, 0.05);
+            if (b16 % 4 === 2) noise(t, 0.05, 'highpass', 8000, 9500, 0.025, B);
+            break;
+          case 'bells':
+            if (b16 % 4 === 0) tone(t, 0.2, 'sine', 110, 45, 0.45, B);
+            if (b16 === 8) noise(t, 0.12, 'bandpass', 2000, 1500, 0.2, B, 0.8);
+            if (b16 % 2 === 1) noise(t, 0.06, 'highpass', 6000, 9000, 0.08, B);      // бубенцы
+            if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 7, 'triangle', NOTE(n + 12), 0, 0.03, B, 0.02));
+            if (b16 === 0 || b16 === 10) tone(t, S16 * 5, 'triangle', NOTE(tr.bass[bar]), 0, 0.28, B);
+            break;
+          case 'darbuka':
+            if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, 0.18, 'sine', 95, 50, 0.55, B);
+            if (b16 === 3 || b16 === 8 || b16 === 12 || b16 === 14) tone(t, 0.07, 'triangle', 520, 380, 0.12, B);
+            if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 5000, 8000, 0.04, B);
+            if (b16 === 0) tr.ch[bar].forEach(n => tone(t, S16 * 15, 'sawtooth', NOTE(n), 0, 0.018, B, 0.3));
+            if (b16 === 0 || b16 === 8) tone(t, S16 * 6, 'triangle', NOTE(tr.bass[bar]), 0, 0.26, B);
+            break;
+          default: // folk
+            if (b16 % 4 === 0) tone(t, 0.22, 'sine', 120, 45, 0.55, B);
+            if (b16 === 4 || b16 === 12) noise(t, 0.14, 'bandpass', 1800, 1200, 0.28, B, 0.8);
+            if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, B);
+            if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(tr.bass[bar]), 0, 0.32, B);
+            if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, B, 0.04));
+        }
+        const m = tr.mel[step % 32];
+        if (m > 0 && Math.floor(step / 32) % 2 === 1) {
+          const wave = tr.style === 'calm' || tr.style === 'bells' ? 'sine' : 'triangle';
+          tone(t, S16 * (tr.style === 'calm' ? 3.5 : 1.8), wave, NOTE(m), 0, tr.style === 'calm' ? 0.07 : 0.09, B, tr.style === 'calm' ? 0.03 : 0.005);
+          if (tr.style === 'bells') tone(t, S16 * 2.5, 'sine', NOTE(m + 12), 0, 0.03, B);
+        }
         nextNote += S16; step++;
       }
     }
-    function startMusic() { const a = ctx(); if (!a || musicTimer) return; nextNote = a.currentTime + 0.1; musicTimer = setInterval(schedule, 40); }
+    function startMusic() { const a = ctx(); if (!a || musicTimer) return; current = wanted(); pending = null; step = 0; nextNote = a.currentTime + 0.1; musicTimer = setInterval(schedule, 40); }
     function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; }
-    function setSound(on) { st.sound = on; LS.set('nd-sound', on); if (ctx()) sfxBus.gain.value = on ? 1 : 0; }
-    function setMusic(on) { st.music = on; LS.set('nd-music', on); if (ctx()) { musBus.gain.value = on ? 0.32 : 0; if (on) startMusic(); else stopMusic(); } }
-    return { sfx, setSound, setMusic, get sound() { return st.sound; }, get music() { return st.music; } };
+    function retarget() { const w = wanted(); if (!musicTimer) return; if (w !== current) pending = w; }
+    function apply() { if (!ac) return; master.gain.value = st.vMaster / 100; sfxBus.gain.value = sfxGain(); musBus.gain.value = musGain(); }
+    return {
+      sfx,
+      TRACKS,
+      setSound(on) { st.sound = on; save(); apply(); },
+      setMusic(on) { st.music = on; save(); apply(); if (ctx()) { if (on) startMusic(); else stopMusic(); } },
+      setVolume(kind, v) { st[kind] = Math.max(0, Math.min(100, Math.round(v))); save(); apply(); },
+      setTrack(id) { st.track = TRACKS[id] ? id : 'auto'; save(); retarget(); },
+      setContext(c, a) { context = c; if (a) arena = a; retarget(); },
+      get sound() { return st.sound; }, get music() { return st.music; }, get state() { return Object.assign({}, st); },
+      get nowPlaying() { return current; },
+    };
   })();
 
   // =====================================================================
@@ -1324,6 +1397,7 @@ window.NDEngine = (() => {
     const blank = () => ({ xp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
     let p = Object.assign(blank(), LS.get('nd-profile', {}));
     p.stats = Object.assign(blank().stats, p.stats || {}); p.look = cleanLook(p.look); p.ach = p.ach || {};
+    if (!p.pid) { p.pid = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 8); LS.set('nd-profile', p); }
     const listeners = [];
     const save = () => LS.set('nd-profile', p);
     const emit = (ev) => listeners.forEach(f => f(ev));
@@ -1333,7 +1407,7 @@ window.NDEngine = (() => {
       if (n <= 0) return;
       const before = levelOf(p.xp), had = unlockedSet();
       p.xp += Math.round(n); const after = levelOf(p.xp);
-      save();
+      save(); emit({ type: 'xp' });
       if (after > before) emit({ type: 'level', level: after, items: [...unlockedSet()].filter(x => !had.has(x)) });
     }
     function achieve(id) {
@@ -1772,7 +1846,18 @@ window.NDMqtt = (() => {
       return Promise.resolve(api);
     }
 
+    // таблица лидеров: по одному закреплённому сообщению на игрока
+    function kvPut(key, obj) { if (client && client.ready) client.publish(`${BASE}/lb/${String(key).replace(/[^a-z0-9]/gi, '').slice(0, 24)}`, JSON.stringify(obj), true); }
+    function kvList(ms) {
+      return new Promise((res) => {
+        const rows = new Map(); const filter = `${BASE}/lb/+`;
+        const fn = (topic, payload) => { if (!payload) return; try { rows.set(topic.split('/').pop(), JSON.parse(payload)); } catch (e) {} };
+        subscribe(filter, fn);
+        setTimeout(() => { unsubscribe(filter); res([...rows].map(([id, v]) => Object.assign({ id }, v))); }, ms || 2500);
+      });
+    }
     return Object.freeze({
+      kvPut, kvList,
       presence: (patch) => {
         myPresence = Object.assign({}, myPresence, patch);
         for (const k of Object.keys(myPresence)) if (myPresence[k] === null) delete myPresence[k];
@@ -1910,6 +1995,7 @@ window.NDMqtt = (() => {
     const bl = document.querySelectorAll('#bot-level option');
     [['Бот: лёгкий', 'Bot: easy'], ['Бот: средний', 'Bot: medium'], ['Бот: сложный', 'Bot: hard']].forEach(([r, e], i) => { if (bl[i]) bl[i].textContent = T(r, e); });
     if (typeof renderProfileCard === 'function' && $('#profile-card')) { renderProfileCard(); paintSnd(); }
+    if ($('#settings-modal')) paintExtra();
     if ($('#profile-modal') && !$('#profile-modal').classList.contains('hidden')) renderProfileModal();
     setText('#modal h2', 'Пароль сервера', 'Server password');
     setText('#modal-input', 'Пароль', 'Password', 'placeholder');
@@ -1933,7 +2019,7 @@ window.NDMqtt = (() => {
   const connNoText = () => ITCH ? T('● нет связи с сервером сообщений — можно играть с ботом (перезагрузи страницу, чтобы попробовать снова)', '● cannot reach the message server — you can play the bot (reload the page to retry)') : T('● онлайн недоступен — можно играть с ботом', '● online is unavailable — you can play the bot');
   const nick = () => ($('#nick').value.trim() || T('Игрок', 'Player')).slice(0, 20);
   try { const s = localStorage.getItem('nd-nick'); if (s) $('#nick').value = s; } catch (e) {}
-  $('#nick').addEventListener('change', () => { try { localStorage.setItem('nd-nick', nick()); } catch (e) {} if (R) R.presence({ nick: nick() }).catch(() => {}); });
+  $('#nick').addEventListener('change', () => { queueBoardPush(); try { localStorage.setItem('nd-nick', nick()); } catch (e) {} if (R) R.presence({ nick: nick() }).catch(() => {}); });
 
   // ---------- Подключение к платформе ----------
   function setConn(on, text) {
@@ -1945,7 +2031,7 @@ window.NDMqtt = (() => {
     setConn(false, T('● подключение к мультиплееру…', '● connecting to multiplayer…'));
     try { R = (window.claude && window.claude.use) ? await window.claude.use('room') : null; } catch (e) { R = null; }
     if (!R && window.NDMqtt) { try { R = await window.NDMqtt.connect(); } catch (e) { R = null; } }
-    if (!R) { setConn(false, connNoText()); renderServers(); return; }
+    if (!R) { setConn(false, connNoText()); renderServers(); initBoard(); return; }
     R.onPeers((ch) => {
       lobbyPeers = ch.peers;
       const me = ch.peers.find(p => p.sameTab);
@@ -1954,6 +2040,7 @@ window.NDMqtt = (() => {
     }, () => { R = null; setConn(false, connNoText()); renderServers(); });
     R.onConnection((c) => setConn(c));
     R.presence({ nick: nick() }).catch(() => {});
+    initBoard();
   }
 
   // ---------- Лобби ----------
@@ -2001,7 +2088,7 @@ window.NDMqtt = (() => {
   $('#btn-bot').onclick = () => createServer(true);
   $('#btn-leave').onclick = () => leave();
 
-  function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); }
+  function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); if (id === 'lobby') X.Audio.setContext('lobby'); }
   const rid = () => Math.random().toString(36).slice(2, 10);
 
   // ---------- Хост ----------
@@ -2127,6 +2214,7 @@ window.NDMqtt = (() => {
     const prev = room;
     if (prev && prev.ep !== s.ep) anims = [];
     room = s; roomAt = performance.now();
+    X.Audio.setContext('game', ['sunset', 'night', 'winter', 'desert'].includes(s.arena) ? s.arena : 'sunset');
     syncFlights(s);
     if (!prev) enterRoom();
     if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; reward = null; matchStartXp = X.Profile.data.xp; }
@@ -2156,6 +2244,7 @@ window.NDMqtt = (() => {
     if (ev.type === 'level') { sfx('levelup'); toast(T(`Новый уровень: ${ev.level}!`, `Level up: ${ev.level}!`) + (ev.items.length ? T(' Открыто: ', ' Unlocked: ') + ev.items.map(itemName).join(', ') : '')); }
     if (ev.type === 'ach') { const a = X.ACH.find(x => x[0] === ev.id); if (a) { sfx('achieve'); toast('🏅 ' + T(a[1], a[2]) + (ev.items.length ? ' · ' + ev.items.map(itemName).join(', ') : '')); } }
     renderProfileCard();
+    if (ev.type === 'xp' || ev.type === 'level') queueBoardPush();
   });
   function itemName(key) { const [slot, id] = key.split(':'); const it = X.ITEMS[slot].find(x => x[0] === id); return it ? T(it[2], it[3]) : id; }
 
@@ -2297,7 +2386,7 @@ window.NDMqtt = (() => {
     k.appendChild(cv);
     const s = SUITS[card.suit];
     k.insertAdjacentHTML('beforeend', `<div class="kn">${esc(cardName(card))} ${s.sym}</div>
-      <div class="kd">${mine ? T('Зажми мышь на поле, тяни назад и отпусти', 'Hold the mouse on the field, drag back and release') : T('В руке у соперника', "In your opponent's hand")}</div>`);
+      <div class="kd">${mine ? (DEV.touch ? T('Коснись поля, тяни палец назад и отпусти', 'Touch the field, drag back and release') : T('Зажми мышь на поле, тяни назад и отпусти', 'Hold the mouse on the field, drag back and release')) : T('В руке у соперника', "In your opponent's hand")}</div>`);
     k.title = [...card.stats.abilities.map(a => '✦ ' + abil(a)[0]), ...card.stats.qualities.map(q => '+ ' + qual(q)[0]), ...card.stats.flaws.map(f => '− ' + flaw(f)[0])].join('\n');
     return k;
   }
@@ -2428,6 +2517,7 @@ window.NDMqtt = (() => {
     if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, dir); X.shake(res.zone === 'bull' ? 7 : 3); if (a.streak > 1) setTimeout(() => sfx('streak', a.streak), 120); }
     else if (res.code === 'bounce_face' || res.code === 'bounce_top') X.burst('sparks', v.x, v.y, 8);
     else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
+    if (a.owner === myId && DEV.phone && vibrateOn()) { try { navigator.vibrate(res.knock ? [30, 40, 40] : res.zone === 'bull' ? 60 : res.hit ? 25 : 0); } catch (e) {} }
     if (a.owner === myId && res.code !== 'knocked') {
       const xp = X.Profile.onThrow(res, a.streak);
       matchXp += 0;   // опыт уже начислен, итог считается по разнице
@@ -2655,7 +2745,7 @@ window.NDMqtt = (() => {
       if (playing && m && m.status === 'aim' && m.left) {
         const left = Math.max(0, m.left - (now - roomAt));
         if (left < 5500 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); sfx('tick'); }
-        $('#hud-timer').textContent = Math.ceil(left / 1000) + ' c';
+        $('#hud-timer').textContent = Math.ceil(left / 1000) + T(' с', ' s');
         $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
       } else $('#hud-timer').textContent = '—';
       $('#hint').textContent = hintText();
@@ -2671,7 +2761,8 @@ window.NDMqtt = (() => {
     if (room.phase === 'end') return T('Раунд окончен', 'Round over');
     if (m.status === 'aim') {
       if (!m.active) return m.streak ? T(`Попал! Серия ×${m.streak} — выбери следующий нож`, `Hit! Streak ×${m.streak} — pick your next knife`) : T('👇 Выбери карту внизу — она превратится в нож', '👇 Pick a card below — it turns into a knife');
-      return aim.active ? T('Отпусти, чтобы бросить', 'Release to throw') : T('Зажми мышь на поле и тяни назад-вниз, чтобы прицелиться', 'Hold the mouse on the field and drag back-down to aim');
+      if (aim.active) return T('Отпусти, чтобы бросить', 'Release to throw');
+      return DEV.touch ? T('Коснись поля и тяни палец назад-вниз, чтобы прицелиться', 'Touch the field and drag your finger back-down to aim') : T('Зажми мышь на поле и тяни назад-вниз, чтобы прицелиться', 'Hold the mouse on the field and drag back-down to aim');
     }
     if (m.status === 'flying') return '';
     if (m.status === 'done' && o && (o.status === 'aim' || o.status === 'flying')) return T(`Твой раунд окончен. ${pname(o)} ещё бросает…`, `Your round is over. ${pname(o)} is still throwing…`);
@@ -2684,6 +2775,110 @@ window.NDMqtt = (() => {
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
+
+
+  // =================== УСТРОЙСТВО ===================
+  const DEV = { touch: false, phone: false, tablet: false };
+  function applyDevice() {
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const minSide = Math.min(screen.width || innerWidth, screen.height || innerHeight);
+    DEV.touch = touch; DEV.phone = touch && minSide < 600; DEV.tablet = touch && !DEV.phone;
+    const layoutPhone = DEV.phone || innerWidth <= 760;
+    const h = document.documentElement;
+    h.classList.toggle('touch', touch);
+    h.classList.toggle('dev-phone', DEV.phone); h.classList.toggle('dev-tablet', DEV.tablet); h.classList.toggle('dev-desktop', !touch);
+    h.classList.toggle('layout-phone', layoutPhone);
+  }
+  window.addEventListener('resize', applyDevice);
+  window.addEventListener('orientationchange', () => setTimeout(applyDevice, 200));
+  const vibrateOn = () => { try { return localStorage.getItem('nd-vibrate') !== '0'; } catch (e) { return true; } };
+
+  // =================== ТАБЛИЦА ЛИДЕРОВ ===================
+  let BD = null, boardTimer = null, lastPush = '';
+  async function initBoard() {
+    if (BD) return;
+    try {
+      if (window.claude && window.claude.use) {
+        const db = await window.claude.use('db'); const user = db ? await window.claude.use('user') : null;
+        const uid = user ? await user.id() : null;
+        if (db && uid) BD = { kind: 'db', db, me: uid };
+      }
+    } catch (e) {}
+    if (!BD && R && R.kvPut) BD = { kind: 'mq', me: X.Profile.data.pid };
+    queueBoardPush();
+  }
+  function boardEntry() { const d = X.Profile.data; return { n: nick(), lv: X.Profile.level, xp: d.xp, w: d.stats.wins, hat: myLook().hat, t: Date.now() }; }
+  function queueBoardPush() { clearTimeout(boardTimer); boardTimer = setTimeout(pushBoard, 1500); }
+  async function pushBoard() {
+    if (!BD) return;
+    const e = boardEntry(), key = e.n + '|' + e.xp + '|' + e.hat;
+    if (key === lastPush) return;
+    try { if (BD.kind === 'db') await BD.db.doc('lb/' + BD.me).set(e); else R.kvPut(BD.me, e); lastPush = key; } catch (err) {}
+  }
+  async function loadBoard() {
+    let rows = [];
+    if (BD && BD.kind === 'db') { const snap = await BD.db.collection('lb').orderBy('xp', 'desc').limit(100).get(); rows = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); }
+    else if (BD && BD.kind === 'mq') rows = await R.kvList(2500);
+    const me = Object.assign({ id: BD ? BD.me : 'me' }, boardEntry());
+    rows = rows.filter(r => r && r.id !== me.id).map(r => ({ id: String(r.id), n: String(r.n || T('Игрок', 'Player')).slice(0, 20), lv: Math.max(1, Math.min(30, +r.lv || 1)), xp: Math.max(0, +r.xp || 0), w: Math.max(0, +r.w || 0), hat: String(r.hat || 'none') }));
+    rows.push(me);
+    rows.sort((a, b) => b.xp - a.xp);
+    return { rows: rows.slice(0, 100), me: me.id, rank: rows.findIndex(r => r.id === me.id) + 1 };
+  }
+  const HAT_ICON = { none: '', cap: '🧢', bandana: '🏴‍☠️', cowboy: '🤠', ushanka: '🧣', viking: '⚔️', tophat: '🎩', crown: '👑' };
+  async function openBoard() {
+    const m = $('#board-modal'); m.classList.remove('hidden');
+    const body = m.querySelector('.pm-body');
+    body.innerHTML = `<h2>🏆 ${T('Таблица лидеров', 'Leaderboard')}</h2><p class="pm-note">${T('Загрузка…', 'Loading…')}</p>`;
+    let res;
+    try { res = await Promise.race([loadBoard(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))]); }
+    catch (e) { body.innerHTML = `<h2>🏆 ${T('Таблица лидеров', 'Leaderboard')}</h2><p class="pm-note">${T('Не удалось загрузить таблицу. Проверь интернет и попробуй ещё раз.', 'Could not load the leaderboard. Check your connection and try again.')}</p>`; return; }
+    const where = !BD ? T('Онлайн недоступен, поэтому здесь только твой результат.', 'Online is unavailable, so only your own result is shown.')
+      : BD.kind === 'db' ? T('Все игроки, у которых есть доступ к этой странице игры на claude.ai.', 'Everyone who has access to this game page on claude.ai.')
+      : T('Все игроки браузерной версии (itch.io, сайт) и Android-приложения.', 'All players of the browser version (itch.io, website) and the Android app.');
+    body.innerHTML = `<h2>🏆 ${T('Таблица лидеров', 'Leaderboard')}</h2>
+      <p class="pm-note">${where} ${T('Твоё место', 'Your rank')}: <b>${res.rank}</b> ${T('из', 'of')} ${res.rows.length}.</p>
+      <div class="lb">${res.rows.map((r, i) => `<div class="lb-row ${r.id === res.me ? 'me' : ''}"><span class="lb-pos">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+        <span class="lb-name">${HAT_ICON[r.hat] || ''} ${esc(r.n)}${r.id === res.me ? T(' (ты)', ' (you)') : ''}</span>
+        <span class="lb-lvl">${T('ур.', 'lv.')} ${r.lv}</span><span class="lb-xp">${r.xp} XP</span><span class="lb-w">🏆 ${r.w}</span></div>`).join('')}</div>`;
+  }
+
+  // =================== НАСТРОЙКИ ===================
+  function openSettings() { $('#settings-modal').classList.remove('hidden'); renderSettings(); }
+  function renderSettings() {
+    const b = $('#settings-modal .pm-body'); const a = X.Audio.state;
+    const slider = (key, label) => `<label class="set-row"><span>${label}</span><input type="range" min="0" max="100" value="${a[key]}" data-vol="${key}"><b>${a[key]}</b></label>`;
+    b.innerHTML = `<h2>⚙️ ${T('Настройки', 'Settings')}</h2>
+      ${slider('vMaster', T('Общая громкость', 'Master volume'))}
+      ${slider('vMusic', T('Музыка', 'Music'))}
+      ${slider('vSfx', T('Эффекты', 'Sound effects'))}
+      <label class="set-row"><span>${T('Трек', 'Track')}</span><select id="set-track"><option value="auto">${T('Авто: лобби и арена', 'Auto: lobby & arena')}</option>${Object.entries(X.Audio.TRACKS).map(([id, t]) => `<option value="${id}">${T(...t.name)}</option>`).join('')}</select></label>
+      <label class="set-row"><span>${T('Звуки', 'Sound')}</span><input type="checkbox" id="set-snd" ${a.sound ? 'checked' : ''}></label>
+      <label class="set-row"><span>${T('Музыка', 'Music')}</span><input type="checkbox" id="set-mus" ${a.music ? 'checked' : ''}></label>
+      ${DEV.phone ? `<label class="set-row"><span>${T('Вибрация', 'Vibration')}</span><input type="checkbox" id="set-vib" ${vibrateOn() ? 'checked' : ''}></label>` : ''}
+      <p class="pm-note">${T('Устройство', 'Device')}: ${DEV.phone ? T('телефон', 'phone') : DEV.tablet ? T('планшет', 'tablet') : T('компьютер', 'computer')} · ${T('раскладка подстраивается сама', 'layout adapts automatically')}</p>`;
+    b.querySelectorAll('[data-vol]').forEach(r => r.oninput = () => { X.Audio.setVolume(r.dataset.vol, +r.value); r.nextElementSibling.textContent = r.value; });
+    b.querySelectorAll('[data-vol]').forEach(r => r.onchange = () => sfx('thunk'));
+    const tr = b.querySelector('#set-track'); tr.value = a.track; tr.onchange = () => X.Audio.setTrack(tr.value);
+    b.querySelector('#set-snd').onchange = (e) => { X.Audio.setSound(e.target.checked); paintSnd(); };
+    b.querySelector('#set-mus').onchange = (e) => { X.Audio.setMusic(e.target.checked); paintSnd(); };
+    const vib = b.querySelector('#set-vib'); if (vib) vib.onchange = (e) => { try { localStorage.setItem('nd-vibrate', e.target.checked ? '1' : '0'); } catch (er) {} if (e.target.checked) try { navigator.vibrate(30); } catch (er) {} };
+  }
+  function buildExtraUI() {
+    const mkModal = (id) => { const m = document.createElement('div'); m.id = id; m.className = 'modal hidden'; m.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
+      m.onclick = (e) => { if (e.target === m) m.classList.add('hidden'); }; m.querySelector('.pm-close').onclick = () => m.classList.add('hidden'); document.body.appendChild(m); };
+    mkModal('board-modal'); mkModal('settings-modal');
+    // кнопки рядом со звуком: настройки
+    document.querySelectorAll('.snd-box').forEach(box => { const b = document.createElement('button'); b.type = 'button'; b.className = 'snd-toggle set'; b.textContent = '⚙️'; b.onclick = () => { sfx('click'); openSettings(); }; box.appendChild(b); });
+    // таблица лидеров — в карточке профиля
+    const card = $('#profile-card .pc-main'); const lb = document.createElement('button'); lb.type = 'button'; lb.className = 'btn small pc-lb'; lb.onclick = () => { sfx('click'); openBoard(); }; card.appendChild(lb);
+    paintExtra();
+  }
+  function paintExtra() {
+    const lb = $('.pc-lb'); if (lb) lb.textContent = T('🏆 Таблица лидеров', '🏆 Leaderboard');
+    document.querySelectorAll('.snd-toggle.set').forEach(b => b.title = T('Настройки', 'Settings'));
+    if (!$('#settings-modal').classList.contains('hidden')) renderSettings();
+  }
 
   // =================== ПРОФИЛЬ, ГАРДЕРОБ, ЗВУК ===================
   function avatar(canvas, look, withBg) {
@@ -2770,8 +2965,9 @@ window.NDMqtt = (() => {
     document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
   }
 
-  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.documentElement.classList.add('touch');
+  applyDevice();
   buildProfileUI();
+  buildExtraUI();
   addLangToggles();
   applyStatic();
   renderServers();

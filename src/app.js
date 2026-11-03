@@ -117,6 +117,7 @@
     const bl = document.querySelectorAll('#bot-level option');
     [['Бот: лёгкий', 'Bot: easy'], ['Бот: средний', 'Bot: medium'], ['Бот: сложный', 'Bot: hard']].forEach(([r, e], i) => { if (bl[i]) bl[i].textContent = T(r, e); });
     if (typeof renderProfileCard === 'function' && $('#profile-card')) { renderProfileCard(); paintSnd(); }
+    if ($('#settings-modal')) paintExtra();
     if ($('#profile-modal') && !$('#profile-modal').classList.contains('hidden')) renderProfileModal();
     setText('#modal h2', 'Пароль сервера', 'Server password');
     setText('#modal-input', 'Пароль', 'Password', 'placeholder');
@@ -140,7 +141,7 @@
   const connNoText = () => ITCH ? T('● нет связи с сервером сообщений — можно играть с ботом (перезагрузи страницу, чтобы попробовать снова)', '● cannot reach the message server — you can play the bot (reload the page to retry)') : T('● онлайн недоступен — можно играть с ботом', '● online is unavailable — you can play the bot');
   const nick = () => ($('#nick').value.trim() || T('Игрок', 'Player')).slice(0, 20);
   try { const s = localStorage.getItem('nd-nick'); if (s) $('#nick').value = s; } catch (e) {}
-  $('#nick').addEventListener('change', () => { try { localStorage.setItem('nd-nick', nick()); } catch (e) {} if (R) R.presence({ nick: nick() }).catch(() => {}); });
+  $('#nick').addEventListener('change', () => { queueBoardPush(); try { localStorage.setItem('nd-nick', nick()); } catch (e) {} if (R) R.presence({ nick: nick() }).catch(() => {}); });
 
   // ---------- Подключение к платформе ----------
   function setConn(on, text) {
@@ -152,7 +153,7 @@
     setConn(false, T('● подключение к мультиплееру…', '● connecting to multiplayer…'));
     try { R = (window.claude && window.claude.use) ? await window.claude.use('room') : null; } catch (e) { R = null; }
     if (!R && window.NDMqtt) { try { R = await window.NDMqtt.connect(); } catch (e) { R = null; } }
-    if (!R) { setConn(false, connNoText()); renderServers(); return; }
+    if (!R) { setConn(false, connNoText()); renderServers(); initBoard(); return; }
     R.onPeers((ch) => {
       lobbyPeers = ch.peers;
       const me = ch.peers.find(p => p.sameTab);
@@ -161,6 +162,7 @@
     }, () => { R = null; setConn(false, connNoText()); renderServers(); });
     R.onConnection((c) => setConn(c));
     R.presence({ nick: nick() }).catch(() => {});
+    initBoard();
   }
 
   // ---------- Лобби ----------
@@ -208,7 +210,7 @@
   $('#btn-bot').onclick = () => createServer(true);
   $('#btn-leave').onclick = () => leave();
 
-  function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); }
+  function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); if (id === 'lobby') X.Audio.setContext('lobby'); }
   const rid = () => Math.random().toString(36).slice(2, 10);
 
   // ---------- Хост ----------
@@ -334,6 +336,7 @@
     const prev = room;
     if (prev && prev.ep !== s.ep) anims = [];
     room = s; roomAt = performance.now();
+    X.Audio.setContext('game', ['sunset', 'night', 'winter', 'desert'].includes(s.arena) ? s.arena : 'sunset');
     syncFlights(s);
     if (!prev) enterRoom();
     if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; reward = null; matchStartXp = X.Profile.data.xp; }
@@ -363,6 +366,7 @@
     if (ev.type === 'level') { sfx('levelup'); toast(T(`Новый уровень: ${ev.level}!`, `Level up: ${ev.level}!`) + (ev.items.length ? T(' Открыто: ', ' Unlocked: ') + ev.items.map(itemName).join(', ') : '')); }
     if (ev.type === 'ach') { const a = X.ACH.find(x => x[0] === ev.id); if (a) { sfx('achieve'); toast('🏅 ' + T(a[1], a[2]) + (ev.items.length ? ' · ' + ev.items.map(itemName).join(', ') : '')); } }
     renderProfileCard();
+    if (ev.type === 'xp' || ev.type === 'level') queueBoardPush();
   });
   function itemName(key) { const [slot, id] = key.split(':'); const it = X.ITEMS[slot].find(x => x[0] === id); return it ? T(it[2], it[3]) : id; }
 
@@ -504,7 +508,7 @@
     k.appendChild(cv);
     const s = SUITS[card.suit];
     k.insertAdjacentHTML('beforeend', `<div class="kn">${esc(cardName(card))} ${s.sym}</div>
-      <div class="kd">${mine ? T('Зажми мышь на поле, тяни назад и отпусти', 'Hold the mouse on the field, drag back and release') : T('В руке у соперника', "In your opponent's hand")}</div>`);
+      <div class="kd">${mine ? (DEV.touch ? T('Коснись поля, тяни палец назад и отпусти', 'Touch the field, drag back and release') : T('Зажми мышь на поле, тяни назад и отпусти', 'Hold the mouse on the field, drag back and release')) : T('В руке у соперника', "In your opponent's hand")}</div>`);
     k.title = [...card.stats.abilities.map(a => '✦ ' + abil(a)[0]), ...card.stats.qualities.map(q => '+ ' + qual(q)[0]), ...card.stats.flaws.map(f => '− ' + flaw(f)[0])].join('\n');
     return k;
   }
@@ -635,6 +639,7 @@
     if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, dir); X.shake(res.zone === 'bull' ? 7 : 3); if (a.streak > 1) setTimeout(() => sfx('streak', a.streak), 120); }
     else if (res.code === 'bounce_face' || res.code === 'bounce_top') X.burst('sparks', v.x, v.y, 8);
     else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
+    if (a.owner === myId && DEV.phone && vibrateOn()) { try { navigator.vibrate(res.knock ? [30, 40, 40] : res.zone === 'bull' ? 60 : res.hit ? 25 : 0); } catch (e) {} }
     if (a.owner === myId && res.code !== 'knocked') {
       const xp = X.Profile.onThrow(res, a.streak);
       matchXp += 0;   // опыт уже начислен, итог считается по разнице
@@ -862,7 +867,7 @@
       if (playing && m && m.status === 'aim' && m.left) {
         const left = Math.max(0, m.left - (now - roomAt));
         if (left < 5500 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); sfx('tick'); }
-        $('#hud-timer').textContent = Math.ceil(left / 1000) + ' c';
+        $('#hud-timer').textContent = Math.ceil(left / 1000) + T(' с', ' s');
         $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
       } else $('#hud-timer').textContent = '—';
       $('#hint').textContent = hintText();
@@ -878,7 +883,8 @@
     if (room.phase === 'end') return T('Раунд окончен', 'Round over');
     if (m.status === 'aim') {
       if (!m.active) return m.streak ? T(`Попал! Серия ×${m.streak} — выбери следующий нож`, `Hit! Streak ×${m.streak} — pick your next knife`) : T('👇 Выбери карту внизу — она превратится в нож', '👇 Pick a card below — it turns into a knife');
-      return aim.active ? T('Отпусти, чтобы бросить', 'Release to throw') : T('Зажми мышь на поле и тяни назад-вниз, чтобы прицелиться', 'Hold the mouse on the field and drag back-down to aim');
+      if (aim.active) return T('Отпусти, чтобы бросить', 'Release to throw');
+      return DEV.touch ? T('Коснись поля и тяни палец назад-вниз, чтобы прицелиться', 'Touch the field and drag your finger back-down to aim') : T('Зажми мышь на поле и тяни назад-вниз, чтобы прицелиться', 'Hold the mouse on the field and drag back-down to aim');
     }
     if (m.status === 'flying') return '';
     if (m.status === 'done' && o && (o.status === 'aim' || o.status === 'flying')) return T(`Твой раунд окончен. ${pname(o)} ещё бросает…`, `Your round is over. ${pname(o)} is still throwing…`);
@@ -891,6 +897,110 @@
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
+
+
+  // =================== УСТРОЙСТВО ===================
+  const DEV = { touch: false, phone: false, tablet: false };
+  function applyDevice() {
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const minSide = Math.min(screen.width || innerWidth, screen.height || innerHeight);
+    DEV.touch = touch; DEV.phone = touch && minSide < 600; DEV.tablet = touch && !DEV.phone;
+    const layoutPhone = DEV.phone || innerWidth <= 760;
+    const h = document.documentElement;
+    h.classList.toggle('touch', touch);
+    h.classList.toggle('dev-phone', DEV.phone); h.classList.toggle('dev-tablet', DEV.tablet); h.classList.toggle('dev-desktop', !touch);
+    h.classList.toggle('layout-phone', layoutPhone);
+  }
+  window.addEventListener('resize', applyDevice);
+  window.addEventListener('orientationchange', () => setTimeout(applyDevice, 200));
+  const vibrateOn = () => { try { return localStorage.getItem('nd-vibrate') !== '0'; } catch (e) { return true; } };
+
+  // =================== ТАБЛИЦА ЛИДЕРОВ ===================
+  let BD = null, boardTimer = null, lastPush = '';
+  async function initBoard() {
+    if (BD) return;
+    try {
+      if (window.claude && window.claude.use) {
+        const db = await window.claude.use('db'); const user = db ? await window.claude.use('user') : null;
+        const uid = user ? await user.id() : null;
+        if (db && uid) BD = { kind: 'db', db, me: uid };
+      }
+    } catch (e) {}
+    if (!BD && R && R.kvPut) BD = { kind: 'mq', me: X.Profile.data.pid };
+    queueBoardPush();
+  }
+  function boardEntry() { const d = X.Profile.data; return { n: nick(), lv: X.Profile.level, xp: d.xp, w: d.stats.wins, hat: myLook().hat, t: Date.now() }; }
+  function queueBoardPush() { clearTimeout(boardTimer); boardTimer = setTimeout(pushBoard, 1500); }
+  async function pushBoard() {
+    if (!BD) return;
+    const e = boardEntry(), key = e.n + '|' + e.xp + '|' + e.hat;
+    if (key === lastPush) return;
+    try { if (BD.kind === 'db') await BD.db.doc('lb/' + BD.me).set(e); else R.kvPut(BD.me, e); lastPush = key; } catch (err) {}
+  }
+  async function loadBoard() {
+    let rows = [];
+    if (BD && BD.kind === 'db') { const snap = await BD.db.collection('lb').orderBy('xp', 'desc').limit(100).get(); rows = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); }
+    else if (BD && BD.kind === 'mq') rows = await R.kvList(2500);
+    const me = Object.assign({ id: BD ? BD.me : 'me' }, boardEntry());
+    rows = rows.filter(r => r && r.id !== me.id).map(r => ({ id: String(r.id), n: String(r.n || T('Игрок', 'Player')).slice(0, 20), lv: Math.max(1, Math.min(30, +r.lv || 1)), xp: Math.max(0, +r.xp || 0), w: Math.max(0, +r.w || 0), hat: String(r.hat || 'none') }));
+    rows.push(me);
+    rows.sort((a, b) => b.xp - a.xp);
+    return { rows: rows.slice(0, 100), me: me.id, rank: rows.findIndex(r => r.id === me.id) + 1 };
+  }
+  const HAT_ICON = { none: '', cap: '🧢', bandana: '🏴‍☠️', cowboy: '🤠', ushanka: '🧣', viking: '⚔️', tophat: '🎩', crown: '👑' };
+  async function openBoard() {
+    const m = $('#board-modal'); m.classList.remove('hidden');
+    const body = m.querySelector('.pm-body');
+    body.innerHTML = `<h2>🏆 ${T('Таблица лидеров', 'Leaderboard')}</h2><p class="pm-note">${T('Загрузка…', 'Loading…')}</p>`;
+    let res;
+    try { res = await Promise.race([loadBoard(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))]); }
+    catch (e) { body.innerHTML = `<h2>🏆 ${T('Таблица лидеров', 'Leaderboard')}</h2><p class="pm-note">${T('Не удалось загрузить таблицу. Проверь интернет и попробуй ещё раз.', 'Could not load the leaderboard. Check your connection and try again.')}</p>`; return; }
+    const where = !BD ? T('Онлайн недоступен, поэтому здесь только твой результат.', 'Online is unavailable, so only your own result is shown.')
+      : BD.kind === 'db' ? T('Все игроки, у которых есть доступ к этой странице игры на claude.ai.', 'Everyone who has access to this game page on claude.ai.')
+      : T('Все игроки браузерной версии (itch.io, сайт) и Android-приложения.', 'All players of the browser version (itch.io, website) and the Android app.');
+    body.innerHTML = `<h2>🏆 ${T('Таблица лидеров', 'Leaderboard')}</h2>
+      <p class="pm-note">${where} ${T('Твоё место', 'Your rank')}: <b>${res.rank}</b> ${T('из', 'of')} ${res.rows.length}.</p>
+      <div class="lb">${res.rows.map((r, i) => `<div class="lb-row ${r.id === res.me ? 'me' : ''}"><span class="lb-pos">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+        <span class="lb-name">${HAT_ICON[r.hat] || ''} ${esc(r.n)}${r.id === res.me ? T(' (ты)', ' (you)') : ''}</span>
+        <span class="lb-lvl">${T('ур.', 'lv.')} ${r.lv}</span><span class="lb-xp">${r.xp} XP</span><span class="lb-w">🏆 ${r.w}</span></div>`).join('')}</div>`;
+  }
+
+  // =================== НАСТРОЙКИ ===================
+  function openSettings() { $('#settings-modal').classList.remove('hidden'); renderSettings(); }
+  function renderSettings() {
+    const b = $('#settings-modal .pm-body'); const a = X.Audio.state;
+    const slider = (key, label) => `<label class="set-row"><span>${label}</span><input type="range" min="0" max="100" value="${a[key]}" data-vol="${key}"><b>${a[key]}</b></label>`;
+    b.innerHTML = `<h2>⚙️ ${T('Настройки', 'Settings')}</h2>
+      ${slider('vMaster', T('Общая громкость', 'Master volume'))}
+      ${slider('vMusic', T('Музыка', 'Music'))}
+      ${slider('vSfx', T('Эффекты', 'Sound effects'))}
+      <label class="set-row"><span>${T('Трек', 'Track')}</span><select id="set-track"><option value="auto">${T('Авто: лобби и арена', 'Auto: lobby & arena')}</option>${Object.entries(X.Audio.TRACKS).map(([id, t]) => `<option value="${id}">${T(...t.name)}</option>`).join('')}</select></label>
+      <label class="set-row"><span>${T('Звуки', 'Sound')}</span><input type="checkbox" id="set-snd" ${a.sound ? 'checked' : ''}></label>
+      <label class="set-row"><span>${T('Музыка', 'Music')}</span><input type="checkbox" id="set-mus" ${a.music ? 'checked' : ''}></label>
+      ${DEV.phone ? `<label class="set-row"><span>${T('Вибрация', 'Vibration')}</span><input type="checkbox" id="set-vib" ${vibrateOn() ? 'checked' : ''}></label>` : ''}
+      <p class="pm-note">${T('Устройство', 'Device')}: ${DEV.phone ? T('телефон', 'phone') : DEV.tablet ? T('планшет', 'tablet') : T('компьютер', 'computer')} · ${T('раскладка подстраивается сама', 'layout adapts automatically')}</p>`;
+    b.querySelectorAll('[data-vol]').forEach(r => r.oninput = () => { X.Audio.setVolume(r.dataset.vol, +r.value); r.nextElementSibling.textContent = r.value; });
+    b.querySelectorAll('[data-vol]').forEach(r => r.onchange = () => sfx('thunk'));
+    const tr = b.querySelector('#set-track'); tr.value = a.track; tr.onchange = () => X.Audio.setTrack(tr.value);
+    b.querySelector('#set-snd').onchange = (e) => { X.Audio.setSound(e.target.checked); paintSnd(); };
+    b.querySelector('#set-mus').onchange = (e) => { X.Audio.setMusic(e.target.checked); paintSnd(); };
+    const vib = b.querySelector('#set-vib'); if (vib) vib.onchange = (e) => { try { localStorage.setItem('nd-vibrate', e.target.checked ? '1' : '0'); } catch (er) {} if (e.target.checked) try { navigator.vibrate(30); } catch (er) {} };
+  }
+  function buildExtraUI() {
+    const mkModal = (id) => { const m = document.createElement('div'); m.id = id; m.className = 'modal hidden'; m.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
+      m.onclick = (e) => { if (e.target === m) m.classList.add('hidden'); }; m.querySelector('.pm-close').onclick = () => m.classList.add('hidden'); document.body.appendChild(m); };
+    mkModal('board-modal'); mkModal('settings-modal');
+    // кнопки рядом со звуком: настройки
+    document.querySelectorAll('.snd-box').forEach(box => { const b = document.createElement('button'); b.type = 'button'; b.className = 'snd-toggle set'; b.textContent = '⚙️'; b.onclick = () => { sfx('click'); openSettings(); }; box.appendChild(b); });
+    // таблица лидеров — в карточке профиля
+    const card = $('#profile-card .pc-main'); const lb = document.createElement('button'); lb.type = 'button'; lb.className = 'btn small pc-lb'; lb.onclick = () => { sfx('click'); openBoard(); }; card.appendChild(lb);
+    paintExtra();
+  }
+  function paintExtra() {
+    const lb = $('.pc-lb'); if (lb) lb.textContent = T('🏆 Таблица лидеров', '🏆 Leaderboard');
+    document.querySelectorAll('.snd-toggle.set').forEach(b => b.title = T('Настройки', 'Settings'));
+    if (!$('#settings-modal').classList.contains('hidden')) renderSettings();
+  }
 
   // =================== ПРОФИЛЬ, ГАРДЕРОБ, ЗВУК ===================
   function avatar(canvas, look, withBg) {
@@ -977,8 +1087,9 @@
     document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
   }
 
-  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.documentElement.classList.add('touch');
+  applyDevice();
   buildProfileUI();
+  buildExtraUI();
   addLangToggles();
   applyStatic();
   renderServers();
