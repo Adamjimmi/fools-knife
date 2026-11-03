@@ -1205,12 +1205,15 @@
       if (done) return;
       const t = now - T0, w = innerWidth, h = innerHeight;
       // точка попадания — правый верх надписи
-      const hx = w * 0.79, hy = h * 0.38;
+      // кончик лезвия втыкается в надпись; вращение — вокруг центра ножа, поэтому центр смещаем назад от кончика
+      const L = w * 0.15, kk = L / 100, off = 51 * kk, STUCK = 0.85;
+      const TIP = [w * 0.6, h * 0.43];
+      const hx = TIP[0] - off * Math.cos(STUCK), hy = TIP[1] - off * Math.sin(STUCK);
       const sx = -w * 0.06, sy = h * 0.68, cx = w * 0.35, cy = h * 0.02;
       const p = clamp(t / FLY), e = p;   // равномерный полёт, без торможения к концу
       const bez = (q) => { const k = 1 - q; return [k * k * sx + 2 * k * q * cx + q * q * hx, k * k * sy + 2 * k * q * cy + q * q * hy]; };
       const [kx, ky] = bez(e);
-      const ang = Math.atan2(hy - cy, hx - cx) + 0.1;
+      const ang = STUCK;
       g.save();
       if (shake > 0) { g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.82; }
       const grd = g.createRadialGradient(w / 2, h * 0.45, 20, w / 2, h * 0.45, Math.max(w, h) * 0.7);
@@ -1228,8 +1231,8 @@
       if (t >= FLY) {
         if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
         const fl = clamp(1 - (t - sparkT) / 260);
-        if (fl > 0) { const fg = g.createRadialGradient(hx, hy, 0, hx, hy, w * 0.45); fg.addColorStop(0, 'rgba(255,236,180,' + (0.55 * fl) + ')'); fg.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = fg; g.fillRect(-30, -30, w + 60, h + 60); }
-        if (t - sparkT < 380) sparks(hx, hy, (t - sparkT) / 380);
+        if (fl > 0) { const fg = g.createRadialGradient(TIP[0], TIP[1], 0, TIP[0], TIP[1], w * 0.45); fg.addColorStop(0, 'rgba(255,236,180,' + (0.55 * fl) + ')'); fg.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = fg; g.fillRect(-30, -30, w + 60, h + 60); }
+        if (t - sparkT < 380) sparks(TIP[0], TIP[1], (t - sparkT) / 380);
         // название: появляется и поднимается
         const tt = clamp((t - FLY) / 260), up = ease(clamp((t - FLY - 90) / 300));
         const ty = h * (0.5 - 0.07 * up);
