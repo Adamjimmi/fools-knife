@@ -1214,7 +1214,7 @@ window.NDEngine = (() => {
   const Audio = (() => {
     let ac = null, master, sfxBus, musBus, noiseBuf, musicTimer = null, nextNote = 0, step = 0;
     const st = Object.assign({ sound: true, music: true, vMaster: 80, vMusic: 55, vSfx: 60, track: 'auto' }, LS.get('nd-audio', {}));
-    let context = 'lobby', arena = 'sunset', current = null, pending = null;
+    let context = 'lobby', arena = 'sunset', current = null, voice = null;
     const save = () => LS.set('nd-audio', st);
     const musGain = () => (st.music ? st.vMusic / 100 * 0.42 : 0);
     const sfxGain = () => (st.sound ? st.vSfx / 100 * 0.7 : 0);
@@ -1284,8 +1284,7 @@ window.NDEngine = (() => {
       const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
         const s = step % 64, bar = Math.floor(s / 16) % 4, b16 = s % 16, t = nextNote;
-        if (s === 0 && pending) { current = pending; pending = null; return; }
-        const B = musBus;
+        const B = voice;
         switch (tr.style) {
           case 'drive':
             if (b16 % 4 === 0) tone(t, 0.2, 'sine', 125, 45, 0.6, B);
@@ -1329,10 +1328,25 @@ window.NDEngine = (() => {
         nextNote += S16; step++;
       }
     }
-    function startMusic() { const a = ctx(); if (!a || musicTimer) return; current = wanted(); pending = null; step = 0; nextNote = a.currentTime + 0.1; musicTimer = setInterval(schedule, 40); }
-    function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; }
-    function retarget() { const w = wanted(); if (!musicTimer) return; if (w !== current) pending = w; }
-    function apply() { if (!ac) return; master.gain.value = st.vMaster / 100; sfxBus.gain.value = sfxGain(); musBus.gain.value = musGain(); }
+    // у каждого трека свой «голос» (gain): старый плавно затухает, новый сразу начинается и плавно нарастает
+    const FADE_OUT = 1.2, FADE_IN = 0.9;
+    function newVoice(fadeIn) {
+      const g = ac.createGain(), t = ac.currentTime;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1, t + fadeIn); g.connect(musBus); return g;
+    }
+    function fadeVoice(g, dur) {
+      if (!g) return; const t = ac.currentTime;
+      g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      setTimeout(() => { try { g.disconnect(); } catch (e) {} }, (dur + 3) * 1000);   // +3 c — чтобы дозвучали уже запланированные длинные ноты
+    }
+    function startTrack(id, fadeIn) { fadeVoice(voice, FADE_OUT); current = id; voice = newVoice(fadeIn); step = 0; nextNote = ac.currentTime + 0.05; }
+    function startMusic() { const a = ctx(); if (!a || musicTimer) return; startTrack(wanted(), FADE_IN); musicTimer = setInterval(schedule, 40); }
+    function stopMusic() { if (musicTimer) clearInterval(musicTimer); musicTimer = null; if (ac) fadeVoice(voice, 0.6); voice = null; current = null; }
+    function retarget() { const w = wanted(); if (!musicTimer || w === current) return; startTrack(w, FADE_IN); }
+    function apply() {
+      if (!ac) return; const t = ac.currentTime;
+      master.gain.setTargetAtTime(st.vMaster / 100, t, 0.05); sfxBus.gain.setTargetAtTime(sfxGain(), t, 0.05); musBus.gain.setTargetAtTime(musGain(), t, 0.15);
+    }
     return {
       sfx,
       TRACKS,
