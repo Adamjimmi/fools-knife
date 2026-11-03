@@ -201,6 +201,7 @@
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
   ];
   const MAX_LEVEL = 30;
+  const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
   const xpFor = (L) => Math.round(60 * Math.pow(Math.max(0, L - 1), 1.6));   // всего опыта для уровня L
   const levelOf = (xp) => { let L = 1; while (L < MAX_LEVEL && xp >= xpFor(L + 1)) L++; return L; };
   const valid = (slot, id) => ITEMS[slot].some(x => x[0] === id);
@@ -216,12 +217,16 @@
     const emit = (ev) => listeners.forEach(f => f(ev));
     const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
     function unlockedSet() { const s = new Set(); for (const sl of SLOTS) for (const it of ITEMS[sl]) if (isUnlocked(sl, it[0])) s.add(sl + ':' + it[0]); return s; }
-    function addXp(n) {
-      if (n <= 0) return;
+    // против бота опыт обрезается так, чтобы не перешагнуть BOT_XP_CAP
+    const botRoom = () => Math.max(0, xpFor(BOT_XP_CAP) - p.xp);
+    function addXp(n, vsBot) {
+      if (vsBot) n = Math.min(n, botRoom());
+      if (n <= 0) return 0;
       const before = levelOf(p.xp), had = unlockedSet();
       p.xp += Math.round(n); const after = levelOf(p.xp);
       save(); emit({ type: 'xp' });
       if (after > before) emit({ type: 'level', level: after, items: [...unlockedSet()].filter(x => !had.has(x)) });
+      return Math.round(n);
     }
     function achieve(id) {
       if (p.ach[id]) return;
@@ -229,7 +234,7 @@
       p.ach[id] = Date.now(); save();
       emit({ type: 'ach', id, items: [...unlockedSet()].filter(x => !had.has(x)) });
     }
-    function onThrow(res, streak) {
+    function onThrow(res, streak, vsBot) {
       const s = p.stats;
       if (!res || res.code === 'timeout') return 0;
       s.throws++;
@@ -239,8 +244,8 @@
       if ((res.hit || res.knock) && streak > 1) { xp += 5 * (streak - 1); if (streak >= 3) achieve('streak3'); if (streak >= 5) achieve('streak5'); }
       if (streak > s.bestStreak) s.bestStreak = streak;
       s.points += res.points || 0;
-      save(); addXp(xp);
-      return xp;
+      save();
+      return addXp(xp, vsBot);
     }
     // result: 'win' | 'loss' | 'draw'; opp: 'easy'|'medium'|'hard'|'human'
     function onMatch(result, opp, size, myScore) {
@@ -251,12 +256,12 @@
       const xp = Math.round(base * mult * (size / 20));
       if (result === 'win') { achieve('win1'); if (s.wins >= 10) achieve('win10'); if (opp === 'hard') achieve('beat_hard'); if (opp === 'human') achieve('online_win'); }
       if (size === 50) achieve('full50');
-      save(); addXp(xp);
-      return xp;
+      save();
+      return addXp(xp, opp !== 'human');
     }
     function equip(slot, id) { if (!isUnlocked(slot, id)) return false; p.look[slot] = id; save(); emit({ type: 'look' }); return true; }
     return {
-      get data() { return p; }, get level() { return levelOf(p.xp); },
+      get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
       look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, on: (f) => listeners.push(f),
     };

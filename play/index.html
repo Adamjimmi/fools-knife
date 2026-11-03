@@ -297,6 +297,7 @@ html.layout-phone .conn { position: static; display: block; text-align: center; 
 .lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-lvl { color: var(--gold2); } .lb-xp { color: #c9b6ff; text-align: right; } .lb-w { color: var(--muted); text-align: right; }
 .pc-lb { margin-top: 8px; }
+.cap-note { margin-top: 8px; font-size: 13px; color: #ffcf7a; line-height: 1.4; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .set-row > span { flex: 0 0 150px; }
 .set-row input[type=range] { flex: 1; accent-color: var(--gold2); }
@@ -1402,6 +1403,7 @@ window.NDEngine = (() => {
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
   ];
   const MAX_LEVEL = 30;
+  const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
   const xpFor = (L) => Math.round(60 * Math.pow(Math.max(0, L - 1), 1.6));   // всего опыта для уровня L
   const levelOf = (xp) => { let L = 1; while (L < MAX_LEVEL && xp >= xpFor(L + 1)) L++; return L; };
   const valid = (slot, id) => ITEMS[slot].some(x => x[0] === id);
@@ -1417,12 +1419,16 @@ window.NDEngine = (() => {
     const emit = (ev) => listeners.forEach(f => f(ev));
     const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
     function unlockedSet() { const s = new Set(); for (const sl of SLOTS) for (const it of ITEMS[sl]) if (isUnlocked(sl, it[0])) s.add(sl + ':' + it[0]); return s; }
-    function addXp(n) {
-      if (n <= 0) return;
+    // против бота опыт обрезается так, чтобы не перешагнуть BOT_XP_CAP
+    const botRoom = () => Math.max(0, xpFor(BOT_XP_CAP) - p.xp);
+    function addXp(n, vsBot) {
+      if (vsBot) n = Math.min(n, botRoom());
+      if (n <= 0) return 0;
       const before = levelOf(p.xp), had = unlockedSet();
       p.xp += Math.round(n); const after = levelOf(p.xp);
       save(); emit({ type: 'xp' });
       if (after > before) emit({ type: 'level', level: after, items: [...unlockedSet()].filter(x => !had.has(x)) });
+      return Math.round(n);
     }
     function achieve(id) {
       if (p.ach[id]) return;
@@ -1430,7 +1436,7 @@ window.NDEngine = (() => {
       p.ach[id] = Date.now(); save();
       emit({ type: 'ach', id, items: [...unlockedSet()].filter(x => !had.has(x)) });
     }
-    function onThrow(res, streak) {
+    function onThrow(res, streak, vsBot) {
       const s = p.stats;
       if (!res || res.code === 'timeout') return 0;
       s.throws++;
@@ -1440,8 +1446,8 @@ window.NDEngine = (() => {
       if ((res.hit || res.knock) && streak > 1) { xp += 5 * (streak - 1); if (streak >= 3) achieve('streak3'); if (streak >= 5) achieve('streak5'); }
       if (streak > s.bestStreak) s.bestStreak = streak;
       s.points += res.points || 0;
-      save(); addXp(xp);
-      return xp;
+      save();
+      return addXp(xp, vsBot);
     }
     // result: 'win' | 'loss' | 'draw'; opp: 'easy'|'medium'|'hard'|'human'
     function onMatch(result, opp, size, myScore) {
@@ -1452,12 +1458,12 @@ window.NDEngine = (() => {
       const xp = Math.round(base * mult * (size / 20));
       if (result === 'win') { achieve('win1'); if (s.wins >= 10) achieve('win10'); if (opp === 'hard') achieve('beat_hard'); if (opp === 'human') achieve('online_win'); }
       if (size === 50) achieve('full50');
-      save(); addXp(xp);
-      return xp;
+      save();
+      return addXp(xp, opp !== 'human');
     }
     function equip(slot, id) { if (!isUnlocked(slot, id)) return false; p.look[slot] = id; save(); emit({ type: 'look' }); return true; }
     return {
-      get data() { return p; }, get level() { return levelOf(p.xp); },
+      get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
       look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, on: (f) => listeners.push(f),
     };
@@ -2247,7 +2253,7 @@ window.NDMqtt = (() => {
     const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
     const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
     X.Profile.onMatch(result, oppKind, room.size || 20, m.score);
-    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level };
+    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level, capped: oppKind !== 'human' && X.Profile.botCapped };
     matchXp = 0;
     sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
     if (result === 'win') X.burst('confetti', 0, 0, 140);
@@ -2319,7 +2325,8 @@ window.NDMqtt = (() => {
           ${b ? `<div class="${room.winnerId === b.id ? 'win' : ''}">${esc(pname(b))}<b>${+b.score || 0}</b></div>` : ''}
         </div>
         ${reward ? `<div class="reward">+${reward.xp} XP · ${T('уровень', 'level')} ${reward.after}${reward.after > reward.before ? ' ⬆' : ''}
-          <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div></div>` : ''}
+          <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div>
+          ${reward.capped ? `<div class="cap-note">${T(`🤖 С ботами опыт даётся только до ${X.Profile.BOT_XP_CAP} уровня. Дальше качайся в матчах с живыми игроками!`, `🤖 Bots only give XP up to level ${X.Profile.BOT_XP_CAP}. Play against real people to keep levelling up!`)}</div>` : ''}</div>` : ''}
         <div class="btns">
           ${isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
@@ -2533,7 +2540,7 @@ window.NDMqtt = (() => {
     else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
     if (a.owner === myId && DEV.phone && vibrateOn()) { try { navigator.vibrate(res.knock ? [30, 40, 40] : res.zone === 'bull' ? 60 : res.hit ? 25 : 0); } catch (e) {} }
     if (a.owner === myId && res.code !== 'knocked') {
-      const xp = X.Profile.onThrow(res, a.streak);
+      const xp = X.Profile.onThrow(res, a.streak, !!(room && room.players.some(p => p.isBot)));
       matchXp += 0;   // опыт уже начислен, итог считается по разнице
       if (xp > 1) floaters.push({ text: `+${xp} XP`, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(110, v.y + 30), t0: performance.now(), color: '#c9b6ff', small: true });
     }
@@ -2939,7 +2946,7 @@ window.NDMqtt = (() => {
     M.innerHTML = `<div class="pm-head"><canvas width="200" height="230"></canvas><div class="pm-info">
         <h2>${esc(nick())}</h2><div class="pm-lvl">${T('Уровень', 'Level')} ${pr.L}</div>
         <div class="xpbar big"><i style="width:${Math.round(pr.pct * 100)}%"></i></div><small>${pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`} · ${T('всего', 'total')} ${d.xp} XP</small>
-        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Progress is saved in this browser.')}</p>
+        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. С ботами опыт идёт только до 5 уровня, дальше — только в матчах с людьми. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Bots only give XP up to level 5; after that, only matches against people count. Progress is saved in this browser.')}</p>
       </div></div>
       <div class="pm-tabs">${tabs.map(([id, n]) => `<button class="chip-btn ${id === pmTab ? 'on' : ''}" data-tab="${id}">${n}</button>`).join('')}</div>${body}`;
     avatar(M.querySelector('.pm-head canvas'), look, true);

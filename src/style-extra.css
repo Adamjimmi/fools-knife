@@ -93,6 +93,7 @@ html.layout-phone .conn { position: static; display: block; text-align: center; 
 .lb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-lvl { color: var(--gold2); } .lb-xp { color: #c9b6ff; text-align: right; } .lb-w { color: var(--muted); text-align: right; }
 .pc-lb { margin-top: 8px; }
+.cap-note { margin-top: 8px; font-size: 13px; color: #ffcf7a; line-height: 1.4; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .set-row > span { flex: 0 0 150px; }
 .set-row input[type=range] { flex: 1; accent-color: var(--gold2); }

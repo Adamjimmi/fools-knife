@@ -355,7 +355,7 @@
     const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
     const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
     X.Profile.onMatch(result, oppKind, room.size || 20, m.score);
-    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level };
+    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level, capped: oppKind !== 'human' && X.Profile.botCapped };
     matchXp = 0;
     sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
     if (result === 'win') X.burst('confetti', 0, 0, 140);
@@ -427,7 +427,8 @@
           ${b ? `<div class="${room.winnerId === b.id ? 'win' : ''}">${esc(pname(b))}<b>${+b.score || 0}</b></div>` : ''}
         </div>
         ${reward ? `<div class="reward">+${reward.xp} XP · ${T('уровень', 'level')} ${reward.after}${reward.after > reward.before ? ' ⬆' : ''}
-          <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div></div>` : ''}
+          <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div>
+          ${reward.capped ? `<div class="cap-note">${T(`🤖 С ботами опыт даётся только до ${X.Profile.BOT_XP_CAP} уровня. Дальше качайся в матчах с живыми игроками!`, `🤖 Bots only give XP up to level ${X.Profile.BOT_XP_CAP}. Play against real people to keep levelling up!`)}</div>` : ''}</div>` : ''}
         <div class="btns">
           ${isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
@@ -641,7 +642,7 @@
     else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
     if (a.owner === myId && DEV.phone && vibrateOn()) { try { navigator.vibrate(res.knock ? [30, 40, 40] : res.zone === 'bull' ? 60 : res.hit ? 25 : 0); } catch (e) {} }
     if (a.owner === myId && res.code !== 'knocked') {
-      const xp = X.Profile.onThrow(res, a.streak);
+      const xp = X.Profile.onThrow(res, a.streak, !!(room && room.players.some(p => p.isBot)));
       matchXp += 0;   // опыт уже начислен, итог считается по разнице
       if (xp > 1) floaters.push({ text: `+${xp} XP`, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(110, v.y + 30), t0: performance.now(), color: '#c9b6ff', small: true });
     }
@@ -1047,7 +1048,7 @@
     M.innerHTML = `<div class="pm-head"><canvas width="200" height="230"></canvas><div class="pm-info">
         <h2>${esc(nick())}</h2><div class="pm-lvl">${T('Уровень', 'Level')} ${pr.L}</div>
         <div class="xpbar big"><i style="width:${Math.round(pr.pct * 100)}%"></i></div><small>${pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`} · ${T('всего', 'total')} ${d.xp} XP</small>
-        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Progress is saved in this browser.')}</p>
+        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. С ботами опыт идёт только до 5 уровня, дальше — только в матчах с людьми. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Bots only give XP up to level 5; after that, only matches against people count. Progress is saved in this browser.')}</p>
       </div></div>
       <div class="pm-tabs">${tabs.map(([id, n]) => `<button class="chip-btn ${id === pmTab ? 'on' : ''}" data-tab="${id}">${n}</button>`).join('')}</div>${body}`;
     avatar(M.querySelector('.pm-head canvas'), look, true);
