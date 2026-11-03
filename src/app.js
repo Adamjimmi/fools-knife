@@ -1227,7 +1227,6 @@
       }
       if (t >= FLY) {
         if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
-        knife(hx, hy, ang, w * 0.15);
         const fl = clamp(1 - (t - sparkT) / 260);
         if (fl > 0) { const fg = g.createRadialGradient(hx, hy, 0, hx, hy, w * 0.45); fg.addColorStop(0, 'rgba(255,236,180,' + (0.55 * fl) + ')'); fg.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = fg; g.fillRect(-30, -30, w + 60, h + 60); }
         if (t - sparkT < 380) sparks(hx, hy, (t - sparkT) / 380);
@@ -1252,6 +1251,7 @@
         g.font = Math.min(26, w * 0.05) + 'px Rubik, DejaVu Sans, sans-serif';
         g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8;
         g.fillText(sub, w / 2, h * 0.6); g.restore();
+        knife(hx, hy, ang, w * 0.15);   // нож поверх надписи
       }
       g.restore();
       if (t > END) return finish();
