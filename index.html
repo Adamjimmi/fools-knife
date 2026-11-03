@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fool's Knife — browser card game with knife throwing</title>
-<meta name="description" content="Fool's Knife: a two-player browser game where Durak playing cards become throwing knives. Simultaneous throws, mid-air knife collisions, online lobby with no server of its own.">
+<meta name="description" content="Fool's Knife: a two-player browser game where Durak playing cards become throwing knives. Simultaneous throws, mid-air knife collisions, online lobby with no server of its own, levels with unlockable outfits, a leaderboard and an optional tutorial.">
 <meta property="og:title" content="Fool's Knife">
 <meta property="og:description" content="Durak meets knife throwing. Play online 1v1 in your browser.">
 <meta property="og:image" content="assets/cover.png">
@@ -54,6 +54,7 @@ section .sub { color: var(--muted); margin: 0 0 30px; max-width: 46em; }
 .shots img { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; cursor: zoom-in; }
 .shots .col { display: grid; gap: 14px; }
 @media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+.shots-b { margin-top: 14px; align-items: start; }
 .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; }
 .lightbox.on { display: flex; }
 .lightbox img { max-width: 94vw; max-height: 92vh; border-radius: 10px; }
@@ -117,7 +118,12 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
     <div class="card"><div class="ic">⚡</div><h3 data-en="Simultaneous throws" data-ru="Одновременные броски">Simultaneous throws</h3><p data-en="No waiting for turns. Hit the stump and you throw again — chain up to five hits in a 50-knife match." data-ru="Никакой очерёдности. Попал — бросаешь снова: в матче на 50 ножей можно сделать серию из пяти попаданий.">No waiting for turns. Hit the stump and you throw again — chain up to five hits in a 50-knife match.</p></div>
     <div class="card"><div class="ic">💥</div><h3 data-en="Mid-air knockdowns" data-ru="Сбивание в воздухе">Mid-air knockdowns</h3><p data-en="Intercept your opponent's flying knife. A rusty blade that can't hit a stump can still knock down an ace." data-ru="Перехвати летящий нож соперника. Ржавый клинок, которым трудно попасть в пень, всё ещё может сбить туза.">Intercept your opponent's flying knife. A rusty blade that can't hit a stump can still knock down an ace.</p></div>
     <div class="card"><div class="ic">🌐</div><h3 data-en="Online lobby" data-ru="Онлайн-лобби">Online lobby</h3><p data-en="Create a server (optionally with a password) and it shows up instantly in everyone's server list. No accounts, no install." data-ru="Создай сервер (можно с паролем), и он сразу появится в списке у всех. Без аккаунтов и установки.">Create a server (optionally with a password) and it shows up instantly in everyone's server list. No accounts, no install.</p></div>
-    <div class="card"><div class="ic">🤖</div><h3 data-en="Bot opponent" data-ru="Бот-соперник">Bot opponent</h3><p data-en="Practise offline against a bot that picks its best knife and solves the trajectory — with a human-like wobble." data-ru="Тренируйся против бота: он выбирает лучший нож и рассчитывает траекторию, но ошибается почти как человек.">Practise offline against a bot that picks its best knife and solves the trajectory — with a human-like wobble.</p></div>
+    <div class="card"><div class="ic">🤖</div><h3 data-en="Three bot difficulties" data-ru="Три сложности бота">Three bot difficulties</h3><p data-en="Easy, medium and hard bots pick their best knife and solve the trajectory with a human-like wobble. Simulated hit rates are about 28%, 62% and 87%." data-ru="Лёгкий, средний и сложный бот выбирают лучший нож и рассчитывают траекторию, но ошибаются как люди. Расчётная меткость — около 28%, 62% и 87%.">Easy, medium and hard bots pick their best knife and solve the trajectory with a human-like wobble. Simulated hit rates are about 28%, 62% and 87%.</p></div>
+    <div class="card"><div class="ic">🎽</div><h3 data-en="Levels and outfits" data-ru="Уровни и наряды">Levels and outfits</h3><p data-en="30 levels and 11 achievements. Earn XP for hits, bullseyes, knockdowns and wins, then unlock hats, outfits, knife trails and night, winter and desert arenas." data-ru="30 уровней и 11 достижений. Опыт даётся за попадания, яблочки, сбитые ножи и победы, а открываются шляпы, одежда, следы ножей и арены: ночь, зима и пустыня.">30 levels and 11 achievements. Earn XP for hits, bullseyes, knockdowns and wins, then unlock hats, outfits, knife trails and night, winter and desert arenas.</p></div>
+    <div class="card"><div class="ic">🏆</div><h3 data-en="Leaderboard" data-ru="Таблица лидеров">Leaderboard</h3><p data-en="A top-100 level leaderboard in its own window, shared by everyone on the browser version over the same MQTT channel. Bots give XP only up to level 5, so the top is earned against people." data-ru="Топ-100 по уровню в отдельном окне, общий для всех игроков браузерной версии через тот же MQTT-канал. Боты дают опыт только до 5 уровня, поэтому верх таблицы зарабатывается в играх с людьми.">A top-100 level leaderboard in its own window, shared by everyone on the browser version over the same MQTT channel. Bots give XP only up to level 5, so the top is earned against people.</p></div>
+    <div class="card"><div class="ic">🎵</div><h3 data-en="Music and sound" data-ru="Музыка и звук">Music and sound</h3><p data-en="Five procedurally generated music tracks (tavern, duel, night, winter, desert) that follow the arena and crossfade smoothly, plus sound effects and separate volume sliders." data-ru="Пять музыкальных треков, сгенерированных кодом (таверна, дуэль, ночь, зима, пустыня). Они подстраиваются под арену и плавно перетекают друг в друга. Есть звуковые эффекты и отдельные ползунки громкости.">Five procedurally generated music tracks (tavern, duel, night, winter, desert) that follow the arena and crossfade smoothly, plus sound effects and separate volume sliders.</p></div>
+    <div class="card"><div class="ic">📱</div><h3 data-en="Adapts to your device" data-ru="Подстраивается под устройство">Adapts to your device</h3><p data-en="The game detects phone, tablet or desktop and switches layout by itself: portrait phone view with cards on top, touch controls and haptic feedback on hits." data-ru="Игра сама определяет телефон, планшет или компьютер и переключает раскладку: на телефоне вертикальный вид с картами сверху, сенсорное управление и вибрация при попаданиях.">The game detects phone, tablet or desktop and switches layout by itself: portrait phone view with cards on top, touch controls and haptic feedback on hits.</p></div>
+    <div class="card"><div class="ic">❓</div><h3 data-en="Optional tutorial" data-ru="Необязательное обучение">Optional tutorial</h3><p data-en="A short seven-step guide and a practice match against the easy bot with hints. It is one button away and never forced on new players." data-ru="Короткое обучение из семи шагов и тренировочный матч с лёгким ботом и подсказками. Открывается одной кнопкой и никому не навязывается.">A short seven-step guide and a practice match against the easy bot with hints. It is one button away and never forced on new players.</p></div>
   </div>
 </div></section>
 
@@ -130,6 +136,13 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
       <img src="assets/screenshot-match.png" alt="Mid-match with knives in the stumps">
       <img src="assets/screenshot-lobby.png" alt="Online lobby with server list">
     </div>
+  </div>
+  <div class="shots shots-b">
+    <div class="col">
+      <img src="assets/screenshot-profile.png" alt="Profile with wardrobe, levels and unlockable outfits">
+      <img src="assets/screenshot-tutorial.png" alt="Optional tutorial">
+    </div>
+    <img src="assets/screenshot-phone.png" alt="Portrait phone layout">
   </div>
 </div></section>
 
@@ -164,6 +177,9 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
     <div class="card"><h3 data-en="Collisions &amp; resilience" data-ru="Столкновения и надёжность">Collisions &amp; resilience</h3>
       <p data-en="When a knife is thrown, the host checks its path against every enemy knife still in flight, time-aligned frame by frame. Scores are applied on landing, so a knocked-down knife never counts. Knives in flight are mirrored into the periodic state, so a dropped message never makes a knife vanish."
          data-ru="При броске хост сверяет траекторию с каждым летящим ножом соперника кадр за кадром с учётом времени. Очки начисляются при приземлении, поэтому сбитый нож никогда не засчитывается. Летящие ножи дублируются в регулярном состоянии, так что потерянное сообщение не заставит нож исчезнуть.">When a knife is thrown, the host checks its path against every enemy knife still in flight, time-aligned frame by frame. Scores are applied on landing, so a knocked-down knife never counts. Knives in flight are mirrored into the periodic state, so a dropped message never makes a knife vanish.</p></div>
+    <div class="card"><h3 data-en="Procedural audio" data-ru="Процедурный звук">Procedural audio</h3>
+      <p data-en="There are no audio files. Music tracks and every sound effect are synthesised with the Web Audio API. Each track is a small pattern of chords, bass, drums and melody, and switching tracks crossfades two gain-controlled voices."
+         data-ru="Аудиофайлов нет. Музыкальные треки и все звуки синтезируются через Web Audio API. Каждый трек — небольшой рисунок из аккордов, баса, ударных и мелодии, а смена трека — перекрёстное затухание двух голосов.">There are no audio files. Music tracks and every sound effect are synthesised with the Web Audio API. Each track is a small pattern of chords, bass, drums and melody, and switching tracks crossfades two gain-controlled voices.</p></div>
   </div>
   <div class="diagram">
     <svg viewBox="0 0 900 190" role="img" aria-label="Network diagram">
@@ -198,7 +214,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wr
   <div class="chips">
     <span class="chip">JavaScript (ES2020)</span><span class="chip">Canvas 2D</span><span class="chip">WebSocket</span><span class="chip">MQTT 3.1.1</span>
     <span class="chip" data-en="Procedural knife art" data-ru="Процедурная отрисовка ножей">Procedural knife art</span>
-    <span class="chip" data-en="Web Audio sound effects" data-ru="Звуки на Web Audio">Web Audio sound effects</span>
+    <span class="chip" data-en="Procedural Web Audio music and effects" data-ru="Процедурная музыка и звуки на Web Audio">Procedural Web Audio music and effects</span>
     <span class="chip" data-en="Single-file build (Python)" data-ru="Сборка в один файл (Python)">Single-file build (Python)</span>
     <span class="chip" data-en="RU / EN localisation" data-ru="Локализация RU / EN">RU / EN localisation</span>
   </div>
