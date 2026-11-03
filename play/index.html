@@ -3154,9 +3154,9 @@ window.NDMqtt = (() => {
         g.setLineDash([3, 9]); g.strokeStyle = 'rgba(255,230,170,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy);
         for (let q = 0; q <= e; q += 0.02) { const [px, py] = bez(q); g.lineTo(px, py); }
         g.stroke(); g.setLineDash([]);
-        for (let i = 4; i >= 1; i--) { const [px, py] = bez(Math.max(0, e - i * 0.03)); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang, w * 0.15); }
+        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(ease(q)); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang + (1 - ease(q)) * Math.PI * 3.5, w * 0.15); }
         g.globalAlpha = 1;
-        knife(kx, ky, ang, w * 0.15);
+        knife(kx, ky, ang + (1 - e) * Math.PI * 3.5, w * 0.15);
       }
       if (t >= FLY) {
         if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
