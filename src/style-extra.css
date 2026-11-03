@@ -94,6 +94,21 @@ html.layout-phone .conn { position: static; display: block; text-align: center; 
 .lb-lvl { color: var(--gold2); } .lb-xp { color: #c9b6ff; text-align: right; } .lb-w { color: var(--muted); text-align: right; }
 .pc-lb { margin-top: 8px; }
 .cap-note { margin-top: 8px; font-size: 13px; color: #ffcf7a; line-height: 1.4; }
+.tut-art { width: 100%; max-height: 180px; display: block; margin: 8px 0 10px; border-radius: 12px; }
+.tut-step h3 { margin: 4px 0 6px; font-size: 18px; color: var(--gold2); }
+.tut-step p { margin: 0; line-height: 1.55; font-size: 15px; }
+.tut-dots { display: flex; justify-content: center; gap: 8px; margin: 14px 0 6px; }
+.tut-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); cursor: pointer; }
+.tut-dots i.on { background: var(--gold2); transform: scale(1.25); }
+.tut-btns { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.tut-btns .btn[disabled] { opacity: .35; cursor: default; }
+.snd-toggle.tut-btn { width: auto; padding: 0 14px; font-size: 14px; }
+.coach { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 60; max-width: min(560px, 94vw); display: flex; gap: 10px; align-items: flex-start; background: rgba(40,30,18,.96); border: 1px solid var(--gold2); border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+.coach.hidden { display: none; }
+.snd-toggle { color: var(--text); }
+.tut-btns .btn { white-space: nowrap; }
+html.layout-phone .coach { width: 94vw; max-width: 94vw; bottom: 8px; font-size: 13px; padding: 8px 10px; }
+.coach button { background: none; border: 0; color: var(--muted); font-size: 16px; cursor: pointer; padding: 0 2px; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .set-row > span { flex: 0 0 150px; }
 .set-row input[type=range] { flex: 1; accent-color: var(--gold2); }
