@@ -1183,7 +1183,8 @@
     // нож: длинный клинок тёмной стали, золотая гарда, рукоять
     const knife = (x, y, a, L) => {
       const k = L / 100;
-      g.save(); g.translate(x, y); g.rotate(a); g.scale(k, k);
+      // точка вращения — центр ножа (клинок 0…-62, рукоять до -102)
+      g.save(); g.translate(x, y); g.rotate(a); g.scale(k, k); g.translate(51, 0);
       g.fillStyle = '#1f2a3a'; g.beginPath(); g.moveTo(0, -10); g.lineTo(-62, -5.5); g.lineTo(-62, 5.5); g.lineTo(0, 10); g.closePath(); g.fill();
       g.strokeStyle = '#a9c2d8'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, -8.5); g.lineTo(-60, -4); g.stroke();
       g.fillStyle = '#e0ad45'; g.fillRect(-64, -13, 6, 26);
