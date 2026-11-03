@@ -3098,7 +3098,7 @@ window.NDMqtt = (() => {
     document.querySelectorAll('.snd-toggle.mus').forEach(b => { b.textContent = '🎵'; b.title = T('Музыка', 'Music'); b.classList.toggle('off', !X.Audio.music); });
   }
 
-  // =================== ЗАСТАВКА ПРИ ПЕРВОМ ЗАПУСКЕ ===================
+  // =================== ЗАСТАВКА ПРИ ПЕРВОМ ЗАПУСКЕ (как в трейлере) ===================
   function playSplash() {
     let seen = false;
     try { seen = localStorage.getItem('nd-splash') === '1'; localStorage.setItem('nd-splash', '1'); } catch (e) {}
@@ -3110,51 +3110,84 @@ window.NDMqtt = (() => {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); };
     fit(); window.addEventListener('resize', fit);
-    const HIT = 1100, END = 3200, T0 = performance.now();
-    const title = T('Нож дурака', "Fool's Knife");
+    const T0 = performance.now(), FLY = 1000, END = 3500;
+    const title = T('НОЖ ДУРАКА', "FOOL'S KNIFE");
     const sub = T('Карточный дурак, где каждая карта — нож', 'Durak where every card is a knife');
-    let done = false, hit = false, shake = 0, raf = 0;
+    let done = false, hit = false, shake = 0, raf = 0, sparkT = -1;
     const finish = () => { if (done) return; done = true; cancelAnimationFrame(raf); ov.classList.add('out'); setTimeout(() => ov.remove(), 500); };
     ov.onclick = finish;
-    const knife = (x, y, a, s, alpha) => {
-      g.save(); g.globalAlpha = alpha; g.translate(x, y); g.rotate(a); g.scale(s, s);
-      g.fillStyle = '#c9d6e0'; g.beginPath(); g.moveTo(60, 0); g.lineTo(-10, -9); g.lineTo(-40, -6); g.lineTo(-40, 6); g.lineTo(-10, 9); g.closePath(); g.fill();
-      g.fillStyle = '#ffffff'; g.fillRect(-36, -1.5, 80, 2);
-      g.fillStyle = '#e8b64a'; g.fillRect(-46, -12, 8, 24);
-      g.fillStyle = '#5a3420'; g.fillRect(-82, -6, 36, 12);
+    const ease = (x) => 1 - Math.pow(1 - x, 3), clamp = (x) => Math.max(0, Math.min(1, x));
+    // нож: длинный клинок тёмной стали, золотая гарда, рукоять
+    const knife = (x, y, a, L) => {
+      const k = L / 100;
+      g.save(); g.translate(x, y); g.rotate(a); g.scale(k, k);
+      g.fillStyle = '#1f2a3a'; g.beginPath(); g.moveTo(0, -10); g.lineTo(-62, -5.5); g.lineTo(-62, 5.5); g.lineTo(0, 10); g.closePath(); g.fill();
+      g.strokeStyle = '#a9c2d8'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, -8.5); g.lineTo(-60, -4); g.stroke();
+      g.fillStyle = '#e0ad45'; g.fillRect(-64, -13, 6, 26);
+      g.fillStyle = '#2a1b10'; g.fillRect(-100, -6, 36, 12);
+      g.fillStyle = '#e0ad45'; g.beginPath(); g.arc(-102, 0, 6, 0, 7); g.fill();
+      g.restore();
+    };
+    const sparks = (x, y, p) => {
+      g.save(); g.translate(x, y); g.strokeStyle = '#ffe9a8'; g.lineWidth = 3; g.lineCap = 'round';
+      for (let i = 0; i < 10; i++) {
+        const an = i / 10 * Math.PI * 2 + 0.2, r1 = 26 + p * 70, r2 = r1 + 26 * (1 - p);
+        g.globalAlpha = 1 - p;
+        g.beginPath(); g.moveTo(Math.cos(an) * r1, Math.sin(an) * r1); g.lineTo(Math.cos(an) * r2, Math.sin(an) * r2); g.stroke();
+      }
       g.restore();
     };
     const loop = (now) => {
       if (done) return;
       const t = now - T0, w = innerWidth, h = innerHeight;
-      const tx = w / 2, ty = h * 0.34, sx = -90, sy = h * 0.95;
-      const pos = (q) => { const k = 1 - Math.pow(1 - q, 3); return [sx + (tx - sx) * k, sy + (ty - sy) * k - Math.sin(q * Math.PI) * h * 0.2]; };
-      const p = Math.min(1, t / HIT);
-      const ang = Math.atan2(ty - sy, tx - sx);
+      // точка попадания — правый верх надписи
+      const hx = w * 0.79, hy = h * 0.38;
+      const sx = -w * 0.06, sy = h * 0.68, cx = w * 0.35, cy = h * 0.02;
+      const p = clamp(t / FLY), e = ease(p);
+      const bez = (q) => { const k = 1 - q; return [k * k * sx + 2 * k * q * cx + q * q * hx, k * k * sy + 2 * k * q * cy + q * q * hy]; };
+      const [kx, ky] = bez(e);
+      const ang = Math.atan2(hy - cy, hx - cx) + 0.1;
       g.save();
-      if (shake > 0) { g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.85; }
-      const grd = g.createRadialGradient(w / 2, h * 0.4, 40, w / 2, h * 0.4, Math.max(w, h) * 0.75);
-      grd.addColorStop(0, '#3a2716'); grd.addColorStop(1, '#0d0906');
-      g.fillStyle = grd; g.fillRect(-20, -20, w + 40, h + 40);
-      if (t < HIT) {
-        for (let i = 5; i >= 1; i--) { const [gx, gy] = pos(Math.max(0, p - i * 0.05)); knife(gx, gy, ang, 2.1, 0.12 * (6 - i) / 5); }
-        const [kx, ky] = pos(p); knife(kx, ky, ang, 2.1, 1);
-      } else {
-        if (!hit) { hit = true; shake = 16; try { sfx('thunk'); } catch (e) {} }
-        knife(tx, ty, ang, 2.1, 1);
-        g.globalAlpha = Math.min(1, (t - HIT) / 350); g.fillStyle = '#ffd77a'; g.textAlign = 'center';
-        g.font = 'bold ' + Math.min(78, w * 0.13) + 'px Russo One, Rubik, sans-serif';
-        g.fillText(title, w / 2, h * 0.5);
-        g.globalAlpha = Math.max(0, Math.min(1, (t - HIT - 350) / 400));
-        g.fillStyle = '#f1e6d6'; g.font = Math.min(22, w * 0.045) + 'px Rubik, sans-serif';
-        g.fillText(sub, w / 2, h * 0.5 + 44);
-        g.globalAlpha = 1;
+      if (shake > 0) { g.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.82; }
+      const grd = g.createRadialGradient(w / 2, h * 0.45, 20, w / 2, h * 0.45, Math.max(w, h) * 0.7);
+      grd.addColorStop(0, '#5a3819'); grd.addColorStop(0.55, '#2e1c0f'); grd.addColorStop(1, '#120b06');
+      g.fillStyle = grd; g.fillRect(-30, -30, w + 60, h + 60);
+      // пунктирный след полёта
+      if (t < FLY) {
+        g.setLineDash([3, 9]); g.strokeStyle = 'rgba(255,230,170,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy);
+        for (let q = 0; q <= e; q += 0.02) { const [px, py] = bez(q); g.lineTo(px, py); }
+        g.stroke(); g.setLineDash([]);
+        knife(kx, ky, ang, w * 0.15);
+      }
+      if (t >= FLY) {
+        if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
+        knife(hx, hy, ang, w * 0.15);
+        if (t - sparkT < 380) sparks(hx, hy, (t - sparkT) / 380);
+        // название: появляется и поднимается
+        const tt = clamp((t - FLY) / 500), up = ease(clamp((t - FLY - 300) / 500));
+        const ty = h * (0.5 - 0.07 * up);
+        g.save(); g.globalAlpha = tt; const sc = 1.08 - 0.08 * tt; g.translate(w / 2, ty); g.scale(sc, sc);
+        let fs = Math.min(w * 0.15, 160);
+        g.font = '900 ' + fs + 'px DejaVu Sans, Russo One, Rubik, sans-serif';
+        const mw = g.measureText(title).width; if (mw > w * 0.84) { fs = fs * (w * 0.84) / mw; g.font = '900 ' + fs + 'px DejaVu Sans, Russo One, Rubik, sans-serif'; }
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 18; g.shadowOffsetY = 6;
+        g.lineJoin = 'round'; g.lineWidth = fs * 0.09; g.strokeStyle = '#3a1f0a'; g.strokeText(title, 0, 0);
+        const gr = g.createLinearGradient(0, -fs / 2, 0, fs / 2); gr.addColorStop(0, '#fff0b0'); gr.addColorStop(0.5, '#f4c15a'); gr.addColorStop(1, '#c98a2a');
+        g.fillStyle = gr; g.fillText(title, 0, 0);
+        g.restore();
+        // подпись
+        const sa = clamp((t - 1800) / 500);
+        g.save(); g.globalAlpha = sa; g.fillStyle = '#f3e7d2'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.font = Math.min(26, w * 0.05) + 'px Rubik, DejaVu Sans, sans-serif';
+        g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8;
+        g.fillText(sub, w / 2, h * 0.6); g.restore();
       }
       g.restore();
       if (t > END) return finish();
       raf = requestAnimationFrame(loop);
     };
-    try { sfx('whoosh'); } catch (e) {}
+    try { sfx('whoosh'); } catch (er) {}
     raf = requestAnimationFrame(loop);
   }
 
