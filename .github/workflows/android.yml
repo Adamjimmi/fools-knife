@@ -56,6 +56,20 @@ jobs:
           VERSION_NAME: ${{ inputs.version_name }}
         run: bash android-app/build.sh
 
+      - name: Inspect the bundle (diagnostics)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          cd android-app/out || exit 0
+          echo "== jarsigner =="; jarsigner -verify -verbose -certs fools-knife.aab 2>&1 | tail -25
+          echo "== keytool cert =="; keytool -printcert -jarfile fools-knife.aab 2>&1 | head -20
+          gh release download -R google/bundletool -p 'bundletool-all-*.jar' -O bundletool.jar --clobber
+          echo "== bundletool validate =="; java -jar bundletool.jar validate --bundle=fools-knife.aab 2>&1 | tail -20
+          echo "== manifest =="; java -jar bundletool.jar dump manifest --bundle=fools-knife.aab 2>&1 | head -60
+          echo "== files =="; unzip -l fools-knife.aab | head -40
+
       - uses: actions/upload-artifact@v4
         with:
           name: fools-knife-android-${{ steps.sign.outputs.kind }}
