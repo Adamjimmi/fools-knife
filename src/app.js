@@ -1220,9 +1220,9 @@
         g.setLineDash([3, 9]); g.strokeStyle = 'rgba(255,230,170,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy);
         for (let q = 0; q <= e; q += 0.02) { const [px, py] = bez(q); g.lineTo(px, py); }
         g.stroke(); g.setLineDash([]);
-        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(ease(q)); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang + (1 - ease(q)) * Math.PI * 3.5, w * 0.15); }
+        for (let i = 4; i >= 1; i--) { const q = Math.max(0, p - i * 0.03), [px, py] = bez(ease(q)); g.globalAlpha = 0.14 * (5 - i) / 4; knife(px, py, ang - (1 - ease(q)) * Math.PI * 3.5, w * 0.15); }
         g.globalAlpha = 1;
-        knife(kx, ky, ang + (1 - e) * Math.PI * 3.5, w * 0.15);
+        knife(kx, ky, ang - (1 - e) * Math.PI * 3.5, w * 0.15);
       }
       if (t >= FLY) {
         if (!hit) { hit = true; sparkT = t; shake = 12; try { sfx('thunk'); } catch (er) {} }
@@ -1231,7 +1231,7 @@
         if (fl > 0) { const fg = g.createRadialGradient(hx, hy, 0, hx, hy, w * 0.45); fg.addColorStop(0, 'rgba(255,236,180,' + (0.55 * fl) + ')'); fg.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = fg; g.fillRect(-30, -30, w + 60, h + 60); }
         if (t - sparkT < 380) sparks(hx, hy, (t - sparkT) / 380);
         // название: появляется и поднимается
-        const tt = clamp((t - FLY) / 450), up = ease(clamp((t - FLY - 300) / 500));
+        const tt = clamp((t - FLY) / 260), up = ease(clamp((t - FLY - 90) / 300));
         const ty = h * (0.5 - 0.07 * up);
         const sc = 0.7 + 0.3 * tt + 0.14 * Math.sin(tt * Math.PI) * (1 - tt);
         g.save(); g.globalAlpha = Math.min(1, tt * 1.4); g.translate(w / 2, ty); g.scale(sc, sc);
@@ -1246,7 +1246,7 @@
         g.shadowColor = 'rgba(0,0,0,.7)'; g.shadowBlur = 14; g.shadowOffsetY = 8; g.fillText(title, 0, 0);
         g.restore();
         // подпись
-        const sa = clamp((t - 1800) / 500);
+        const sa = clamp((t - 1250) / 350);
         g.save(); g.globalAlpha = sa; g.fillStyle = '#f3e7d2'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.font = Math.min(26, w * 0.05) + 'px Rubik, DejaVu Sans, sans-serif';
         g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 8;
