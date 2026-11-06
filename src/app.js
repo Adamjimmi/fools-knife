@@ -47,29 +47,29 @@
   const LK = (hat, shirt, face, back, trail) => ({ hat, shirt, face, back, trail });
   const CAMP = [
     // биом 1: 2 на 2, босс 5 на 5
-    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Простофиля Ваня', 'Simple Vanya'], look: LK('none', 'basic', 'none', 'none', 'plain') },
-    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Пастух Ерёма', 'Yerema the Shepherd'], look: LK('cap', 'stripes', 'none', 'none', 'plain') },
-    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Мельник Фома', 'Foma the Miller'], look: LK('ushanka', 'basic', 'mustache', 'none', 'plain') },
-    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Кузнец Прохор', 'Prokhor the Smith'], look: LK('bandana', 'leather', 'beard', 'none', 'plain') },
-    { b: 0, lvl: 'medium', me: 5, op: 5, boss: 1, n: ['Атаман Кистень', 'Chieftain Flail'], look: LK('cowboy', 'leather', 'eyepatch', 'scarf', 'fire') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Ваня «Косой»', 'Vanya "Squint"'], look: LK('none', 'basic', 'none', 'none', 'plain') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Ерёма «Козья Ножка»', 'Yerema "Goat-Leg"'], look: LK('cap', 'stripes', 'none', 'none', 'plain') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Фома «Мучной Мешок»', 'Foma "Flour Sack"'], look: LK('ushanka', 'basic', 'mustache', 'none', 'plain') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Прохор «Наковальня»', 'Prokhor "Anvil"'], look: LK('bandana', 'leather', 'beard', 'none', 'plain') },
+    { b: 0, lvl: 'medium', me: 5, op: 5, boss: 1, n: ['Атаман «Кистень»', 'Chieftain "Flail"'], look: LK('cowboy', 'leather', 'eyepatch', 'scarf', 'fire') },
     // биом 2: 3 на 3, босс 5 против твоих 4
-    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Караванщик Али', 'Caravan Ali'], look: LK('bandana', 'stripes', 'mustache', 'none', 'plain') },
-    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Змеелов Карим', 'Karim the Snake-catcher'], look: LK('cowboy', 'basic', 'shades', 'none', 'plain') },
-    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Песчаный призрак', 'Sand Ghost'], look: LK('none', 'kimono', 'ninja', 'scarf', 'sparks') },
-    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Кочевница Зара', 'Zara the Nomad'], look: LK('bandana', 'kimono', 'none', 'scarf', 'plain') },
-    { b: 1, lvl: 'hard', me: 4, op: 5, boss: 1, n: ['Султан Скорпион', 'Sultan Scorpion'], look: LK('tophat', 'kimono', 'mustache', 'cape', 'fire') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Али «Верблюжий Плевок»', 'Ali "Camel Spit"'], look: LK('bandana', 'stripes', 'mustache', 'none', 'plain') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Карим «Гадюка»', 'Karim "Viper"'], look: LK('cowboy', 'basic', 'shades', 'none', 'plain') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['«Мираж»', '"Mirage"'], look: LK('none', 'kimono', 'ninja', 'scarf', 'sparks') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Зара «Пыльная Буря»', 'Zara "Dust Storm"'], look: LK('bandana', 'kimono', 'none', 'scarf', 'plain') },
+    { b: 1, lvl: 'hard', me: 4, op: 5, boss: 1, n: ['Султан «Скорпион»', 'Sultan "Scorpion"'], look: LK('tophat', 'kimono', 'mustache', 'cape', 'fire') },
     // биом 3: 4 на 4, босс 5 против твоих 3
-    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Охотник Тихон', 'Tikhon the Hunter'], look: LK('ushanka', 'camo', 'beard', 'none', 'plain') },
-    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Ледяная ведьма', 'Ice Witch'], look: LK('none', 'kimono', 'none', 'cape', 'sparks') },
-    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Медвежатник Савва', 'Savva the Bear-hunter'], look: LK('ushanka', 'leather', 'beard', 'scarf', 'plain') },
-    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Северный ярл', 'Northern Jarl'], look: LK('viking', 'leather', 'beard', 'cape', 'fire') },
-    { b: 2, lvl: 'elite', me: 3, op: 5, boss: 1, n: ['Ледяной воевода', 'Frost Warlord'], look: LK('viking', 'armor', 'beard', 'cape', 'sparks') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Тихон «Капкан»', 'Tikhon "Trap"'], look: LK('ushanka', 'camo', 'beard', 'none', 'plain') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Ведьма «Сосулька»', 'Witch "Icicle"'], look: LK('none', 'kimono', 'none', 'cape', 'sparks') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Савва «Медвежья Лапа»', 'Savva "Bear Paw"'], look: LK('ushanka', 'leather', 'beard', 'scarf', 'plain') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Ярл «Белый Волк»', 'Jarl "White Wolf"'], look: LK('viking', 'leather', 'beard', 'cape', 'fire') },
+    { b: 2, lvl: 'elite', me: 3, op: 5, boss: 1, n: ['Воевода «Вечная Мерзлота»', 'Warlord "Permafrost"'], look: LK('viking', 'armor', 'beard', 'cape', 'sparks') },
     // биом 4: 5 на 5, а вдали — настоящий король: 5 против твоих 2
-    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Стражник ворот', 'Gate Warden'], look: LK('viking', 'armor', 'none', 'none', 'plain') },
-    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Палач', 'The Executioner'], look: LK('none', 'leather', 'ninja', 'cape', 'fire') },
-    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Тёмный рыцарь', 'Dark Knight'], look: LK('viking', 'armor', 'eyepatch', 'cape', 'sparks') },
-    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Королевская гвардия', 'Royal Guard'], look: LK('tophat', 'armor', 'mustache', 'cape', 'rainbow') },
-    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король', 'The True King'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Стражник «Засов»', 'Warden "Deadbolt"'], look: LK('viking', 'armor', 'none', 'none', 'plain') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Палач «Без Лица»', 'Executioner "Faceless"'], look: LK('none', 'leather', 'ninja', 'cape', 'fire') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Рыцарь «Чёрный Ворон»', 'Knight "Black Raven"'], look: LK('viking', 'armor', 'eyepatch', 'cape', 'sparks') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Гвардеец «Последний Щит»', 'Guard "Last Shield"'], look: LK('tophat', 'armor', 'mustache', 'cape', 'rainbow') },
+    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король «Кровавый Венец»', 'The True King "Blood Crown"'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
   ];
   const campSize = (f) => { const m = Math.max(f.me, f.op); return m >= 5 ? 50 : m >= 3 ? 30 : 20; };
   const campXp = (i) => (CAMP[i].boss === 2 ? 600 : CAMP[i].boss ? 120 + i * 15 : 40 + i * 10);
