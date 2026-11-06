@@ -98,12 +98,14 @@ window.NDEngine = (() => {
     function start() {
       if (g.players.length !== 2 || g.state === 'playing') return;
       clearTimers();
-      g.deck = G.shuffle(G.deckFor(g.size));
+      g.rare = Math.random() < G.RARE_CHANCE;   // редкий меч — не в каждом матче
+      g.deck = G.shuffle(G.deckFor(g.size, { rare: g.rare }));
       g.trumpCard = g.deck[g.deck.length - 1];
       g.trumpSuit = g.trumpCard.suit;
       g.state = 'playing'; g.round = 0; g.stuck = []; g.flights = []; g.epoch = Math.random().toString(36).slice(2, 8); g.winnerId = null; g.endReason = '';
       g.players.forEach(reset);
       log({ k: 'start', size: g.size, suit: g.trumpSuit, hand: g.handMax, hm: g.players.map(HM) });
+      if (g.rare) log({ k: 'rare' });
       nextRound();
     }
 
@@ -183,6 +185,30 @@ window.NDEngine = (() => {
         const offset = Math.round(((now - f.t0) / 1000) * 60);
         const col = G.findCollision(frames, f.frames, offset);
         if (!col) continue;
+        // меч Кровавого Короля не сбить: чужой нож падает, а меч лишь чуть отклоняется
+        const kickOf = (sw, other, i, j) => ((other[Math.min(j, other.length - 1)] || {}).y > (sw[Math.min(i, sw.length - 1)] || {}).y ? -0.16 : 0.16);
+        if (st.has('bloodsword')) {
+          const k = kickOf(frames, f.frames, col.i, col.j), d = G.deflect(frames, col.i, st, g.wind, k);
+          frames = flight.frames = d.frames; Object.keys(result).forEach(x => delete result[x]); Object.assign(result, d.result);
+          msg.defl = { at: col.i, k };
+          f.frames = G.knockFrames(f.frames, col.j);
+          f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
+          msg.knock = { id: f.id, at: col.j, res: f.result }; msg.clash = col.i;
+          if (f.msg) { f.msg.cut = col.j; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
+          scheduleLanding(f); break;
+        }
+        if (f.st.has('bloodsword')) {
+          const k = kickOf(f.frames, frames, col.j, col.i), d = G.deflect(f.frames, col.j, f.st, g.wind, k);
+          f.frames = d.frames; f.result = d.result;
+          frames = flight.frames = G.knockFrames(frames, col.i);
+          Object.assign(result, { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, mult: 0, zone: null, stuck: null });
+          msg.cut = col.i; msg.clash = col.i;
+          const fr = { hit: d.result.hit, reason: d.result.reason, code: d.result.code, points: d.result.points, zone: d.result.zone, stuck: d.result.stuck };
+          msg.defl2 = { id: f.id, at: col.j, k, res: fr };
+          if (f.msg) { f.msg.defl = { at: col.j, k }; f.msg.res = Object.assign({}, fr); f.msg.streak = (fr.hit ? (P(f.o) || {}).streak + 1 : 0) || 0; }
+          scheduleLanding(f);
+          break;
+        }
         frames = flight.frames = G.knockFrames(frames, col.i);
         f.frames = G.knockFrames(f.frames, col.j);
         const bonus = Math.max(5, Math.round(f.st.points / 2));
@@ -195,7 +221,7 @@ window.NDEngine = (() => {
         break;
       }
       const opp = g.players.find(x => x.id !== id);
-      msg.res = { hit: result.hit, knock: !!result.knock, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck, volley: result.volley };
+      msg.res = { hit: result.hit, knock: !!result.knock, knocked: !!result.knocked, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck, volley: result.volley };
       msg.streak = (result.hit || result.knock) ? p.streak + 1 : 0;
       if (result.hit && st.has('thief') && opp) msg.res.steal = Math.min(5, opp.score);
       g.flights.push(flight);
@@ -219,11 +245,22 @@ window.NDEngine = (() => {
       const opp = g.players.find(x => x.id !== f.o);
       if (r.hit && f.st.has('thief') && opp) { r.steal = Math.min(5, opp.score); opp.score -= r.steal; r.points += r.steal; }
       p.score += r.points || 0;
+      if (r.hit && f.st.has('bloodsword') && opp) {   // меч крадёт лучшую карту соперника
+        const pool = opp.hand.filter(c => c !== opp.active);
+        if (pool.length) {
+          const val = (c) => TIER_RANK[c.tier] + (c.suit === g.trumpSuit ? 0.5 : 0);
+          const best = pool.reduce((a, b) => (val(b) > val(a) ? b : a));
+          opp.hand = opp.hand.filter(c => c !== best); p.hand.push(best);
+          r.stoleLog = { k: 'steal', n: p.name, b: p.isBot, cn: p.cn, c: best.id, from: opp.name, fb: opp.isBot, fcn: opp.cn };
+          if (opp.status === 'aim' && !opp.active && !usable(opp).length) { opp.status = 'done'; opp.deadline = 0; }
+        }
+      }
       const good = r.hit || r.knock;
       if (r.hit) p.hits++;
       p.streak = good ? p.streak + 1 : 0;
       for (const sk of (r.stucks || (r.stuck ? [r.stuck] : []))) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(sk.x), y: Math.round(sk.y), r: Math.round(sk.r * 100) / 100, id: f.id });
       log({ k: 'throw', n: p.name, b: p.isBot, c: f.card.id, code: r.code, pts: r.points || 0, steal: r.steal || 0, streak: good ? p.streak : 0 });
+      if (r.stoleLog) log(r.stoleLog);
       push();
       later(700, () => {
         if (g.state !== 'playing' || p.status !== 'flying') return;

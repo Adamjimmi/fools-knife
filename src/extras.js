@@ -484,8 +484,10 @@
     });
   }
   let shakeT = 0, shakeA = 0;
-  function shake(amount) { shakeA = Math.max(shakeA, amount); shakeT = performance.now(); }
-  function shakeOffset(now) { const k = 1 - (now - shakeT) / 350; if (k <= 0) return [0, 0]; const a = shakeA * k * k; return [(Math.random() - 0.5) * a * 2, (Math.random() - 0.5) * a * 2]; }
+  let shakeD = 350;
+  // dur — длительность дрожи (мс); старая дрожь, если уже затихла, не усиливает новую
+  function shake(amount, dur) { const now = performance.now(), live = now - shakeT < shakeD; shakeA = live ? Math.max(shakeA * (1 - (now - shakeT) / shakeD), amount) : amount; shakeD = live ? Math.max(dur || 350, shakeD - (now - shakeT)) : (dur || 350); shakeT = now; }
+  function shakeOffset(now) { const k = 1 - (now - shakeT) / shakeD; if (k <= 0) return [0, 0]; const a = shakeA * k * k; return [(Math.random() - 0.5) * a * 2, (Math.random() - 0.5) * a * 2]; }
 
   window.NDX = { Audio, Profile, ITEMS, SLOTS, SLOT_NAMES, ACH, DEFAULT_LOOK, cleanLook, levelOf, xpFor, drawCharacter, drawArena, drawWeather, burst, drawParts, drawTrail, shake, shakeOffset };
 })();

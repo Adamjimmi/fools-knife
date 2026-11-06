@@ -88,6 +88,9 @@
     const cn = card ? `${cardName(card)} ${KG.SUITS[card.suit].sym}` : T('нож', 'knife');
     switch (e.k) {
       case 'join': return T(`${e.n} зашёл на сервер`, `${e.n} joined the server`);
+      case 'rare': return T('⚔ В колоде меч Кровавого Короля! Он попадается не в каждом матче.', "⚔ The Blood King's Sword is in the deck! It doesn't show up every match.");
+      case 'steal': { const thief = e.b ? (e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT()) : String(e.n || ''); const vic = e.fb ? (e.fcn != null && CAMP[e.fcn] ? T(...CAMP[e.fcn].n) : BOT()) : String(e.from || ''); const sc = KG.CARD_BY_ID[e.c];
+        return T(`🩸 ${thief} украл у ${vic} карту: ${sc ? cardName(sc) + ' ' + KG.SUITS[sc.suit].sym : '?'}`, `🩸 ${thief} stole ${vic}'s card: ${sc ? cardName(sc) + ' ' + KG.SUITS[sc.suit].sym : '?'}`); }
       case 'bot': return e.cn != null && CAMP[e.cn] ? T(`${CAMP[e.cn].n[0]} вызывает тебя на бой`, `${CAMP[e.cn].n[1]} challenges you`) : T('Бот Ножовщик сел за стол', 'Knife Bot joined the table');
       case 'leave': return T(`${who} покинул сервер`, `${who} left the server`);
       case 'start': { const s = KG.SUITS[e.suit] || { sym: '' };
@@ -660,13 +663,16 @@
     if (m.a != null) sfx('whoosh');
     const base = KG.CARD_BY_ID[m.c];
     let full = [], extra = [], dur = 0;
-    if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
+    const st0 = base ? KG.knifeStats(base, m.ts) : null;
+    if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: st0, wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
+    if (m.defl && full.length) full = KG.deflect(full, +m.defl.at, st0, +m.w || 0, +m.defl.k).frames;   // меч отклонился от удара
     const cut = m.cut != null ? +m.cut : null;
     const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
+    if (m.defl2) deflAnim(m.defl2.id, +m.defl2.at, +m.defl2.k, m.defl2.res);
     const el = Math.max(0, +m.el || 0);
-    const a = { owner: m.o, full, cut, frames, extra, dur, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    const a = { owner: m.o, full, cut, frames, extra, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
     if (!frames.length) finishAnim(a);
     else if (el / 1000 * 60 >= Math.max(frames.length, dur)) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
@@ -677,6 +683,13 @@
     if (!other || other.cut === at || !other.full.length) return;
     other.cut = at; other.frames = KG.knockFrames(other.full, at);
     other.result = res || { hit: false, reason: 'Сбит в воздухе!', code: 'knocked' }; other.streak = 0;
+  }
+  // меч отклонили в полёте: пересчитываем его траекторию с точки удара
+  function deflAnim(id, at, k, res) {
+    const a = anims.find(x => x.throwId === id);
+    if (!a || a.defl === at || !a.full.length || !a.st) return;
+    a.defl = at; a.full = a.frames = KG.deflect(a.full, at, a.st, a.w, k).frames;
+    if (res) a.result = res;
   }
   // подхватить ножи в полёте из состояния (если сообщение о броске потерялось)
   function syncFlights(s) {
@@ -689,6 +702,7 @@
         const an = anims.find(x => x.throwId === f.id);
         if (an && an.cut == null) knockAnim(f.id, +f.cut, f.res);
       }
+      if (f.defl && seenThrows.has(key)) deflAnim(f.id, +f.defl.at, +f.defl.k, f.res);
     }
   }
 
@@ -698,7 +712,10 @@
     const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
     const res = a.result;
     const dir = a.owner === myId || !room || !room.players.some(p => p.id === myId) ? 1 : -1;
-    if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, dir); X.shake(res.zone === 'bull' ? 7 : 3); if (a.streak > 1) setTimeout(() => sfx('streak', a.streak), 120); }
+    const sword = res.hit && a.card && a.card.abilities.includes('bloodsword');
+    if (sword) { X.shake(34, 1300); redAt = performance.now(); X.burst('chips', v.x, v.y, 40, dir); X.burst('sparks', v.x, v.y, 30); sfx('thunk'); setTimeout(() => sfx('clang'), 60); setTimeout(() => sfx('thunk'), 140);
+      if (DEV.phone && vibrateOn()) { try { navigator.vibrate([90, 40, 160]); } catch (e) {} } }
+    if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, dir); if (!sword) X.shake(res.zone === 'bull' ? 7 : 3); if (a.streak > 1) setTimeout(() => sfx('streak', a.streak), 120); }
     else if (res.code === 'bounce_face' || res.code === 'bounce_top') X.burst('sparks', v.x, v.y, 8);
     else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
     if (a.owner === myId && DEV.phone && vibrateOn()) { try { navigator.vibrate(res.knock ? [30, 40, 40] : res.zone === 'bull' ? 60 : res.hit ? 25 : 0); } catch (e) {} }
@@ -866,7 +883,7 @@
     ctx.restore();
   }
 
-  let lastTick = 0;
+  let lastTick = 0, redAt = -1e9;
   function frame(now) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
@@ -934,6 +951,7 @@
         ctx.restore();
       }
       X.drawParts(ctx);
+      if (now - redAt < 1100) { const t = (now - redAt) / 1100; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(190,0,20,${0.32 * (1 - t) * (1 - t)})`; ctx.fillRect(0, 0, cv.width, cv.height); ctx.restore(); }   // экран краснеет от удара меча
       floaters = floaters.filter(fl => now - fl.t0 < 2000);
       for (const fl of floaters) {
         const t = (now - fl.t0) / 2000;

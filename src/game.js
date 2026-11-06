@@ -39,6 +39,7 @@
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
     bounce: { name: 'Рикошет',          desc: 'один раз отскакивает от земли' },
     volley: { name: 'Залп',             desc: '12 кортиков веером, у каждого видна траектория; попадание — 3 очка' },
+    bloodsword: { name: 'Меч Кровавого Короля', desc: 'летит в 2 раза медленнее, полная траектория, втыкается любой стороной клинка, очки ×2, его нельзя сбить — лишь чуть сбить с курса, при попадании крадёт лучшую карту соперника' },
     slowmo: { name: 'Слоумо',           desc: 'летит в 4 раза медленнее и втыкается любым концом; только первым броском в раунде' },
   };
   // Хорошие качества
@@ -73,6 +74,9 @@
     ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
+  // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
+  const RARE = ['hearts', 'A3-h', ['Меч Кровавого Короля', 'sword', ['bloodsword'], 'calm', 'power']];
+  const RARE_CHANCE = 0.25;
   // Модели хороших ножей: [имя, форма, качества, козырная способность, козырное качество]
   const GOOD = [
     ['Боуи',       'bowie',     ['power', 'value'],   'bounce', 'balance'],
@@ -119,7 +123,7 @@
       trumpAbility: d[3], trumpQuality: d[4],
     };
   }
-  function deckFor(size) {
+  function deckFor(size, opt) {
     const L = LAYOUT[size] || LAYOUT[20];
     const out = [];
     SUIT_ORDER.forEach((suit, si) => {
@@ -132,10 +136,11 @@
       let i = -1; out.forEach((c, k) => { if (c.suit === suit && c.tier === 'good') i = k; });
       if (i >= 0) out[i] = mkCard(id, suit, 'ace', d, false);
     }
+    if (opt && opt.rare) { let i = -1; out.forEach((c, k) => { if (c.suit === RARE[0] && c.tier === 'good') i = k; }); if (i >= 0) out[i] = mkCard(RARE[1], RARE[0], 'ace', RARE[2], false); }
     return out;
   }
   const CARDS = deckFor(20);
-  const CARD_BY_ID = Object.fromEntries(deckFor(50).map(c => [c.id, c]));
+  const CARD_BY_ID = Object.fromEntries(deckFor(50).concat(deckFor(50, { rare: true })).map(c => [c.id, c]));
 
   const BASE = {
     ace:  { maxSpeed: 1100, gravityMul: 0.9,  spread: 0.5, stick: 100, spinMul: 1,   points: 30, preview: 0.7,  windMul: 0.5 },
@@ -177,11 +182,12 @@
       if (a === 'sticky') s.stick = 360;
       if (a === 'magnet') s.magnet = 1.4;
       if (a === 'slowmo') s.stick = 360;
+      if (a === 'bloodsword') { s.stick = 360; s.preview = 1; }
       if (a === 'volley') s.points = VOLLEY_PTS;
     }
     // длина ножа в физике = длина по рисунку (длинный клинок достаёт до пня раньше)
     const shp = SH[card.shape];
-    s.reach = shp ? (shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
+    s.reach = shp ? (shp.sword ? 54 : shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
     s.twin = !!(shp && shp.twin);
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
@@ -233,7 +239,7 @@
 
   // ---------- Баллистика ----------
   // stats — объект из knifeStats (abilities — массив). angle в радианах (вправо = 0, вверх < 0), power 0..1
-  function simulate({ angle, power, stats, wind = 0, seed = 1, noNoise = false }) {
+  function simulate({ angle, power, stats, wind = 0, seed = 1, noNoise = false, start = null }) {
     const has = (a) => stats.abilities.includes(a);
     const rng = mulberry32(seed);
     let a = angle, sp = Math.max(0, Math.min(1, power)) * stats.maxSpeed;
@@ -243,6 +249,8 @@
     }
     let x = HAND.x, y = HAND.y, vx = Math.cos(a) * sp, vy = Math.sin(a) * sp, r = a;
     let omega = SPIN * stats.spinMul;
+    if (start) ({ x, y, vx, vy, r, omega } = start);
+    const EVERY = slowOf(stats) > 1 ? 1 : 2;   // медленные ножи: кадр на каждый шаг физики (×2 без подрисовки)   // продолжение полёта (меч после отклонения)
     const g = GRAV * stats.gravityMul;
     const ax = wind * WIND_ACC * stats.windMul;
     const big = stats.magnet > 1;
@@ -365,20 +373,33 @@
         }
       }
       if (x > W + 80 || x < -80 || y < -600) { if (state === 'fly') { res.reason = 'Улетел'; res.code = 'out'; } push(); break; }
-      if (i % 2 === 0) push();
+      if (i % EVERY === 0) push();
     }
     if (res.hit) {
-      res.points = Math.round(stats.points * res.mult * (has('double') ? 2 : 1));
+      res.points = Math.round(stats.points * res.mult * (has('double') || has('bloodsword') ? 2 : 1));
     }
-    // слоумо: та же траектория, но время растянуто в 4 раза
-    if (has('slowmo') && frames.length > 1) {
+    // слоумо (×4) и меч (×2): та же траектория, но время растянуто
+    const SL = slowOf(stats) / (3 - EVERY);   // остаток растяжения подрисовываем (слоумо ×4 = ×2 шагов · ×2)
+    if (SL > 1 && frames.length > 1) {
       const sl = [];
       for (let k = 0; k < frames.length - 1; k++) { const a = frames[k], b = frames[k + 1];
-        for (let j = 0; j < SLOWMO; j++) { const t = j / SLOWMO; sl.push({ x: Math.round((a.x + (b.x - a.x) * t) * 10) / 10, y: Math.round((a.y + (b.y - a.y) * t) * 10) / 10, r: Math.round((a.r + (b.r - a.r) * t) * 1000) / 1000 }); } }
+        for (let j = 0; j < SL; j++) { const t = j / SL; sl.push({ x: Math.round((a.x + (b.x - a.x) * t) * 10) / 10, y: Math.round((a.y + (b.y - a.y) * t) * 10) / 10, r: Math.round((a.r + (b.r - a.r) * t) * 1000) / 1000 }); } }
       sl.push(frames[frames.length - 1]);
       return { frames: sl, result: res };
     }
     return { frames, result: res };
+  }
+  const slowOf = (stats) => (stats.abilities.includes('slowmo') ? SLOWMO : stats.abilities.includes('bloodsword') ? 2 : 1);
+  // меч не сбивается: от удара его траектория отклоняется на kick радиан, скорость падает на 12%
+  function deflect(frames, at, stats, wind, kick) {
+    const SL = slowOf(stats);
+    at = Math.max(1, Math.min(frames.length - 2, at | 0));
+    const a = frames[at - 1], b = frames[at], k = 60 * SL;   // соседние кадры отстоят на 1/(60·SL) с полёта
+    let vx = (b.x - a.x) * k, vy = (b.y - a.y) * k;
+    const sp = Math.hypot(vx, vy) * 0.88, an = Math.atan2(vy, vx) + kick;
+    vx = Math.cos(an) * sp; vy = Math.sin(an) * sp;
+    const sim = simulate({ angle: 0, power: 0, stats, wind, noNoise: true, start: { x: b.x, y: b.y, vx, vy, r: b.r, omega: (b.r - a.r) * k + kick * 6 } });
+    return { frames: frames.slice(0, at + 1).concat(sim.frames.slice(1)), result: sim.result };
   }
   // залп: 12 кортиков веером. Первый летит точно в прицел, остальные — с небольшим разбросом угла и силы
   function volleyShots(angle, power) {
@@ -412,6 +433,7 @@
       eagle: ['Eagle Eye', 'full trajectory shown'], magnet: ['Magnet', 'bigger target stump'],
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
       volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
+      bloodsword: ['Blood King\'s Sword', 'flies 2× slower, full trajectory, sticks with any side of the blade, points ×2, can\'t be knocked down (only nudged off course), steals your opponent\'s best card on a hit'],
       slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {
@@ -426,7 +448,7 @@
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Кровавого Короля': 'Blood King\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -478,6 +500,7 @@
     royal:     { len: 54, w: 10, handle: 26, guard: 18, pts: [[0,-.6],[.6,-.6],[.78,-.35],[1,.1],[.85,.6],[0,.6]], pommel: true },
     stiletto:  { len: 56, w: 6,  handle: 24, guard: 16, pts: [[0,-.5],[1,0],[0,.5]], pommel: true },
     dagger:    { len: 52, w: 10, handle: 24, guard: 18, pts: [[0,-.7],[.7,-.45],[1,0],[.7,.45],[0,.7]], pommel: true },
+    sword:     { len: 84, w: 8, handle: 22, guard: 0, pts: [[0,0]], sword: true },
     twin:      { len: 30, w: 8, handle: 16, guard: 0, pts: [[0,0]], twin: true },
     karambit:  { len: 36, w: 9, handle: 24, guard: 0, pts: [[0,0]], karambit: true },
     fang:      { len: 50, w: 10, handle: 24, guard: 14, pts: [[0,-.5],[.5,-.75],[.85,-.4],[1,.4],[.78,.05],[.4,.5],[0,.6]], pommel: true },
@@ -509,6 +532,31 @@
     clubs: ['#fff3b0', '#d4a52c'], diamonds: ['#e8fbff', '#62c7e6'],
     spades: ['#6a6380', '#15131c'], hearts: ['#ffd7d7', '#c8263b'],
   };
+
+  // меч Кровавого Короля: длинный клинок с долом, кровь у острия, крестовина с рубином, тёмно-красное свечение
+  function drawSword(ctx, card, sh, opt) {
+    const L = sh.len, w = sh.w, hl = sh.handle, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const glow = 0.5 + 0.5 * Math.sin(t * 2);
+    ctx.translate(-(L - hl) / 2, 0);
+    // рукоять, навершие
+    ctx.fillStyle = '#2a0a0e'; ctx.fillRect(-hl, -3.4, hl, 6.8);
+    ctx.strokeStyle = '#9a1622'; ctx.lineWidth = 1.6; for (let i = 0; i < 5; i++) { const x = -hl + 2 + i * 4; ctx.beginPath(); ctx.moveTo(x, -3.4); ctx.lineTo(x + 3, 3.4); ctx.stroke(); }
+    ctx.fillStyle = '#d4a23a'; ctx.beginPath(); ctx.arc(-hl - 3, 0, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#b3121f'; ctx.beginPath(); ctx.arc(-hl - 3, 0, 2, 0, Math.PI * 2); ctx.fill();
+    // клинок
+    ctx.shadowColor = `rgba(200,20,40,${0.45 + glow * 0.5})`; ctx.shadowBlur = 5 + glow * 10;
+    ctx.beginPath(); ctx.moveTo(0, -w * 0.62); ctx.lineTo(L * 0.86, -w * 0.5); ctx.lineTo(L, 0); ctx.lineTo(L * 0.86, w * 0.5); ctx.lineTo(0, w * 0.62); ctx.closePath();
+    const gr = ctx.createLinearGradient(0, -w, 0, w); gr.addColorStop(0, '#f2f4f7'); gr.addColorStop(0.5, '#a9b2bd'); gr.addColorStop(1, '#5d6672');
+    ctx.fillStyle = gr; ctx.fill(); ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(30,10,10,.7)'; ctx.lineWidth = 0.9; ctx.stroke();
+    // дол с кровью
+    ctx.strokeStyle = '#7a0d16'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(L * 0.72, 0); ctx.stroke();
+    ctx.fillStyle = 'rgba(150,10,22,.9)'; ctx.beginPath(); ctx.moveTo(L * 0.7, -w * 0.5); ctx.lineTo(L * 0.86, -w * 0.5); ctx.lineTo(L, 0); ctx.lineTo(L * 0.86, w * 0.5); ctx.lineTo(L * 0.76, w * 0.52);
+    ctx.quadraticCurveTo(L * 0.74, w * 0.1, L * 0.7, w * 0.4); ctx.quadraticCurveTo(L * 0.66, 0, L * 0.7, -w * 0.5); ctx.fill();
+    ctx.beginPath(); ctx.arc(L * 0.62, w * 0.25, 1.4, 0, Math.PI * 2); ctx.arc(L * 0.55, -w * 0.2, 1, 0, Math.PI * 2); ctx.fill();
+    // крестовина
+    ctx.fillStyle = '#3a3036'; ctx.beginPath(); ctx.moveTo(-3, -12); ctx.lineTo(3, -10); ctx.lineTo(3, 10); ctx.lineTo(-3, 12); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d4a23a'; ctx.fillRect(-3.5, -13, 7, 3); ctx.fillRect(-3.5, 10, 7, 3);
+    ctx.save(); ctx.shadowColor = '#ff2a3a'; ctx.shadowBlur = 4 + glow * 8; ctx.fillStyle = '#e0162a'; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
 
   // слоумо-нож: рукоять в центре, клинки с обеих сторон, пульсирующее синее свечение
   function drawTwin(ctx, card, sh, suit, opt) {
@@ -574,6 +622,7 @@
     const L = sh.len, w = sh.w, hl = sh.handle, hw = sh.fat ? 6 : 4.5;
     ctx.save();
     if (sh.twin) { drawTwin(ctx, card, sh, suit, opt); ctx.restore(); return; }
+    if (sh.sword) { drawSword(ctx, card, sh, opt); ctx.restore(); return; }
     ctx.translate(-(L - hl) / 2, 0);
     if (opt.trump) { ctx.shadowColor = 'rgba(255,214,90,.95)'; ctx.shadowBlur = 14; }
     if (sh.karambit) { drawKarambit(ctx, card, sh, suit, opt); ctx.restore(); return; }
@@ -627,6 +676,6 @@
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
     EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, throwSim, volleyShots, VOLLEY_N, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });
