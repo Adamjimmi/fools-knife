@@ -39,7 +39,7 @@
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
     bounce: { name: 'Рикошет',          desc: 'один раз отскакивает от земли' },
     volley: { name: 'Залп',             desc: '12 кортиков веером, у каждого видна траектория; попадание — 3 очка' },
-    bloodsword: { name: 'Меч Кровавого Короля', desc: 'летит в 2 раза медленнее, полная траектория, втыкается любой стороной клинка, очки ×2, его нельзя сбить — лишь чуть сбить с курса, при попадании крадёт лучшую карту соперника' },
+    bloodsword: { name: 'Титан', desc: 'очки ×2, не сбить, крадёт лучшую карту; медленный, втыкается любой стороной' },
     slowmo: { name: 'Слоумо',           desc: 'летит в 4 раза медленнее и втыкается любым концом; только первым броском в раунде' },
   };
   // Хорошие качества
@@ -433,7 +433,7 @@
       eagle: ['Eagle Eye', 'full trajectory shown'], magnet: ['Magnet', 'bigger target stump'],
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
       volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
-      bloodsword: ['Blood King\'s Sword', 'flies 2× slower, full trajectory, sticks with any side of the blade, points ×2, can\'t be knocked down (only nudged off course), steals your opponent\'s best card on a hit'],
+      bloodsword: ['Titan', 'points ×2, can\'t be knocked down, steals the best card; slow, sticks with any side'],
       slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {

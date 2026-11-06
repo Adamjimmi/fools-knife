@@ -499,7 +499,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
     bounce: { name: 'Рикошет',          desc: 'один раз отскакивает от земли' },
     volley: { name: 'Залп',             desc: '12 кортиков веером, у каждого видна траектория; попадание — 3 очка' },
-    bloodsword: { name: 'Меч Кровавого Короля', desc: 'летит в 2 раза медленнее, полная траектория, втыкается любой стороной клинка, очки ×2, его нельзя сбить — лишь чуть сбить с курса, при попадании крадёт лучшую карту соперника' },
+    bloodsword: { name: 'Титан', desc: 'очки ×2, не сбить, крадёт лучшую карту; медленный, втыкается любой стороной' },
     slowmo: { name: 'Слоумо',           desc: 'летит в 4 раза медленнее и втыкается любым концом; только первым броском в раунде' },
   };
   // Хорошие качества
@@ -893,7 +893,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       eagle: ['Eagle Eye', 'full trajectory shown'], magnet: ['Magnet', 'bigger target stump'],
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
       volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
-      bloodsword: ['Blood King\'s Sword', 'flies 2× slower, full trajectory, sticks with any side of the blade, points ×2, can\'t be knocked down (only nudged off course), steals your opponent\'s best card on a hit'],
+      bloodsword: ['Titan', 'points ×2, can\'t be knocked down, steals the best card; slow, sticks with any side'],
       slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {
@@ -2787,12 +2787,23 @@ window.NDMqtt = (() => {
     el.appendChild(wrap);
   }
 
+  // рисунок на карте: у «Дюжины кортиков» — веер из 12 кортиков, у остальных — один нож
+  function drawCardArt(cx, card, trump) {
+    if (!card.abilities.includes('volley')) { KG.drawKnife(cx, card, { trump }); return; }
+    cx.save(); cx.rotate(0.32); cx.translate(0, 26);
+    for (let i = 0; i < KG.VOLLEY_N; i++) {
+      const a = -Math.PI / 2 + (i - (KG.VOLLEY_N - 1) / 2) * 0.165;
+      cx.save(); cx.rotate(a); cx.translate(25, 0); cx.scale(0.62, 0.62); KG.drawKnife(cx, card, { trump }); cx.restore();
+    }
+    cx.fillStyle = '#e3b341'; cx.beginPath(); cx.arc(0, 0, 4, 0, Math.PI * 2); cx.fill();
+    cx.restore();
+  }
   function knifeTile(card, mine) {
     const k = document.createElement('div');
     k.className = 'knife-hand';
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 220;
     const cx = cv.getContext('2d'); cx.translate(160, 110); cx.rotate(-0.5); cx.scale(2.6, 2.6);
-    KG.drawKnife(cx, card, { trump: card.stats.trump });
+    drawCardArt(cx, card, card.stats.trump);
     k.appendChild(cv);
     const s = SUITS[card.suit];
     k.insertAdjacentHTML('beforeend', `<div class="kn">${esc(cardName(card))} ${s.sym}</div>
@@ -2820,7 +2831,7 @@ window.NDMqtt = (() => {
       <div class="nums"><span>${T('Очки', 'Pts')} ${st.points}</span><span>${T('Разброс', 'Spread')} ${st.spread}°</span><span>${T('Окно', 'Window')} ${st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2)}°</span></div>`;
     const cv = c.querySelector('canvas'), cx = cv.getContext('2d');
     cx.translate(156, 80); cx.rotate(-0.32); cx.scale(2.3, 2.3);
-    KG.drawKnife(cx, card, { trump: st.trump });
+    drawCardArt(cx, card, st.trump);
     return c;
   }
 

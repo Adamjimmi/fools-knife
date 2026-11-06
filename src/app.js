@@ -564,12 +564,23 @@
     el.appendChild(wrap);
   }
 
+  // рисунок на карте: у «Дюжины кортиков» — веер из 12 кортиков, у остальных — один нож
+  function drawCardArt(cx, card, trump) {
+    if (!card.abilities.includes('volley')) { KG.drawKnife(cx, card, { trump }); return; }
+    cx.save(); cx.rotate(0.32); cx.translate(0, 26);
+    for (let i = 0; i < KG.VOLLEY_N; i++) {
+      const a = -Math.PI / 2 + (i - (KG.VOLLEY_N - 1) / 2) * 0.165;
+      cx.save(); cx.rotate(a); cx.translate(25, 0); cx.scale(0.62, 0.62); KG.drawKnife(cx, card, { trump }); cx.restore();
+    }
+    cx.fillStyle = '#e3b341'; cx.beginPath(); cx.arc(0, 0, 4, 0, Math.PI * 2); cx.fill();
+    cx.restore();
+  }
   function knifeTile(card, mine) {
     const k = document.createElement('div');
     k.className = 'knife-hand';
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 220;
     const cx = cv.getContext('2d'); cx.translate(160, 110); cx.rotate(-0.5); cx.scale(2.6, 2.6);
-    KG.drawKnife(cx, card, { trump: card.stats.trump });
+    drawCardArt(cx, card, card.stats.trump);
     k.appendChild(cv);
     const s = SUITS[card.suit];
     k.insertAdjacentHTML('beforeend', `<div class="kn">${esc(cardName(card))} ${s.sym}</div>
@@ -597,7 +608,7 @@
       <div class="nums"><span>${T('Очки', 'Pts')} ${st.points}</span><span>${T('Разброс', 'Spread')} ${st.spread}°</span><span>${T('Окно', 'Window')} ${st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2)}°</span></div>`;
     const cv = c.querySelector('canvas'), cx = cv.getContext('2d');
     cx.translate(156, 80); cx.rotate(-0.32); cx.scale(2.3, 2.3);
-    KG.drawKnife(cx, card, { trump: st.trump });
+    drawCardArt(cx, card, st.trump);
     return c;
   }
 
