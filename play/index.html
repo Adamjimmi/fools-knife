@@ -498,6 +498,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     magnet: { name: 'Магнит',           desc: 'пень-мишень крупнее' },
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
     bounce: { name: 'Рикошет',          desc: 'один раз отскакивает от земли' },
+    volley: { name: 'Залп',             desc: '12 кортиков веером, у каждого видна траектория; попадание — 3 очка' },
+    slowmo: { name: 'Слоумо',           desc: 'летит в 4 раза медленнее и втыкается любым концом; только первым броском в раунде' },
   };
   // Хорошие качества
   const QUALITIES = {
@@ -525,6 +527,12 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     spades:   ['Чёрный Клык',    'dagger',   ['homing'], 'sticky', 'power'],
     hearts:   ['Алое Сердце',    'fang',     ['thief'],  'homing', 'sharp'],
   };
+  // Особые тузы: заменяют последний хороший нож своей масти в каждой колоде
+  const SPECIAL = [
+    ['diamonds', 'A2-d', ['Дюжина кортиков', 'dirk',  ['volley'],                   'calm', 'balance']],
+    ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
+  ];
+  const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Модели хороших ножей: [имя, форма, качества, козырная способность, козырное качество]
   const GOOD = [
     ['Боуи',       'bowie',     ['power', 'value'],   'bounce', 'balance'],
@@ -580,6 +588,10 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       for (let k = 0; k < L.good[si]; k++) out.push(mkCard(`G-${SUIT_SHORT[suit]}${k + 1}`, suit, 'good', GOOD[(si * 2 + k) % GOOD.length], false));
       for (let k = 0; k < L.bad[si]; k++) out.push(mkCard(`B-${SUIT_SHORT[suit]}${k + 1}`, suit, 'bad', BAD[(si * 2 + k) % BAD.length], true));
     });
+    for (const [suit, id, d] of SPECIAL) {
+      let i = -1; out.forEach((c, k) => { if (c.suit === suit && c.tier === 'good') i = k; });
+      if (i >= 0) out[i] = mkCard(id, suit, 'ace', d, false);
+    }
     return out;
   }
   const CARDS = deckFor(20);
@@ -624,10 +636,13 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       if (a === 'eagle') s.preview = 1;
       if (a === 'sticky') s.stick = 360;
       if (a === 'magnet') s.magnet = 1.4;
+      if (a === 'slowmo') s.stick = 360;
+      if (a === 'volley') s.points = VOLLEY_PTS;
     }
     // длина ножа в физике = длина по рисунку (длинный клинок достаёт до пня раньше)
     const shp = SH[card.shape];
-    s.reach = shp ? Math.max(26, Math.min(38, (shp.len + shp.handle) / 2)) : KNIFE_HALF;
+    s.reach = shp ? (shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
+    s.twin = !!(shp && shp.twin);
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
     s.preview = Math.min(1, s.preview);
@@ -699,11 +714,13 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     // настоящий пень (магнит только ловит, отскоки — от настоящего)
     const T0 = STUMP_TOP, F0 = FACE_X, R0 = FACE_X + STUMP_W;
     const lim = Math.min(win, 1.0);   // «всегда втыкается» тоже входит остриём, а не рукоятью
-    const topAngle = (r) => { const rn = norm(r - Math.PI / 2); return Math.PI / 2 + Math.max(-lim, Math.min(lim, rn)); };
+    const twin = !!stats.twin;        // клинки с обеих сторон: втыкается любым концом
+    const flip = (rn) => (twin && Math.abs(rn) > Math.PI / 2 ? norm(rn + Math.PI) : rn);
+    const topAngle = (r) => { const rn = flip(norm(r - Math.PI / 2)); return Math.PI / 2 + Math.max(-lim, Math.min(lim, rn)); };
     const inStump = (X, Y) => X >= F0 && X <= R0 && Y >= T0 && Y <= GROUND;
     // три точки ножа: остриё, центр, рукоять — [x, y, прошлый x, прошлый y, остриё?]
     const probes3 = (x, y, px, py, r, rp) => { const c = Math.cos(r), sn = Math.sin(r), cp = Math.cos(rp), sp = Math.sin(rp);
-      return [[x + c * TIP, y + sn * TIP, px + cp * TIP, py + sp * TIP, true], [x, y, px, py, false], [x - c * TIP, y - sn * TIP, px - cp * TIP, py - sp * TIP, false]]; };
+      return [[x + c * TIP, y + sn * TIP, px + cp * TIP, py + sp * TIP, true], [x, y, px, py, false], [x - c * TIP, y - sn * TIP, px - cp * TIP, py - sp * TIP, twin]]; };
     // выталкиваем нож целиком: вверх над торцом или в сторону от ближнего бока
     const pushOut = (ins, fromTop) => {
       if (fromTop) { y -= Math.max(...ins.map(q => q[1] - T0)) + 1; return; }
@@ -736,7 +753,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
         // 1) остриё входит в бок (магнит ловит раньше, но нож втыкается в настоящий бок пня)
         if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
           if (stickFace) {
-            const rn = norm(r), rr = Math.max(-lim, Math.min(lim, rn));
+            const rn = flip(norm(r)), rr = Math.max(-lim, Math.min(lim, rn));
             r = rr; x = F0 + 10 - Math.cos(rr) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y - BULL_Y);
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
@@ -768,7 +785,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
             res.stuck = { x, y, r }; push(); break;
           }
           if (!fromTop && tip && stickFace && tip[2] < F0) {   // остриё зашло в бок между кадрами
-            r = Math.max(-lim, Math.min(lim, norm(r))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y - BULL_Y);
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -813,7 +830,36 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     if (res.hit) {
       res.points = Math.round(stats.points * res.mult * (has('double') ? 2 : 1));
     }
+    // слоумо: та же траектория, но время растянуто в 4 раза
+    if (has('slowmo') && frames.length > 1) {
+      const sl = [];
+      for (let k = 0; k < frames.length - 1; k++) { const a = frames[k], b = frames[k + 1];
+        for (let j = 0; j < SLOWMO; j++) { const t = j / SLOWMO; sl.push({ x: Math.round((a.x + (b.x - a.x) * t) * 10) / 10, y: Math.round((a.y + (b.y - a.y) * t) * 10) / 10, r: Math.round((a.r + (b.r - a.r) * t) * 1000) / 1000 }); } }
+      sl.push(frames[frames.length - 1]);
+      return { frames: sl, result: res };
+    }
     return { frames, result: res };
+  }
+  // залп: 12 кортиков веером. Первый летит точно в прицел, остальные — с небольшим разбросом угла и силы
+  function volleyShots(angle, power) {
+    const out = [];
+    for (let i = 0; i < VOLLEY_N; i++) {
+      const k = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2);
+      out.push({ angle: angle + k * 0.034, power: Math.max(0, Math.min(1, power * (1 + ((i % 3) - 1) * 0.025))) });
+    }
+    return out;
+  }
+  // бросок с учётом особых тузов: возвращает основной нож и (для залпа) остальные
+  function throwSim(o) {
+    if (!o.stats.abilities.includes('volley')) return simulate(o);
+    const shots = volleyShots(o.angle, o.power).map((v, i) => simulate(Object.assign({}, o, v, { seed: ((o.seed || 1) + i * 7919) | 0 })));
+    const hits = shots.filter(x => x.result.hit).length;
+    const main = shots[0];
+    const res = Object.assign({}, main.result, { hit: hits > 0, points: hits * VOLLEY_PTS, volley: hits,
+      code: hits ? 'volley' : main.result.code, reason: hits ? `Залп: ${hits} из ${VOLLEY_N}` : main.result.reason,
+      stucks: shots.filter(x => x.result.hit).map(x => x.result.stuck) });
+    res.stuck = null;
+    return { frames: main.frames, result: res, extra: shots.slice(1).map(x => x.frames), dur: Math.max(...shots.map(x => x.frames.length)) };
   }
 
   // ---------- Английские названия ----------
@@ -825,6 +871,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       double: ['Double Strike', 'hit points ×2'], sticky: ['Always Sticks', 'sticks at any angle'],
       eagle: ['Eagle Eye', 'full trajectory shown'], magnet: ['Magnet', 'bigger target stump'],
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
+      volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
+      slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {
       balance: ['Balance', 'spread −50%'], power: ['Power', 'throw speed +12%'], sharp: ['Sharpness', 'stick window +20°'],
@@ -838,17 +886,18 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
       bounce_top: 'Bounced off the top', ground: 'Into the ground', out: 'Flew away', timeout: 'Time is up',
-      knock: 'Knocked the enemy knife!', knocked: 'Knocked out of the air!',
+      knock: 'Knocked the enemy knife!', knocked: 'Knocked out of the air!', volley: 'Volley hit!',
     },
   };
   const RU_REASONS = {
     miss: 'Мимо', bull: 'Яблочко!', inner: 'Отличное попадание!', outer: 'Попадание', top: 'В торец!', bounce_face: 'Отскочил от пня',
     bounce_top: 'Отскочил от торца', ground: 'В землю', out: 'Улетел', timeout: 'Время вышло',
-    knock: 'Сбил нож соперника!', knocked: 'Сбит в воздухе!',
+    knock: 'Сбил нож соперника!', knocked: 'Сбит в воздухе!', volley: 'Залп попал!',
   };
 
   // ---------- Столкновение ножей в воздухе ----------
@@ -889,6 +938,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     royal:     { len: 54, w: 10, handle: 26, guard: 18, pts: [[0,-.6],[.6,-.6],[.78,-.35],[1,.1],[.85,.6],[0,.6]], pommel: true },
     stiletto:  { len: 56, w: 6,  handle: 24, guard: 16, pts: [[0,-.5],[1,0],[0,.5]], pommel: true },
     dagger:    { len: 52, w: 10, handle: 24, guard: 18, pts: [[0,-.7],[.7,-.45],[1,0],[.7,.45],[0,.7]], pommel: true },
+    twin:      { len: 30, w: 8, handle: 16, guard: 0, pts: [[0,0]], twin: true },
     karambit:  { len: 36, w: 9, handle: 24, guard: 0, pts: [[0,0]], karambit: true },
     fang:      { len: 50, w: 10, handle: 24, guard: 14, pts: [[0,-.5],[.5,-.75],[.85,-.4],[1,.4],[.78,.05],[.4,.5],[0,.6]], pommel: true },
     bowie:     { len: 46, w: 9,  handle: 24, guard: 14, pts: [[0,-.6],[.62,-.6],[.78,-.35],[1,.15],[.85,.6],[0,.6]] },
@@ -919,6 +969,29 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     clubs: ['#fff3b0', '#d4a52c'], diamonds: ['#e8fbff', '#62c7e6'],
     spades: ['#6a6380', '#15131c'], hearts: ['#ffd7d7', '#c8263b'],
   };
+
+  // слоумо-нож: рукоять в центре, клинки с обеих сторон, пульсирующее синее свечение
+  function drawTwin(ctx, card, sh, suit, opt) {
+    const L = sh.len, w = sh.w, h = sh.handle / 2, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const glow = 0.55 + 0.45 * Math.sin(t * 2.6);
+    ctx.shadowColor = `rgba(80,170,255,${0.55 + glow * 0.45})`; ctx.shadowBlur = 6 + glow * 14;
+    for (const d of [1, -1]) {
+      ctx.beginPath(); ctx.moveTo(d * h, -w * 0.55); ctx.lineTo(d * (h + L * 0.8), -w * 0.55); ctx.lineTo(d * (h + L), 0); ctx.lineTo(d * (h + L * 0.8), w * 0.55); ctx.lineTo(d * h, w * 0.55); ctx.closePath();
+      const gr = ctx.createLinearGradient(0, -w, 0, w); gr.addColorStop(0, '#eaf6ff'); gr.addColorStop(0.5, '#9fd0ff'); gr.addColorStop(1, '#4f86c6');
+      ctx.fillStyle = gr; ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    for (const d of [1, -1]) {
+      ctx.beginPath(); ctx.moveTo(d * h, -w * 0.55); ctx.lineTo(d * (h + L * 0.8), -w * 0.55); ctx.lineTo(d * (h + L), 0); ctx.lineTo(d * (h + L * 0.8), w * 0.55); ctx.lineTo(d * h, w * 0.55); ctx.closePath();
+      ctx.strokeStyle = 'rgba(20,50,90,.7)'; ctx.lineWidth = 0.9; ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${0.5 + glow * 0.4})`; ctx.beginPath(); ctx.moveTo(d * (h + 2), -w * 0.15); ctx.lineTo(d * (h + L * 0.78), -w * 0.15); ctx.stroke();
+    }
+    ctx.fillStyle = '#e3b341'; ctx.fillRect(-h - 2, -w * 0.95, 4, w * 1.9); ctx.fillRect(h - 2, -w * 0.95, 4, w * 1.9);
+    ctx.fillStyle = suit.handle; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-h + 2, -4.5, h * 2 - 4, 9, 3); else ctx.rect(-h + 2, -4.5, h * 2 - 4, 9); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.shadowColor = '#7fc4ff'; ctx.shadowBlur = 6 + glow * 8; ctx.fillStyle = `rgba(150,215,255,${0.6 + glow * 0.4})`;
+    ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
 
   // керамбит: изогнутая рукоять с кольцом для пальца и клинок-коготь, загнутый вниз
   function drawKarambit(ctx, card, sh, suit, opt) {
@@ -960,6 +1033,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     const suit = SUITS[card.suit];
     const L = sh.len, w = sh.w, hl = sh.handle, hw = sh.fat ? 6 : 4.5;
     ctx.save();
+    if (sh.twin) { drawTwin(ctx, card, sh, suit, opt); ctx.restore(); return; }
     ctx.translate(-(L - hl) / 2, 0);
     if (opt.trump) { ctx.shadowColor = 'rgba(255,214,90,.95)'; ctx.shadowBlur = 14; }
     if (sh.karambit) { drawKarambit(ctx, card, sh, suit, opt); ctx.restore(); return; }
@@ -1013,7 +1087,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
     EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    knifeStats, cardWithStats, simulate, throwSim, volleyShots, VOLLEY_N, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });
 
@@ -1051,7 +1125,7 @@ window.NDEngine = (() => {
         players: g.players.map(p => ({
           id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, cn: p.cn, hm: p.handMax || g.handMax, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
-          status: p.status, streak: p.streak, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
+          status: p.status, streak: p.streak, rt: p.rt || 0, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
         // компактно: [индекс игрока, карта, козырь, x, y, r, id броска]
         stuck: g.stuck.map(s => [g.players.findIndex(p => p.id === s.o), s.c, s.t ? 1 : 0, s.x, s.y, s.r, s.id]),
@@ -1084,6 +1158,9 @@ window.NDEngine = (() => {
     };
     // лимит руки конкретного игрока (в кампании у игрока и противника он может быть разным)
     const HM = (p) => p.handMax || g.handMax;
+    // слоумо-нож можно бросить только первым в раунде
+    const canUse = (p, c) => !(c.abilities.includes('slowmo') && (p.rt || 0) > 0);
+    const usable = (p) => p.hand.filter(c => canUse(p, c));
     function setHand(id, n) { const p = P(id); if (p && n > 0) p.handMax = n; }
     // extra (кампания): { cn — номер противника, look, hand — лимит руки бота }
     function addBot(level, extra) {
@@ -1137,7 +1214,7 @@ window.NDEngine = (() => {
       g.round++;
       g.wind = Math.round((Math.random() * 2 - 1) * 100) / 100;
       g.phase = 'draw';
-      g.players.forEach(p => { p.active = null; p.streak = 0; p.status = p.hand.length ? 'wait' : 'done'; p.deadline = 0; });
+      g.players.forEach(p => { p.active = null; p.streak = 0; p.rt = 0; p.status = p.hand.length ? 'wait' : 'done'; p.deadline = 0; });
       push();
       later(1200, () => {
         g.phase = 'play';
@@ -1153,7 +1230,7 @@ window.NDEngine = (() => {
       later(G.TURN_MS + 300, () => {
         if (p.status !== 'aim' || p.turnNo !== turnNo || g.state !== 'playing') return;
         // время вышло: нож сгорает, раунд для игрока окончен
-        const c = p.active || p.hand[0];
+        const c = p.active || usable(p)[0] || p.hand[0];
         p.hand = p.hand.filter(x => x !== c);
         p.active = null; p.status = 'done'; p.streak = 0;
         log({ k: 'timeout', n: p.name, b: p.isBot, c: c ? c.id : null });
@@ -1167,8 +1244,8 @@ window.NDEngine = (() => {
     function take(id, cardId) {
       const p = P(id);
       if (!p || g.state !== 'playing' || p.status !== 'aim' || p.active) return;
-      const c = p.hand.find(x => x.id === cardId) || (cardId == null ? p.hand[0] : null);
-      if (!c) return;
+      const c = p.hand.find(x => x.id === cardId) || (cardId == null ? usable(p)[0] : null);
+      if (!c || !canUse(p, c)) return;
       p.active = c; push();
     }
 
@@ -1178,22 +1255,26 @@ window.NDEngine = (() => {
       angle = Math.max(-1.45, Math.min(0.6, Number(angle) || 0));
       power = Math.max(0, Math.min(1, Number(power) || 0));
       const card = p.active;
+      if (!canUse(p, card)) return;
+      p.rt = (p.rt || 0) + 1;
       const st = G.knifeStats(card, g.trumpSuit);
       const seed = (Math.random() * 2 ** 31) | 0;
-      const sim = G.simulate({ angle, power, stats: st, wind: g.wind, seed });
+      const sim = G.throwSim({ angle, power, stats: st, wind: g.wind, seed });
+      const volley = st.has('volley');
       let frames = sim.frames;
       const result = Object.assign({}, sim.result);
       p.hand = p.hand.filter(x => x !== card);
       p.active = null; p.status = 'flying'; p.deadline = 0;
       const throwId = ++g.throwSeq;
       const now = Date.now();
-      const flight = { id: throwId, o: id, card, st, frames, result, t0: now, ver: 0, landed: false };
+      const flight = { id: throwId, o: id, card, st, frames, result, t0: now, ver: 0, landed: false, dur: sim.dur || 0, volley };
       const msg = { ep: g.epoch, o: id, a: angle, p: power, s: seed, w: g.wind, c: card.id, ts: g.trumpSuit, id: throwId };
       flight.msg = msg;
 
       // Столкновение с чужим ножом, который ещё в воздухе
       for (const f of g.flights) {
-        if (f.landed || f.o === id || f.result.knocked || f.result.knock) continue;
+        if (volley) break;   // залп летит веером и не сбивает ножи
+        if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
         const offset = Math.round(((now - f.t0) / 1000) * 60);
         const col = G.findCollision(frames, f.frames, offset);
         if (!col) continue;
@@ -1209,7 +1290,7 @@ window.NDEngine = (() => {
         break;
       }
       const opp = g.players.find(x => x.id !== id);
-      msg.res = { hit: result.hit, knock: !!result.knock, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck };
+      msg.res = { hit: result.hit, knock: !!result.knock, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck, volley: result.volley };
       msg.streak = (result.hit || result.knock) ? p.streak + 1 : 0;
       if (result.hit && st.has('thief') && opp) msg.res.steal = Math.min(5, opp.score);
       g.flights.push(flight);
@@ -1221,7 +1302,7 @@ window.NDEngine = (() => {
     // Очки и последствия броска применяются, когда нож долетел (его могли сбить по дороге)
     function scheduleLanding(f) {
       const ver = ++f.ver;
-      const ms = f.t0 + (f.frames.length / 60) * 1000 - Date.now();
+      const ms = f.t0 + (Math.max(f.frames.length, f.dur || 0) / 60) * 1000 - Date.now();
       later(Math.max(0, ms), () => { if (f.ver === ver && !f.landed) land(f); });
     }
     function land(f) {
@@ -1236,12 +1317,12 @@ window.NDEngine = (() => {
       const good = r.hit || r.knock;
       if (r.hit) p.hits++;
       p.streak = good ? p.streak + 1 : 0;
-      if (r.stuck) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(r.stuck.x), y: Math.round(r.stuck.y), r: Math.round(r.stuck.r * 100) / 100, id: f.id });
+      for (const sk of (r.stucks || (r.stuck ? [r.stuck] : []))) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(sk.x), y: Math.round(sk.y), r: Math.round(sk.r * 100) / 100, id: f.id });
       log({ k: 'throw', n: p.name, b: p.isBot, c: f.card.id, code: r.code, pts: r.points || 0, steal: r.steal || 0, streak: good ? p.streak : 0 });
       push();
       later(700, () => {
         if (g.state !== 'playing' || p.status !== 'flying') return;
-        if (good && p.hand.length) beginAim(p);      // попал или сбил — бросает ещё
+        if (good && usable(p).length) beginAim(p);      // попал или сбил — бросает ещё (если есть чем)
         else p.status = 'done';
         checkRoundEnd();
         push();
@@ -1283,7 +1364,8 @@ window.NDEngine = (() => {
       later((900 + Math.random() * 900) * D.think, () => {
         if (!mine()) return;
         // лучший нож (козырь важнее) — с вероятностью по сложности, иначе случайный
-        const sorted = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)));
+        const sorted = usable(bot).sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)));
+        if (!sorted.length) return;
         const pick = Math.random() < D.best ? sorted[0] : sorted[Math.floor(Math.random() * sorted.length)];
         take(bot.id, pick.id);
         later((1100 + Math.random() * 900) * D.think, () => {
@@ -2578,7 +2660,7 @@ window.NDMqtt = (() => {
 
   function setSlot(sel, p, mine) {
     const el = $(sel);
-    const key = !p ? 'none' : `${room.state}|${p.hand.join(',')}|${p.active}|${p.status}|${room.trumpSuit}|${room.phase}`;
+    const key = !p ? 'none' : `${room.state}|${p.hand.join(',')}|${p.active}|${p.status}|${room.trumpSuit}|${room.phase}|${p.rt || 0}`;
     if (slotKeys[sel] === key) return;
     slotKeys[sel] = key;
     el.innerHTML = '';
@@ -2595,7 +2677,12 @@ window.NDMqtt = (() => {
       if (id === p.active) { wrap.appendChild(knifeTile(card, mine)); continue; }
       if (!mine) { const b = document.createElement('div'); b.className = 'card-back'; b.textContent = '🗡'; wrap.appendChild(b); continue; }
       const c = cardEl(card);
-      if (canTake) {
+      const firstOnly = card.stats.abilities.includes('slowmo') && (+p.rt || 0) > 0;
+      if (canTake && firstOnly) {
+        c.classList.add('dim', 'first-only');
+        c.title = T('Слоумо-нож бросают только первым в раунде', 'The slowmo blade can only be your first throw of a round');
+        c.onclick = () => toast(T('Слоумо-нож можно бросить только первым в раунде', 'The slowmo blade can only be your first throw of a round'));
+      } else if (canTake) {
         c.classList.add('clickable', 'pulse');
         c.title = T('Нажми, чтобы взять этот нож', 'Click to take this knife');
         c.onclick = () => {
@@ -2627,7 +2714,7 @@ window.NDMqtt = (() => {
     const st = card.stats;
     const s = SUITS[card.suit];
     const c = document.createElement('div');
-    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''}`;
+    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}`;
     const items = [];
     st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${abil(a)[0]}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${abil(a)[1]}</li>`));
     st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${qual(q)[0]}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${qual(q)[1]}</li>`));
@@ -2707,16 +2794,16 @@ window.NDMqtt = (() => {
     swingAt[m.o] = performance.now();
     if (m.a != null) sfx('whoosh');
     const base = KG.CARD_BY_ID[m.c];
-    let full = [];
-    if (base && m.a != null) full = KG.simulate({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }).frames;
+    let full = [], extra = [], dur = 0;
+    if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
     const cut = m.cut != null ? +m.cut : null;
     const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
     const el = Math.max(0, +m.el || 0);
-    const a = { owner: m.o, full, cut, frames, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    const a = { owner: m.o, full, cut, frames, extra, dur, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: cut != null && !(m.res && m.res.knocked) ? cut : -1 };
     if (!frames.length) finishAnim(a);
-    else if (el / 1000 * 60 >= frames.length) return;     // уже долетел, пока сообщение шло
+    else if (el / 1000 * 60 >= Math.max(frames.length, dur)) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
   }
   const swingAt = {};
@@ -2759,6 +2846,10 @@ window.NDMqtt = (() => {
     let text = reasonText(res), color = '#ffffff';
     if (res.knock) {
       text = `+${+res.points || 0} ${text}`; color = '#7fd8ff';
+      if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
+    } else if (res.hit && res.volley) {
+      text = `+${+res.points || 0} ${T(`Залп: ${+res.volley} из ${KG.VOLLEY_N}`, `Volley: ${+res.volley} of ${KG.VOLLEY_N}`)}`; color = '#ffd77a'; sfx('thunk');
+      for (let k = 1; k < Math.min(4, +res.volley); k++) setTimeout(() => sfx('thunk'), k * 90);
       if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
     } else if (res.hit) {
       text = `+${+res.points || 0} ${text}${res.steal ? T(` (украл ${+res.steal})`, ` (stole ${+res.steal})`) : ''}`;
@@ -2876,16 +2967,25 @@ window.NDMqtt = (() => {
     const card = m && cardOf(m.active);
     if (!aim.active || !card || aim.power < 0.04) return;
     const st = card.stats;
+    if (st.abilities.includes('volley')) {   // у каждого кортика своя траектория
+      KG.volleyShots(aim.angle, aim.power).forEach((v, k) => {
+        const { frames: fr, result: rs } = KG.simulate({ angle: v.angle, power: v.power, stats: st, wind: +room.wind || 0, noNoise: true });
+        const nn = Math.max(3, Math.ceil(fr.length * st.preview));
+        ctx.fillStyle = rs.hit ? 'rgba(255,225,140,.75)' : 'rgba(255,255,255,.45)';
+        for (let j = 0; j < nn && j < fr.length; j += 4) { ctx.beginPath(); ctx.arc(fr[j].x, fr[j].y, k === 0 ? 2.6 : 1.7, 0, Math.PI * 2); ctx.fill(); }
+      });
+    }
     const { frames, result } = KG.simulate({ angle: aim.angle, power: aim.power, stats: st, wind: +room.wind || 0, noNoise: true });
+    const slow = st.abilities.includes('slowmo') ? 4 : 1;
     const n = Math.max(3, Math.ceil(frames.length * st.preview));
     const full = st.preview >= 1;
     const col = full ? (result.hit ? '120,255,140' : '255,120,110') : '255,255,255';
-    for (let i = 0; i < n && i < frames.length; i += 3) {
+    for (let i = 0; i < n && i < frames.length && !st.abilities.includes('volley'); i += 3 * slow) {
       const f = frames[i];
       ctx.fillStyle = `rgba(${col},${0.9 - (i / n) * 0.6})`;
       ctx.beginPath(); ctx.arc(f.x, f.y, 2.6, 0, Math.PI * 2); ctx.fill();
     }
-    for (let i = 10; i < n && i < frames.length; i += 10) {
+    for (let i = 10 * slow; i < n && i < frames.length && !st.abilities.includes('volley'); i += 10 * slow) {
       const f = frames[i];
       ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(f.x, f.y); ctx.rotate(f.r); KG.drawKnife(ctx, card); ctx.restore();
     }
@@ -2950,11 +3050,16 @@ window.NDMqtt = (() => {
           const v = view(an.owner, f.x, f.y, f.r);
           if (an.card) { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore(); }
         }
+        if (an.extra && an.card) for (const ef of an.extra) {   // остальные кортики залпа
+          const e = ef[Math.min(i, ef.length - 1)]; if (!e) continue;
+          const ev = view(an.owner, e.x, e.y, e.r);
+          ctx.save(); ctx.translate(ev.x, ev.y); ctx.rotate(ev.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore();
+        }
         if (an.boomAt >= 0 && i >= an.boomAt) {
           const bf = an.frames[an.boomAt]; an.boomAt = -1;
           if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clang'); X.burst('sparks', bv.x, bv.y, 22); X.shake(9); }
         }
-        if (i >= an.frames.length) finishAnim(an);
+        if (i >= Math.max(an.frames.length, an.dur || 0)) finishAnim(an);
       }
       booms = booms.filter(b => now - b.t0 < 450);
       for (const b of booms) {
@@ -3105,6 +3210,11 @@ window.NDMqtt = (() => {
 .node .hh.unfair b { color: #ff7b85; }
 .camp-res { margin: 8px 0 4px; font-size: 14px; }
 .camp-res.crown { color: #ff6b78; font-weight: 600; }
+.card.slowmo-card { animation: smGlow 1.8s ease-in-out infinite; border-color: #7fc4ff !important; }
+.card.slowmo-card canvas { animation: smArt 1.8s ease-in-out infinite; }
+.card.first-only { filter: grayscale(.6); }
+@keyframes smGlow { 0%, 100% { box-shadow: 0 0 5px 1px rgba(80,170,255,.35); } 50% { box-shadow: 0 0 20px 6px rgba(80,170,255,.85); } }
+@keyframes smArt { 0%, 100% { filter: drop-shadow(0 0 2px rgba(90,175,255,.5)); } 50% { filter: drop-shadow(0 0 9px rgba(120,195,255,1)); } }
 @keyframes campPulse { 0% { box-shadow: 0 0 0 0 rgba(255,215,122,.55); } 70% { box-shadow: 0 0 0 12px rgba(255,215,122,0); } 100% { box-shadow: 0 0 0 0 rgba(255,215,122,0); } }
 @media (max-width: 520px) { .node .dot { width: 38px; height: 38px; font-size: 17px; } .node.boss .dot { width: 46px; height: 46px; } .node.king .dot { width: 54px; height: 54px; font-size: 25px; } .node .nn { font-size: 10.5px; } .path .gap { flex-basis: 16px; } }
 

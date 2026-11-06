@@ -38,6 +38,8 @@
     magnet: { name: 'Магнит',           desc: 'пень-мишень крупнее' },
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
     bounce: { name: 'Рикошет',          desc: 'один раз отскакивает от земли' },
+    volley: { name: 'Залп',             desc: '12 кортиков веером, у каждого видна траектория; попадание — 3 очка' },
+    slowmo: { name: 'Слоумо',           desc: 'летит в 4 раза медленнее и втыкается любым концом; только первым броском в раунде' },
   };
   // Хорошие качества
   const QUALITIES = {
@@ -65,6 +67,12 @@
     spades:   ['Чёрный Клык',    'dagger',   ['homing'], 'sticky', 'power'],
     hearts:   ['Алое Сердце',    'fang',     ['thief'],  'homing', 'sharp'],
   };
+  // Особые тузы: заменяют последний хороший нож своей масти в каждой колоде
+  const SPECIAL = [
+    ['diamonds', 'A2-d', ['Дюжина кортиков', 'dirk',  ['volley'],                   'calm', 'balance']],
+    ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
+  ];
+  const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Модели хороших ножей: [имя, форма, качества, козырная способность, козырное качество]
   const GOOD = [
     ['Боуи',       'bowie',     ['power', 'value'],   'bounce', 'balance'],
@@ -120,6 +128,10 @@
       for (let k = 0; k < L.good[si]; k++) out.push(mkCard(`G-${SUIT_SHORT[suit]}${k + 1}`, suit, 'good', GOOD[(si * 2 + k) % GOOD.length], false));
       for (let k = 0; k < L.bad[si]; k++) out.push(mkCard(`B-${SUIT_SHORT[suit]}${k + 1}`, suit, 'bad', BAD[(si * 2 + k) % BAD.length], true));
     });
+    for (const [suit, id, d] of SPECIAL) {
+      let i = -1; out.forEach((c, k) => { if (c.suit === suit && c.tier === 'good') i = k; });
+      if (i >= 0) out[i] = mkCard(id, suit, 'ace', d, false);
+    }
     return out;
   }
   const CARDS = deckFor(20);
@@ -164,10 +176,13 @@
       if (a === 'eagle') s.preview = 1;
       if (a === 'sticky') s.stick = 360;
       if (a === 'magnet') s.magnet = 1.4;
+      if (a === 'slowmo') s.stick = 360;
+      if (a === 'volley') s.points = VOLLEY_PTS;
     }
     // длина ножа в физике = длина по рисунку (длинный клинок достаёт до пня раньше)
     const shp = SH[card.shape];
-    s.reach = shp ? Math.max(26, Math.min(38, (shp.len + shp.handle) / 2)) : KNIFE_HALF;
+    s.reach = shp ? (shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
+    s.twin = !!(shp && shp.twin);
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
     s.preview = Math.min(1, s.preview);
@@ -239,11 +254,13 @@
     // настоящий пень (магнит только ловит, отскоки — от настоящего)
     const T0 = STUMP_TOP, F0 = FACE_X, R0 = FACE_X + STUMP_W;
     const lim = Math.min(win, 1.0);   // «всегда втыкается» тоже входит остриём, а не рукоятью
-    const topAngle = (r) => { const rn = norm(r - Math.PI / 2); return Math.PI / 2 + Math.max(-lim, Math.min(lim, rn)); };
+    const twin = !!stats.twin;        // клинки с обеих сторон: втыкается любым концом
+    const flip = (rn) => (twin && Math.abs(rn) > Math.PI / 2 ? norm(rn + Math.PI) : rn);
+    const topAngle = (r) => { const rn = flip(norm(r - Math.PI / 2)); return Math.PI / 2 + Math.max(-lim, Math.min(lim, rn)); };
     const inStump = (X, Y) => X >= F0 && X <= R0 && Y >= T0 && Y <= GROUND;
     // три точки ножа: остриё, центр, рукоять — [x, y, прошлый x, прошлый y, остриё?]
     const probes3 = (x, y, px, py, r, rp) => { const c = Math.cos(r), sn = Math.sin(r), cp = Math.cos(rp), sp = Math.sin(rp);
-      return [[x + c * TIP, y + sn * TIP, px + cp * TIP, py + sp * TIP, true], [x, y, px, py, false], [x - c * TIP, y - sn * TIP, px - cp * TIP, py - sp * TIP, false]]; };
+      return [[x + c * TIP, y + sn * TIP, px + cp * TIP, py + sp * TIP, true], [x, y, px, py, false], [x - c * TIP, y - sn * TIP, px - cp * TIP, py - sp * TIP, twin]]; };
     // выталкиваем нож целиком: вверх над торцом или в сторону от ближнего бока
     const pushOut = (ins, fromTop) => {
       if (fromTop) { y -= Math.max(...ins.map(q => q[1] - T0)) + 1; return; }
@@ -276,7 +293,7 @@
         // 1) остриё входит в бок (магнит ловит раньше, но нож втыкается в настоящий бок пня)
         if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
           if (stickFace) {
-            const rn = norm(r), rr = Math.max(-lim, Math.min(lim, rn));
+            const rn = flip(norm(r)), rr = Math.max(-lim, Math.min(lim, rn));
             r = rr; x = F0 + 10 - Math.cos(rr) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y - BULL_Y);
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
@@ -308,7 +325,7 @@
             res.stuck = { x, y, r }; push(); break;
           }
           if (!fromTop && tip && stickFace && tip[2] < F0) {   // остриё зашло в бок между кадрами
-            r = Math.max(-lim, Math.min(lim, norm(r))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y - BULL_Y);
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -353,7 +370,36 @@
     if (res.hit) {
       res.points = Math.round(stats.points * res.mult * (has('double') ? 2 : 1));
     }
+    // слоумо: та же траектория, но время растянуто в 4 раза
+    if (has('slowmo') && frames.length > 1) {
+      const sl = [];
+      for (let k = 0; k < frames.length - 1; k++) { const a = frames[k], b = frames[k + 1];
+        for (let j = 0; j < SLOWMO; j++) { const t = j / SLOWMO; sl.push({ x: Math.round((a.x + (b.x - a.x) * t) * 10) / 10, y: Math.round((a.y + (b.y - a.y) * t) * 10) / 10, r: Math.round((a.r + (b.r - a.r) * t) * 1000) / 1000 }); } }
+      sl.push(frames[frames.length - 1]);
+      return { frames: sl, result: res };
+    }
     return { frames, result: res };
+  }
+  // залп: 12 кортиков веером. Первый летит точно в прицел, остальные — с небольшим разбросом угла и силы
+  function volleyShots(angle, power) {
+    const out = [];
+    for (let i = 0; i < VOLLEY_N; i++) {
+      const k = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2);
+      out.push({ angle: angle + k * 0.034, power: Math.max(0, Math.min(1, power * (1 + ((i % 3) - 1) * 0.025))) });
+    }
+    return out;
+  }
+  // бросок с учётом особых тузов: возвращает основной нож и (для залпа) остальные
+  function throwSim(o) {
+    if (!o.stats.abilities.includes('volley')) return simulate(o);
+    const shots = volleyShots(o.angle, o.power).map((v, i) => simulate(Object.assign({}, o, v, { seed: ((o.seed || 1) + i * 7919) | 0 })));
+    const hits = shots.filter(x => x.result.hit).length;
+    const main = shots[0];
+    const res = Object.assign({}, main.result, { hit: hits > 0, points: hits * VOLLEY_PTS, volley: hits,
+      code: hits ? 'volley' : main.result.code, reason: hits ? `Залп: ${hits} из ${VOLLEY_N}` : main.result.reason,
+      stucks: shots.filter(x => x.result.hit).map(x => x.result.stuck) });
+    res.stuck = null;
+    return { frames: main.frames, result: res, extra: shots.slice(1).map(x => x.frames), dur: Math.max(...shots.map(x => x.frames.length)) };
   }
 
   // ---------- Английские названия ----------
@@ -365,6 +411,8 @@
       double: ['Double Strike', 'hit points ×2'], sticky: ['Always Sticks', 'sticks at any angle'],
       eagle: ['Eagle Eye', 'full trajectory shown'], magnet: ['Magnet', 'bigger target stump'],
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
+      volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
+      slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {
       balance: ['Balance', 'spread −50%'], power: ['Power', 'throw speed +12%'], sharp: ['Sharpness', 'stick window +20°'],
@@ -378,17 +426,18 @@
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
       bounce_top: 'Bounced off the top', ground: 'Into the ground', out: 'Flew away', timeout: 'Time is up',
-      knock: 'Knocked the enemy knife!', knocked: 'Knocked out of the air!',
+      knock: 'Knocked the enemy knife!', knocked: 'Knocked out of the air!', volley: 'Volley hit!',
     },
   };
   const RU_REASONS = {
     miss: 'Мимо', bull: 'Яблочко!', inner: 'Отличное попадание!', outer: 'Попадание', top: 'В торец!', bounce_face: 'Отскочил от пня',
     bounce_top: 'Отскочил от торца', ground: 'В землю', out: 'Улетел', timeout: 'Время вышло',
-    knock: 'Сбил нож соперника!', knocked: 'Сбит в воздухе!',
+    knock: 'Сбил нож соперника!', knocked: 'Сбит в воздухе!', volley: 'Залп попал!',
   };
 
   // ---------- Столкновение ножей в воздухе ----------
@@ -429,6 +478,7 @@
     royal:     { len: 54, w: 10, handle: 26, guard: 18, pts: [[0,-.6],[.6,-.6],[.78,-.35],[1,.1],[.85,.6],[0,.6]], pommel: true },
     stiletto:  { len: 56, w: 6,  handle: 24, guard: 16, pts: [[0,-.5],[1,0],[0,.5]], pommel: true },
     dagger:    { len: 52, w: 10, handle: 24, guard: 18, pts: [[0,-.7],[.7,-.45],[1,0],[.7,.45],[0,.7]], pommel: true },
+    twin:      { len: 30, w: 8, handle: 16, guard: 0, pts: [[0,0]], twin: true },
     karambit:  { len: 36, w: 9, handle: 24, guard: 0, pts: [[0,0]], karambit: true },
     fang:      { len: 50, w: 10, handle: 24, guard: 14, pts: [[0,-.5],[.5,-.75],[.85,-.4],[1,.4],[.78,.05],[.4,.5],[0,.6]], pommel: true },
     bowie:     { len: 46, w: 9,  handle: 24, guard: 14, pts: [[0,-.6],[.62,-.6],[.78,-.35],[1,.15],[.85,.6],[0,.6]] },
@@ -459,6 +509,29 @@
     clubs: ['#fff3b0', '#d4a52c'], diamonds: ['#e8fbff', '#62c7e6'],
     spades: ['#6a6380', '#15131c'], hearts: ['#ffd7d7', '#c8263b'],
   };
+
+  // слоумо-нож: рукоять в центре, клинки с обеих сторон, пульсирующее синее свечение
+  function drawTwin(ctx, card, sh, suit, opt) {
+    const L = sh.len, w = sh.w, h = sh.handle / 2, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const glow = 0.55 + 0.45 * Math.sin(t * 2.6);
+    ctx.shadowColor = `rgba(80,170,255,${0.55 + glow * 0.45})`; ctx.shadowBlur = 6 + glow * 14;
+    for (const d of [1, -1]) {
+      ctx.beginPath(); ctx.moveTo(d * h, -w * 0.55); ctx.lineTo(d * (h + L * 0.8), -w * 0.55); ctx.lineTo(d * (h + L), 0); ctx.lineTo(d * (h + L * 0.8), w * 0.55); ctx.lineTo(d * h, w * 0.55); ctx.closePath();
+      const gr = ctx.createLinearGradient(0, -w, 0, w); gr.addColorStop(0, '#eaf6ff'); gr.addColorStop(0.5, '#9fd0ff'); gr.addColorStop(1, '#4f86c6');
+      ctx.fillStyle = gr; ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    for (const d of [1, -1]) {
+      ctx.beginPath(); ctx.moveTo(d * h, -w * 0.55); ctx.lineTo(d * (h + L * 0.8), -w * 0.55); ctx.lineTo(d * (h + L), 0); ctx.lineTo(d * (h + L * 0.8), w * 0.55); ctx.lineTo(d * h, w * 0.55); ctx.closePath();
+      ctx.strokeStyle = 'rgba(20,50,90,.7)'; ctx.lineWidth = 0.9; ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${0.5 + glow * 0.4})`; ctx.beginPath(); ctx.moveTo(d * (h + 2), -w * 0.15); ctx.lineTo(d * (h + L * 0.78), -w * 0.15); ctx.stroke();
+    }
+    ctx.fillStyle = '#e3b341'; ctx.fillRect(-h - 2, -w * 0.95, 4, w * 1.9); ctx.fillRect(h - 2, -w * 0.95, 4, w * 1.9);
+    ctx.fillStyle = suit.handle; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-h + 2, -4.5, h * 2 - 4, 9, 3); else ctx.rect(-h + 2, -4.5, h * 2 - 4, 9); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.shadowColor = '#7fc4ff'; ctx.shadowBlur = 6 + glow * 8; ctx.fillStyle = `rgba(150,215,255,${0.6 + glow * 0.4})`;
+    ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
 
   // керамбит: изогнутая рукоять с кольцом для пальца и клинок-коготь, загнутый вниз
   function drawKarambit(ctx, card, sh, suit, opt) {
@@ -500,6 +573,7 @@
     const suit = SUITS[card.suit];
     const L = sh.len, w = sh.w, hl = sh.handle, hw = sh.fat ? 6 : 4.5;
     ctx.save();
+    if (sh.twin) { drawTwin(ctx, card, sh, suit, opt); ctx.restore(); return; }
     ctx.translate(-(L - hl) / 2, 0);
     if (opt.trump) { ctx.shadowColor = 'rgba(255,214,90,.95)'; ctx.shadowBlur = 14; }
     if (sh.karambit) { drawKarambit(ctx, card, sh, suit, opt); ctx.restore(); return; }
@@ -553,6 +627,6 @@
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
     EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    knifeStats, cardWithStats, simulate, throwSim, volleyShots, VOLLEY_N, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });

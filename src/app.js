@@ -525,7 +525,7 @@
 
   function setSlot(sel, p, mine) {
     const el = $(sel);
-    const key = !p ? 'none' : `${room.state}|${p.hand.join(',')}|${p.active}|${p.status}|${room.trumpSuit}|${room.phase}`;
+    const key = !p ? 'none' : `${room.state}|${p.hand.join(',')}|${p.active}|${p.status}|${room.trumpSuit}|${room.phase}|${p.rt || 0}`;
     if (slotKeys[sel] === key) return;
     slotKeys[sel] = key;
     el.innerHTML = '';
@@ -542,7 +542,12 @@
       if (id === p.active) { wrap.appendChild(knifeTile(card, mine)); continue; }
       if (!mine) { const b = document.createElement('div'); b.className = 'card-back'; b.textContent = '🗡'; wrap.appendChild(b); continue; }
       const c = cardEl(card);
-      if (canTake) {
+      const firstOnly = card.stats.abilities.includes('slowmo') && (+p.rt || 0) > 0;
+      if (canTake && firstOnly) {
+        c.classList.add('dim', 'first-only');
+        c.title = T('Слоумо-нож бросают только первым в раунде', 'The slowmo blade can only be your first throw of a round');
+        c.onclick = () => toast(T('Слоумо-нож можно бросить только первым в раунде', 'The slowmo blade can only be your first throw of a round'));
+      } else if (canTake) {
         c.classList.add('clickable', 'pulse');
         c.title = T('Нажми, чтобы взять этот нож', 'Click to take this knife');
         c.onclick = () => {
@@ -574,7 +579,7 @@
     const st = card.stats;
     const s = SUITS[card.suit];
     const c = document.createElement('div');
-    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''}`;
+    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}`;
     const items = [];
     st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${abil(a)[0]}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${abil(a)[1]}</li>`));
     st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${qual(q)[0]}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${qual(q)[1]}</li>`));
@@ -654,16 +659,16 @@
     swingAt[m.o] = performance.now();
     if (m.a != null) sfx('whoosh');
     const base = KG.CARD_BY_ID[m.c];
-    let full = [];
-    if (base && m.a != null) full = KG.simulate({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }).frames;
+    let full = [], extra = [], dur = 0;
+    if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: KG.knifeStats(base, m.ts), wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
     const cut = m.cut != null ? +m.cut : null;
     const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
     const el = Math.max(0, +m.el || 0);
-    const a = { owner: m.o, full, cut, frames, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    const a = { owner: m.o, full, cut, frames, extra, dur, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: cut != null && !(m.res && m.res.knocked) ? cut : -1 };
     if (!frames.length) finishAnim(a);
-    else if (el / 1000 * 60 >= frames.length) return;     // уже долетел, пока сообщение шло
+    else if (el / 1000 * 60 >= Math.max(frames.length, dur)) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
   }
   const swingAt = {};
@@ -706,6 +711,10 @@
     let text = reasonText(res), color = '#ffffff';
     if (res.knock) {
       text = `+${+res.points || 0} ${text}`; color = '#7fd8ff';
+      if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
+    } else if (res.hit && res.volley) {
+      text = `+${+res.points || 0} ${T(`Залп: ${+res.volley} из ${KG.VOLLEY_N}`, `Volley: ${+res.volley} of ${KG.VOLLEY_N}`)}`; color = '#ffd77a'; sfx('thunk');
+      for (let k = 1; k < Math.min(4, +res.volley); k++) setTimeout(() => sfx('thunk'), k * 90);
       if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
     } else if (res.hit) {
       text = `+${+res.points || 0} ${text}${res.steal ? T(` (украл ${+res.steal})`, ` (stole ${+res.steal})`) : ''}`;
@@ -823,16 +832,25 @@
     const card = m && cardOf(m.active);
     if (!aim.active || !card || aim.power < 0.04) return;
     const st = card.stats;
+    if (st.abilities.includes('volley')) {   // у каждого кортика своя траектория
+      KG.volleyShots(aim.angle, aim.power).forEach((v, k) => {
+        const { frames: fr, result: rs } = KG.simulate({ angle: v.angle, power: v.power, stats: st, wind: +room.wind || 0, noNoise: true });
+        const nn = Math.max(3, Math.ceil(fr.length * st.preview));
+        ctx.fillStyle = rs.hit ? 'rgba(255,225,140,.75)' : 'rgba(255,255,255,.45)';
+        for (let j = 0; j < nn && j < fr.length; j += 4) { ctx.beginPath(); ctx.arc(fr[j].x, fr[j].y, k === 0 ? 2.6 : 1.7, 0, Math.PI * 2); ctx.fill(); }
+      });
+    }
     const { frames, result } = KG.simulate({ angle: aim.angle, power: aim.power, stats: st, wind: +room.wind || 0, noNoise: true });
+    const slow = st.abilities.includes('slowmo') ? 4 : 1;
     const n = Math.max(3, Math.ceil(frames.length * st.preview));
     const full = st.preview >= 1;
     const col = full ? (result.hit ? '120,255,140' : '255,120,110') : '255,255,255';
-    for (let i = 0; i < n && i < frames.length; i += 3) {
+    for (let i = 0; i < n && i < frames.length && !st.abilities.includes('volley'); i += 3 * slow) {
       const f = frames[i];
       ctx.fillStyle = `rgba(${col},${0.9 - (i / n) * 0.6})`;
       ctx.beginPath(); ctx.arc(f.x, f.y, 2.6, 0, Math.PI * 2); ctx.fill();
     }
-    for (let i = 10; i < n && i < frames.length; i += 10) {
+    for (let i = 10 * slow; i < n && i < frames.length && !st.abilities.includes('volley'); i += 10 * slow) {
       const f = frames[i];
       ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(f.x, f.y); ctx.rotate(f.r); KG.drawKnife(ctx, card); ctx.restore();
     }
@@ -897,11 +915,16 @@
           const v = view(an.owner, f.x, f.y, f.r);
           if (an.card) { ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore(); }
         }
+        if (an.extra && an.card) for (const ef of an.extra) {   // остальные кортики залпа
+          const e = ef[Math.min(i, ef.length - 1)]; if (!e) continue;
+          const ev = view(an.owner, e.x, e.y, e.r);
+          ctx.save(); ctx.translate(ev.x, ev.y); ctx.rotate(ev.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore();
+        }
         if (an.boomAt >= 0 && i >= an.boomAt) {
           const bf = an.frames[an.boomAt]; an.boomAt = -1;
           if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clang'); X.burst('sparks', bv.x, bv.y, 22); X.shake(9); }
         }
-        if (i >= an.frames.length) finishAnim(an);
+        if (i >= Math.max(an.frames.length, an.dur || 0)) finishAnim(an);
       }
       booms = booms.filter(b => now - b.t0 < 450);
       for (const b of booms) {
@@ -1052,6 +1075,11 @@
 .node .hh.unfair b { color: #ff7b85; }
 .camp-res { margin: 8px 0 4px; font-size: 14px; }
 .camp-res.crown { color: #ff6b78; font-weight: 600; }
+.card.slowmo-card { animation: smGlow 1.8s ease-in-out infinite; border-color: #7fc4ff !important; }
+.card.slowmo-card canvas { animation: smArt 1.8s ease-in-out infinite; }
+.card.first-only { filter: grayscale(.6); }
+@keyframes smGlow { 0%, 100% { box-shadow: 0 0 5px 1px rgba(80,170,255,.35); } 50% { box-shadow: 0 0 20px 6px rgba(80,170,255,.85); } }
+@keyframes smArt { 0%, 100% { filter: drop-shadow(0 0 2px rgba(90,175,255,.5)); } 50% { filter: drop-shadow(0 0 9px rgba(120,195,255,1)); } }
 @keyframes campPulse { 0% { box-shadow: 0 0 0 0 rgba(255,215,122,.55); } 70% { box-shadow: 0 0 0 12px rgba(255,215,122,0); } 100% { box-shadow: 0 0 0 0 rgba(255,215,122,0); } }
 @media (max-width: 520px) { .node .dot { width: 38px; height: 38px; font-size: 17px; } .node.boss .dot { width: 46px; height: 46px; } .node.king .dot { width: 54px; height: 54px; font-size: 25px; } .node .nn { font-size: 10.5px; } .path .gap { flex-basis: 16px; } }
 

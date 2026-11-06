@@ -30,7 +30,7 @@ window.NDEngine = (() => {
         players: g.players.map(p => ({
           id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, cn: p.cn, hm: p.handMax || g.handMax, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
-          status: p.status, streak: p.streak, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
+          status: p.status, streak: p.streak, rt: p.rt || 0, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
         // компактно: [индекс игрока, карта, козырь, x, y, r, id броска]
         stuck: g.stuck.map(s => [g.players.findIndex(p => p.id === s.o), s.c, s.t ? 1 : 0, s.x, s.y, s.r, s.id]),
@@ -63,6 +63,9 @@ window.NDEngine = (() => {
     };
     // лимит руки конкретного игрока (в кампании у игрока и противника он может быть разным)
     const HM = (p) => p.handMax || g.handMax;
+    // слоумо-нож можно бросить только первым в раунде
+    const canUse = (p, c) => !(c.abilities.includes('slowmo') && (p.rt || 0) > 0);
+    const usable = (p) => p.hand.filter(c => canUse(p, c));
     function setHand(id, n) { const p = P(id); if (p && n > 0) p.handMax = n; }
     // extra (кампания): { cn — номер противника, look, hand — лимит руки бота }
     function addBot(level, extra) {
@@ -116,7 +119,7 @@ window.NDEngine = (() => {
       g.round++;
       g.wind = Math.round((Math.random() * 2 - 1) * 100) / 100;
       g.phase = 'draw';
-      g.players.forEach(p => { p.active = null; p.streak = 0; p.status = p.hand.length ? 'wait' : 'done'; p.deadline = 0; });
+      g.players.forEach(p => { p.active = null; p.streak = 0; p.rt = 0; p.status = p.hand.length ? 'wait' : 'done'; p.deadline = 0; });
       push();
       later(1200, () => {
         g.phase = 'play';
@@ -132,7 +135,7 @@ window.NDEngine = (() => {
       later(G.TURN_MS + 300, () => {
         if (p.status !== 'aim' || p.turnNo !== turnNo || g.state !== 'playing') return;
         // время вышло: нож сгорает, раунд для игрока окончен
-        const c = p.active || p.hand[0];
+        const c = p.active || usable(p)[0] || p.hand[0];
         p.hand = p.hand.filter(x => x !== c);
         p.active = null; p.status = 'done'; p.streak = 0;
         log({ k: 'timeout', n: p.name, b: p.isBot, c: c ? c.id : null });
@@ -146,8 +149,8 @@ window.NDEngine = (() => {
     function take(id, cardId) {
       const p = P(id);
       if (!p || g.state !== 'playing' || p.status !== 'aim' || p.active) return;
-      const c = p.hand.find(x => x.id === cardId) || (cardId == null ? p.hand[0] : null);
-      if (!c) return;
+      const c = p.hand.find(x => x.id === cardId) || (cardId == null ? usable(p)[0] : null);
+      if (!c || !canUse(p, c)) return;
       p.active = c; push();
     }
 
@@ -157,22 +160,26 @@ window.NDEngine = (() => {
       angle = Math.max(-1.45, Math.min(0.6, Number(angle) || 0));
       power = Math.max(0, Math.min(1, Number(power) || 0));
       const card = p.active;
+      if (!canUse(p, card)) return;
+      p.rt = (p.rt || 0) + 1;
       const st = G.knifeStats(card, g.trumpSuit);
       const seed = (Math.random() * 2 ** 31) | 0;
-      const sim = G.simulate({ angle, power, stats: st, wind: g.wind, seed });
+      const sim = G.throwSim({ angle, power, stats: st, wind: g.wind, seed });
+      const volley = st.has('volley');
       let frames = sim.frames;
       const result = Object.assign({}, sim.result);
       p.hand = p.hand.filter(x => x !== card);
       p.active = null; p.status = 'flying'; p.deadline = 0;
       const throwId = ++g.throwSeq;
       const now = Date.now();
-      const flight = { id: throwId, o: id, card, st, frames, result, t0: now, ver: 0, landed: false };
+      const flight = { id: throwId, o: id, card, st, frames, result, t0: now, ver: 0, landed: false, dur: sim.dur || 0, volley };
       const msg = { ep: g.epoch, o: id, a: angle, p: power, s: seed, w: g.wind, c: card.id, ts: g.trumpSuit, id: throwId };
       flight.msg = msg;
 
       // Столкновение с чужим ножом, который ещё в воздухе
       for (const f of g.flights) {
-        if (f.landed || f.o === id || f.result.knocked || f.result.knock) continue;
+        if (volley) break;   // залп летит веером и не сбивает ножи
+        if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
         const offset = Math.round(((now - f.t0) / 1000) * 60);
         const col = G.findCollision(frames, f.frames, offset);
         if (!col) continue;
@@ -188,7 +195,7 @@ window.NDEngine = (() => {
         break;
       }
       const opp = g.players.find(x => x.id !== id);
-      msg.res = { hit: result.hit, knock: !!result.knock, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck };
+      msg.res = { hit: result.hit, knock: !!result.knock, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck, volley: result.volley };
       msg.streak = (result.hit || result.knock) ? p.streak + 1 : 0;
       if (result.hit && st.has('thief') && opp) msg.res.steal = Math.min(5, opp.score);
       g.flights.push(flight);
@@ -200,7 +207,7 @@ window.NDEngine = (() => {
     // Очки и последствия броска применяются, когда нож долетел (его могли сбить по дороге)
     function scheduleLanding(f) {
       const ver = ++f.ver;
-      const ms = f.t0 + (f.frames.length / 60) * 1000 - Date.now();
+      const ms = f.t0 + (Math.max(f.frames.length, f.dur || 0) / 60) * 1000 - Date.now();
       later(Math.max(0, ms), () => { if (f.ver === ver && !f.landed) land(f); });
     }
     function land(f) {
@@ -215,12 +222,12 @@ window.NDEngine = (() => {
       const good = r.hit || r.knock;
       if (r.hit) p.hits++;
       p.streak = good ? p.streak + 1 : 0;
-      if (r.stuck) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(r.stuck.x), y: Math.round(r.stuck.y), r: Math.round(r.stuck.r * 100) / 100, id: f.id });
+      for (const sk of (r.stucks || (r.stuck ? [r.stuck] : []))) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(sk.x), y: Math.round(sk.y), r: Math.round(sk.r * 100) / 100, id: f.id });
       log({ k: 'throw', n: p.name, b: p.isBot, c: f.card.id, code: r.code, pts: r.points || 0, steal: r.steal || 0, streak: good ? p.streak : 0 });
       push();
       later(700, () => {
         if (g.state !== 'playing' || p.status !== 'flying') return;
-        if (good && p.hand.length) beginAim(p);      // попал или сбил — бросает ещё
+        if (good && usable(p).length) beginAim(p);      // попал или сбил — бросает ещё (если есть чем)
         else p.status = 'done';
         checkRoundEnd();
         push();
@@ -262,7 +269,8 @@ window.NDEngine = (() => {
       later((900 + Math.random() * 900) * D.think, () => {
         if (!mine()) return;
         // лучший нож (козырь важнее) — с вероятностью по сложности, иначе случайный
-        const sorted = [...bot.hand].sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)));
+        const sorted = usable(bot).sort((x, y) => (TIER_RANK[y.tier] + (y.suit === g.trumpSuit ? 0.5 : 0)) - (TIER_RANK[x.tier] + (x.suit === g.trumpSuit ? 0.5 : 0)));
+        if (!sorted.length) return;
         const pick = Math.random() < D.best ? sorted[0] : sorted[Math.floor(Math.random() * sorted.length)];
         take(bot.id, pick.id);
         later((1100 + Math.random() * 900) * D.think, () => {
