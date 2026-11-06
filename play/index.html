@@ -3025,31 +3025,214 @@ window.NDMqtt = (() => {
 .camp-res.crown { color: #ff6b78; font-weight: 600; }
 @keyframes campPulse { 0% { box-shadow: 0 0 0 0 rgba(255,215,122,.55); } 70% { box-shadow: 0 0 0 12px rgba(255,215,122,0); } 100% { box-shadow: 0 0 0 0 rgba(255,215,122,0); } }
 @media (max-width: 520px) { .node .dot { width: 38px; height: 38px; font-size: 17px; } .node.boss .dot { width: 46px; height: 46px; } .node.king .dot { width: 54px; height: 54px; font-size: 25px; } .node .nn { font-size: 10.5px; } .path .gap { flex-basis: 16px; } }
-`;
+
+.camp-panel { width: min(660px, 96vw); }
+.camp-cnt { color: var(--muted); font: 400 14px Rubik, sans-serif; margin-left: 6px; }
+.camp-map { max-height: min(62vh, 640px); overflow-y: auto; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line), 0 10px 30px rgba(0,0,0,.45); background: #1a120b; overscroll-behavior: contain; }
+.camp-map canvas { display: block; width: 100%; height: auto; aspect-ratio: 600 / 1800; cursor: pointer; }
+.camp-info { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #1c130c; }
+.camp-info .ci-main { flex: 1; min-width: 0; }
+.camp-info .ci-tag { font-size: 12px; color: var(--muted); }
+.camp-info b { font: 400 18px 'Russo One', sans-serif; color: #f1e6d6; }
+.camp-info b.gold { color: #ffd77a; }
+.camp-info .ci-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.camp-info .ci-sub b { font: 600 13px Rubik, sans-serif; color: #ffd77a; }
+.camp-info .ci-sub b.bad { color: #ff7b85; }
+.camp-info .ci-sub.crown { color: #ff6b78; }
+.camp-info .btn { flex: 0 0 auto; }
+@media (max-width: 520px) { .camp-info { flex-direction: column; align-items: stretch; } }`;
   function openCampaign() { if (net || eng) return; $('#camp-modal').classList.remove('hidden'); renderCampaign(); }
+  // ---------- карта кампании (canvas): биомы, объёмные объекты, нить между противниками ----------
+  const MAPW = 600, MAPH = 1800, BAND = [0, 400, 800, 1200];
+  let campSel = null, campRaf = 0, campBg = null, campBgKey = '';
+  const rngOf = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  function campPts() {
+    if (campPts.c) return campPts.c;
+    const pts = CAMP.map((f, i) => {
+      if (i === 19) return { x: 300, y: 1712 };
+      const k = CAMP.slice(0, i).filter(x => x.b === f.b).length;
+      return { x: 300 + Math.sin(k * 1.25 + f.b * 1.9 + 0.4) * 165, y: BAND[f.b] + 104 + k * 66 };
+    });
+    // извилистые сегменты: кубическая кривая с боковым «вилянием»
+    const segs = [];
+    for (let i = 0; i < 19; i++) {
+      const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      const w = (i % 2 ? 1 : -1) * Math.min(48, L * 0.45);
+      segs.push([a, { x: a.x + dx / 3 + nx * w, y: a.y + dy / 3 + ny * w }, { x: a.x + dx * 2 / 3 - nx * w, y: a.y + dy * 2 / 3 - ny * w }, b]);
+    }
+    // к королю — в обход замка, по дуге слева
+    segs[18] = [pts[18], { x: 40, y: pts[18].y + 90 }, { x: 110, y: 1790 }, pts[19]];
+    const samples = [];
+    segs.forEach(([a, c1, c2, b]) => { for (let t = 0; t <= 1; t += 0.05) { const u = 1 - t; samples.push({ x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y }); } });
+    return (campPts.c = { pts, segs, samples });
+  }
+  // --- объёмные объекты: светлая грань слева, тень справа, тень на земле ---
+  const shadowE = (g, x, y, rx, ry, a) => { g.fillStyle = `rgba(20,10,5,${a || 0.28})`; g.beginPath(); g.ellipse(x + rx * 0.35, y, rx, ry, 0, 0, 7); g.fill(); };
+  const tri = (g, a, b, c, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.closePath(); g.fill(); };
+  const OBJ = {
+    tree(g, x, y, s, light, dark) { shadowE(g, x, y, 13 * s, 4 * s); g.fillStyle = '#5b3a22'; g.fillRect(x - 2 * s, y - 8 * s, 4 * s, 8 * s);
+      for (let k = 0; k < 2; k++) { const yy = y - 6 * s - k * 9 * s, h = 22 * s - k * 4 * s, w = 12 * s - k * 2.5 * s; tri(g, [x, yy - h], [x - w, yy], [x, yy], light); tri(g, [x, yy - h], [x + w, yy], [x, yy], dark); } },
+    snowpine(g, x, y, s) { OBJ.tree(g, x, y, s, '#3f6b5a', '#284a3e'); tri(g, [x, y - 6 * s - 9 * s - 18 * s], [x - 5 * s, y - 24 * s], [x, y - 23 * s], '#ffffff'); tri(g, [x, y - 33 * s], [x + 5 * s, y - 24 * s], [x, y - 23 * s], '#d5e2ee'); },
+    hut(g, x, y, s) { shadowE(g, x + 4 * s, y, 18 * s, 5 * s); g.fillStyle = '#c9a06a'; g.fillRect(x - 12 * s, y - 14 * s, 16 * s, 14 * s); g.fillStyle = '#9c774a'; g.beginPath(); g.moveTo(x + 4 * s, y); g.lineTo(x + 12 * s, y - 4 * s); g.lineTo(x + 12 * s, y - 17 * s); g.lineTo(x + 4 * s, y - 14 * s); g.fill();
+      tri(g, [x - 14 * s, y - 14 * s], [x - 4 * s, y - 27 * s], [x + 6 * s, y - 14 * s], '#a8442f'); g.fillStyle = '#7a2e20'; g.beginPath(); g.moveTo(x + 6 * s, y - 14 * s); g.lineTo(x - 4 * s, y - 27 * s); g.lineTo(x + 4 * s, y - 30 * s); g.lineTo(x + 13 * s, y - 17 * s); g.fill(); g.fillStyle = '#3a2a1a'; g.fillRect(x - 6 * s, y - 8 * s, 4 * s, 8 * s); },
+    bush(g, x, y, s) { shadowE(g, x, y, 9 * s, 3 * s); g.fillStyle = '#5f7f34'; g.beginPath(); g.arc(x - 3 * s, y - 4 * s, 6 * s, 0, 7); g.arc(x + 4 * s, y - 5 * s, 5 * s, 0, 7); g.fill(); g.fillStyle = '#7fa046'; g.beginPath(); g.arc(x - 4 * s, y - 6 * s, 3.5 * s, 0, 7); g.fill(); },
+    dune(g, x, y, s) { const gr = g.createLinearGradient(x - 40 * s, 0, x + 40 * s, 0); gr.addColorStop(0, '#f6dc9c'); gr.addColorStop(0.55, '#dcb46a'); gr.addColorStop(1, '#b88a48'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, 42 * s, 16 * s, 0, Math.PI, 0); g.fill(); },
+    cactus(g, x, y, s) { shadowE(g, x, y, 8 * s, 3 * s); g.fillStyle = '#4f8a43'; g.fillRect(x - 3 * s, y - 22 * s, 6 * s, 22 * s); g.fillRect(x - 10 * s, y - 15 * s, 4 * s, 9 * s); g.fillRect(x - 10 * s, y - 9 * s, 8 * s, 3 * s); g.fillRect(x + 6 * s, y - 18 * s, 4 * s, 8 * s); g.fillRect(x + 2 * s, y - 12 * s, 8 * s, 3 * s); g.fillStyle = '#356a2e'; g.fillRect(x + 1 * s, y - 22 * s, 2 * s, 22 * s); },
+    pyramid(g, x, y, s) { shadowE(g, x + 10 * s, y, 34 * s, 7 * s, 0.25); tri(g, [x, y - 44 * s], [x - 34 * s, y], [x + 6 * s, y + 2 * s], '#f0cf86'); tri(g, [x, y - 44 * s], [x + 6 * s, y + 2 * s], [x + 30 * s, y - 4 * s], '#b68a4a');
+      g.strokeStyle = 'rgba(120,80,40,.35)'; g.lineWidth = 1; for (let k = 1; k < 5; k++) { const t = k / 5; g.beginPath(); g.moveTo(x - 34 * s * t, y - 44 * s * (1 - t)); g.lineTo(x + 6 * s * t, y - 44 * s * (1 - t) + 2 * s * t); g.stroke(); } },
+    mountain(g, x, y, s) { shadowE(g, x + 8 * s, y, 44 * s, 8 * s, 0.22); tri(g, [x, y - 70 * s], [x - 46 * s, y], [x + 4 * s, y], '#8ea3b8'); tri(g, [x, y - 70 * s], [x + 4 * s, y], [x + 44 * s, y], '#5d7189');
+      tri(g, [x, y - 70 * s], [x - 17 * s, y - 44 * s], [x + 1 * s, y - 40 * s], '#ffffff'); tri(g, [x, y - 70 * s], [x + 1 * s, y - 40 * s], [x + 16 * s, y - 45 * s], '#cfdceb'); },
+    rock(g, x, y, s) { shadowE(g, x, y, 12 * s, 4 * s, 0.4); g.fillStyle = '#4a4258'; g.beginPath(); g.moveTo(x - 12 * s, y); g.lineTo(x - 7 * s, y - 13 * s); g.lineTo(x + 2 * s, y - 16 * s); g.lineTo(x + 1 * s, y); g.fill(); g.fillStyle = '#2c2638'; g.beginPath(); g.moveTo(x + 1 * s, y); g.lineTo(x + 2 * s, y - 16 * s); g.lineTo(x + 11 * s, y - 8 * s); g.lineTo(x + 10 * s, y); g.fill(); },
+    deadtree(g, x, y, s) { shadowE(g, x, y, 9 * s, 3 * s, 0.4); g.strokeStyle = '#2a2030'; g.lineCap = 'round'; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 24 * s); g.moveTo(x, y - 14 * s); g.lineTo(x - 8 * s, y - 22 * s); g.moveTo(x, y - 18 * s); g.lineTo(x + 7 * s, y - 27 * s); g.stroke(); },
+  };
+  function drawCastle(g, x, y) {
+    shadowE(g, x + 10, y + 2, 110, 16, 0.45);
+    const block = (bx, by, w, h, d, front, side, top) => { g.fillStyle = side; g.beginPath(); g.moveTo(bx + w, by); g.lineTo(bx + w + d, by - d * 0.6); g.lineTo(bx + w + d, by - h - d * 0.6); g.lineTo(bx + w, by - h); g.fill();
+      g.fillStyle = top; g.beginPath(); g.moveTo(bx, by - h); g.lineTo(bx + d, by - h - d * 0.6); g.lineTo(bx + w + d, by - h - d * 0.6); g.lineTo(bx + w, by - h); g.fill(); g.fillStyle = front; g.fillRect(bx, by - h, w, h); };
+    block(x - 90, y, 180, 58, 18, '#4a3f5e', '#2c2540', '#5d5276');
+    for (let k = 0; k < 9; k++) { g.fillStyle = '#4a3f5e'; g.fillRect(x - 90 + k * 21, y - 66, 11, 8); }
+    [[-104, 96], [80, 96], [-30, 120]].forEach(([dx, h]) => { block(x + dx, y + (dx === -30 ? -10 : 4), 24 + (dx === -30 ? 36 : 0), h, 14, '#544868', '#332b48', '#6a5e84');
+      const w = 24 + (dx === -30 ? 36 : 0); tri(g, [x + dx - 4, y + (dx === -30 ? -10 : 4) - h], [x + dx + w / 2 + 7, y + (dx === -30 ? -10 : 4) - h - 34], [x + dx + w / 2 + 7, y + (dx === -30 ? -10 : 4) - h], '#7a1622'); tri(g, [x + dx + w / 2 + 7, y + (dx === -30 ? -10 : 4) - h - 34], [x + dx + w + 18, y + (dx === -30 ? -10 : 4) - h - 6], [x + dx + w / 2 + 7, y + (dx === -30 ? -10 : 4) - h], '#4d0c14'); });
+    g.save(); g.shadowColor = '#ffb347'; g.shadowBlur = 10; g.fillStyle = '#ffc861';
+    [[-96, -60], [-96, -30], [88, -60], [88, -30], [-12, -90], [8, -90], [-56, -34], [44, -34]].forEach(([dx, dy]) => g.fillRect(x + dx, y + dy, 6, 10)); g.restore();
+    g.fillStyle = '#1a1220'; g.beginPath(); g.moveTo(x - 16, y); g.lineTo(x - 16, y - 26); g.arc(x, y - 26, 16, Math.PI, 0); g.lineTo(x + 16, y); g.fill();
+    g.strokeStyle = '#2a2030'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 140); g.lineTo(x, y - 172); g.stroke(); g.fillStyle = '#b3121f'; g.beginPath(); g.moveTo(x, y - 172); g.lineTo(x + 24, y - 165); g.lineTo(x, y - 158); g.fill();
+  }
+  function buildCampBg(dpr) {
+    const c = document.createElement('canvas'); c.width = MAPW * dpr; c.height = MAPH * dpr;
+    const g = c.getContext('2d'); g.scale(dpr, dpr);
+    const gr = g.createLinearGradient(0, 0, 0, MAPH);
+    [[0, '#e8b66a'], [0.06, '#b8b058'], [0.18, '#8c9e47'], [0.235, '#d8b46c'], [0.33, '#ecc882'], [0.425, '#dcc9a6'], [0.47, '#eef3f8'], [0.6, '#c3d4e3'], [0.655, '#8a87a0'], [0.71, '#3d3454'], [0.88, '#251b36'], [1, '#170f22']].forEach(([o, col]) => gr.addColorStop(o, col));
+    g.fillStyle = gr; g.fillRect(0, 0, MAPW, MAPH);
+    const r = rngOf(7);
+    for (let k = 0; k < 2600; k++) { const y = r() * MAPH; g.fillStyle = y < 1200 ? `rgba(60,35,10,${r() * 0.08})` : `rgba(255,255,255,${r() * 0.05})`; g.fillRect(r() * MAPW, y, 2, 2); }
+    // звёзды и луна над ночным замком
+    for (let k = 0; k < 120; k++) { g.fillStyle = `rgba(255,255,240,${0.3 + r() * 0.6})`; g.beginPath(); g.arc(r() * MAPW, 1250 + r() * 300, r() * 1.4 + 0.3, 0, 7); g.fill(); }
+    g.save(); g.shadowColor = '#f7f0d0'; g.shadowBlur = 30; g.fillStyle = '#f4ecd2'; g.beginPath(); g.arc(500, 1300, 30, 0, 7); g.fill(); g.restore(); g.fillStyle = '#2d2442'; g.beginPath(); g.arc(512, 1293, 26, 0, 7); g.fill();
+    // река на опушке и замёрзшее озеро
+    g.strokeStyle = 'rgba(90,150,190,.55)'; g.lineWidth = 9; g.lineCap = 'round'; g.beginPath(); g.moveTo(-10, 70); g.bezierCurveTo(140, 140, 40, 260, 160, 330); g.bezierCurveTo(220, 370, 160, 420, 230, 470); g.stroke();
+    g.fillStyle = 'rgba(170,210,235,.7)'; g.beginPath(); g.ellipse(470, 1000, 70, 26, -0.15, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 2; g.stroke();
+    // объекты: разброс вне тропы, рисуются по глубине (сверху вниз)
+    const { samples, pts } = campPts();
+    const free = (x, y, d) => samples.every(p => Math.hypot(p.x - x, p.y - y) > d) && pts.every(p => Math.hypot(p.x - x, p.y - y) > d + 10) && Math.hypot(300 - x, 1640 - y) > 140;
+    const items = [];
+    const scatter = (n, y0, y1, d, make) => { let k = 0, tries = 0; while (k < n && tries++ < n * 40) { const x = 20 + r() * (MAPW - 40), y = y0 + r() * (y1 - y0); if (free(x, y, d)) { items.push([y, make(x, y)]); k++; } } };
+    scatter(22, 60, 390, 26, (x, y) => (g2) => OBJ.tree(g2, x, y, 0.8 + r() * 0.5, '#6f9a3c', '#4b7330'));
+    scatter(14, 60, 390, 20, (x, y) => (g2) => OBJ.bush(g2, x, y, 1 + r() * 0.4));
+    scatter(3, 80, 380, 40, (x, y) => (g2) => OBJ.hut(g2, x, y, 1.2));
+    scatter(8, 430, 790, 50, (x, y) => (g2) => OBJ.dune(g2, x, y, 0.8 + r() * 0.6));
+    scatter(3, 460, 780, 60, (x, y) => (g2) => OBJ.pyramid(g2, x, y, 0.9 + r() * 0.5));
+    scatter(12, 430, 790, 22, (x, y) => (g2) => OBJ.cactus(g2, x, y, 0.8 + r() * 0.4));
+    scatter(6, 850, 1190, 60, (x, y) => (g2) => OBJ.mountain(g2, x, y, 0.8 + r() * 0.5));
+    scatter(20, 830, 1190, 24, (x, y) => (g2) => OBJ.snowpine(g2, x, y, 0.8 + r() * 0.4));
+    scatter(16, 1240, 1780, 24, (x, y) => (g2) => OBJ.rock(g2, x, y, 0.8 + r() * 0.8));
+    scatter(10, 1240, 1780, 26, (x, y) => (g2) => OBJ.deadtree(g2, x, y, 0.9 + r() * 0.4));
+    items.push([1640, (g2) => drawCastle(g2, 300, 1640)]);
+    items.sort((a, b) => a[0] - b[0]).forEach(([, f]) => f(g));
+    // ленты с названиями биомов
+    BIOMES.forEach((bm, bi) => {
+      const y = BAND[bi] + 36, txt = `${bi + 1}. ${T(...bm.n)}`;
+      g.font = "600 17px Rubik, sans-serif"; const w = g.measureText(txt).width + 44;
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(300 - w / 2 + 3, y - 13 + 4, w, 28);
+      g.fillStyle = '#6e1c1f'; g.beginPath(); g.moveTo(300 - w / 2 - 14, y - 9); g.lineTo(300 - w / 2, y - 9); g.lineTo(300 - w / 2, y + 19); g.lineTo(300 - w / 2 - 14, y + 19); g.lineTo(300 - w / 2 - 7, y + 5); g.fill();
+      g.beginPath(); g.moveTo(300 + w / 2 + 14, y - 9); g.lineTo(300 + w / 2, y - 9); g.lineTo(300 + w / 2, y + 19); g.lineTo(300 + w / 2 + 14, y + 19); g.lineTo(300 + w / 2 + 7, y + 5); g.fill();
+      const rb = g.createLinearGradient(0, y - 13, 0, y + 15); rb.addColorStop(0, '#c23a36'); rb.addColorStop(1, '#8c2226'); g.fillStyle = rb; g.fillRect(300 - w / 2, y - 13, w, 28);
+      g.fillStyle = '#ffe9b0'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 300, y + 1);
+    });
+    // рамка-пергамент и виньетка
+    const vg = g.createRadialGradient(300, MAPH / 2, MAPH * 0.3, 300, MAPH / 2, MAPH * 0.62); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = vg; g.fillRect(0, 0, MAPW, MAPH);
+    g.strokeStyle = '#6b4a24'; g.lineWidth = 10; g.strokeRect(5, 5, MAPW - 10, MAPH - 10); g.strokeStyle = '#d8a53a'; g.lineWidth = 2; g.strokeRect(13, 13, MAPW - 26, MAPH - 26);
+    return c;
+  }
+  function drawCampFrame(cv, now) {
+    const g = cv.getContext('2d'), dpr = cv.width / MAPW, done = X.Profile.camp;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(campBg, 0, 0); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const { pts, segs } = campPts();
+    // нить: тень, затем сама нить; пройденные отрезки — красная нить, впереди — пунктир
+    segs.forEach(([a, c1, c2, b], i) => {
+      const passed = i < done, path = () => { g.beginPath(); g.moveTo(a.x, a.y); g.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y); };
+      g.lineCap = 'round';
+      g.setLineDash(passed ? [] : [7, 7]); g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = passed ? 4 : 3; g.save(); g.translate(2, 4); path(); g.stroke(); g.restore();
+      g.strokeStyle = passed ? '#b3202c' : i === 18 ? 'rgba(160,30,40,.8)' : 'rgba(70,45,25,.75)';
+      if (i === done && !passed) { g.lineDashOffset = -now / 60; g.strokeStyle = '#ffe9a8'; }
+      path(); g.stroke(); g.lineDashOffset = 0;
+      if (passed) { g.strokeStyle = 'rgba(255,150,150,.45)'; g.lineWidth = 1; g.save(); g.translate(-0.8, -0.8); path(); g.stroke(); g.restore(); }
+    });
+    g.setLineDash([]);
+    pts.forEach((p, i) => drawCampNode(g, i, p, i < done ? 'done' : i === done ? 'cur' : 'lock', now));
+    // подписи: боссы, текущий и выбранный
+    pts.forEach((p, i) => { const f = CAMP[i]; if (!f.boss && i !== done && i !== campSel) return;
+      const r = f.boss === 2 ? 22 : f.boss ? 15 : 10, txt = T(...f.n);
+      g.font = `${f.boss ? 600 : 500} 13px Rubik, sans-serif`; const w = g.measureText(txt).width + 14, y = p.y + r + 16;
+      g.fillStyle = 'rgba(20,12,8,.78)'; g.beginPath(); g.roundRect ? g.roundRect(p.x - w / 2, y - 10, w, 20, 8) : g.rect(p.x - w / 2, y - 10, w, 20); g.fill();
+      g.fillStyle = f.boss ? '#ffd77a' : '#f1e6d6'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, p.x, y + 1); });
+  }
+  const KING_BLOOD = (() => { const r = rngOf(31), a = []; for (let k = 0; k < 16; k++) { const an = r() * Math.PI * 2, d = 26 + r() * 22; a.push([Math.cos(an) * d, Math.sin(an) * d * 0.55 + 6, 2 + r() * 6]); } return a; })();
+  function drawCampNode(g, i, p, st, now) {
+    const f = CAMP[i], boss = f.boss, r = boss === 2 ? 22 : boss ? 15 : 10, x = p.x, y = p.y;
+    if (boss === 2) { // лужа крови и брызги вокруг короля
+      g.fillStyle = '#5a0710'; g.beginPath(); g.ellipse(x + 3, y + 10, 46, 20, 0, 0, 7); g.fill();
+      g.fillStyle = '#8a0c18'; g.beginPath(); g.ellipse(x, y + 8, 38, 15, 0, 0, 7); g.fill();
+      KING_BLOOD.forEach(([dx, dy, s]) => { g.fillStyle = '#7d0a14'; g.beginPath(); g.arc(x + dx, y + dy, s, 0, 7); g.fill(); g.fillStyle = 'rgba(255,90,100,.35)'; g.beginPath(); g.arc(x + dx - s * 0.3, y + dy - s * 0.3, s * 0.35, 0, 7); g.fill(); });
+    }
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(x + 3, y + r * 0.7, r * 1.15, r * 0.5, 0, 0, 7); g.fill();
+    const gold = !!boss, lockd = st === 'lock';
+    const side = gold ? '#7c5714' : st === 'done' ? '#5e1a20' : st === 'cur' ? '#8a7a64' : '#3a3530';
+    g.fillStyle = side; g.beginPath(); g.arc(x, y + 5, r, 0, 7); g.fill(); g.fillRect(x - r, y, r * 2, 5);
+    const tg = g.createRadialGradient(x - r * 0.4, y - r * 0.45, r * 0.1, x, y, r);
+    if (gold) { tg.addColorStop(0, '#fff6c4'); tg.addColorStop(0.45, '#f0c24e'); tg.addColorStop(1, '#a8771c'); }
+    else if (st === 'done') { tg.addColorStop(0, '#ff8a8a'); tg.addColorStop(1, '#a3202c'); }
+    else if (st === 'cur') { tg.addColorStop(0, '#ffffff'); tg.addColorStop(1, '#d9cdb8'); }
+    else { tg.addColorStop(0, '#8c8478'); tg.addColorStop(1, '#5a544c'); }
+    g.fillStyle = tg; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    g.strokeStyle = gold ? '#5c3f0c' : 'rgba(0,0,0,.45)'; g.lineWidth = 1.5; g.stroke();
+    if (boss === 2) { // кровь на самой золотой точке: потёки и капли
+      g.save(); g.beginPath(); g.arc(x, y, r, 0, 7); g.clip();
+      g.fillStyle = '#8e0b17'; g.beginPath(); g.moveTo(x - r, y - r * 0.2); g.quadraticCurveTo(x - r * 0.3, y - r * 0.6, x + r * 0.2, y - r * 1.1); g.lineTo(x + r * 0.55, y - r); g.quadraticCurveTo(x - r * 0.1, y - r * 0.2, x - r * 0.5, y + r * 0.5); g.closePath(); g.fill();
+      g.beginPath(); g.ellipse(x + r * 0.45, y + r * 0.35, r * 0.35, r * 0.22, 0.6, 0, 7); g.fill(); g.restore();
+      [[-0.55, 0], [0.1, 0.9], [0.6, 0.4]].forEach(([dx, ph], k) => { const len = 6 + ((now / 900 + ph) % 1) * 14, xx = x + dx * r; g.fillStyle = '#9a0c18';
+        g.beginPath(); g.moveTo(xx - 2, y + r * 0.7); g.lineTo(xx + 2, y + r * 0.7); g.lineTo(xx + 1.6, y + r * 0.7 + len); g.arc(xx, y + r * 0.7 + len, 2.2, 0, Math.PI); g.fill(); });
+      g.save(); g.shadowColor = '#ff2a3a'; g.shadowBlur = 14 + Math.sin(now / 300) * 6; g.strokeStyle = 'rgba(255,40,60,.7)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r + 3, 0, 7); g.stroke(); g.restore();
+    }
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(x - r * 0.35, y - r * 0.45, r * 0.35, r * 0.18, -0.5, 0, 7); g.fill();
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (st === 'done' && !boss) { g.fillStyle = '#fff'; g.font = '700 11px Rubik, sans-serif'; g.fillText('✓', x, y + 1); }
+    if (boss && boss !== 2) { g.font = `${r}px serif`; g.fillText(st === 'done' ? '✓' : '💀', x, y + 1); }
+    if (boss === 2) { g.font = '22px serif'; g.fillText('👑', x, y - 1); }
+    if (lockd) { g.fillStyle = 'rgba(25,18,12,.45)'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); if (!boss) { g.font = '9px serif'; g.fillText('🔒', x, y + 1); } }
+    if (st === 'cur') { const k = (now % 1600) / 1600; g.strokeStyle = `rgba(255,230,150,${1 - k})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, r + 4 + k * 14, 0, 7); g.stroke(); }
+    if (i === campSel) { g.strokeStyle = '#ffffff'; g.lineWidth = 2.5; g.setLineDash([4, 3]); g.beginPath(); g.arc(x, y, r + 6, 0, 7); g.stroke(); g.setLineDash([]); }
+  }
   function renderCampaign() {
     const done = X.Profile.camp;
-    const node = (i) => {
-      const f = CAMP[i], st = i < done ? 'done' : i === done ? 'cur' : 'lock';
-      const icon = st === 'lock' ? '🔒' : f.boss === 2 ? '👑' : f.boss ? '💀' : st === 'done' ? '✔' : i + 1;
-      return `<button type="button" class="node ${st}${f.boss === 2 ? ' king' : f.boss ? ' boss' : ''}" data-i="${i}" ${st === 'lock' ? 'disabled' : ''}
-        title="${esc(T(...f.n))} · ${T(...LVL_NAME[f.lvl])}"><span class="dot">${icon}</span><span class="nn">${esc(T(...f.n))}</span>
-        <span class="hh ${f.me < f.op ? 'unfair' : ''}">✋ <b>${f.me}</b> ${T('на', 'vs')} ${f.op}</span></button>`;
-    };
+    if (campSel == null || campSel > done) campSel = Math.min(done, 19);
     const body = $('#camp-modal .pm-body');
-    body.innerHTML = `<h2>⚔ ${T('Кампания', 'Campaign')}</h2>
-      <p class="camp-sum">${T(`Пройдено ${done} из 20. Цифры под противником — сколько карт в руке у тебя и у него.`, `${done} of 20 defeated. The numbers under each foe are your hand size vs theirs.`)}${X.Profile.isUnlocked('hat', 'bloodcrown') ? T(' 🩸👑 Кровавая корона твоя!', ' 🩸👑 The blood crown is yours!') : T(' Победи настоящего короля, чтобы получить кровавую корону.', ' Defeat the true king to claim the blood crown.')}</p>
-      <div class="camp-bar"><i style="width:${done / 20 * 100}%"></i></div>
-      ${BIOMES.map((bm, bi) => {
-        const ids = CAMP.map((f, i) => i).filter(i => CAMP[i].b === bi);
-        const locked = done < ids[0];
-        const nodes = bi === 3 ? ids.slice(0, 4).map(node).join('') + `<span class="gap">· · ·</span>` + node(ids[4]) : ids.map(node).join('');
-        return `<div class="biome ${locked ? 'locked' : ''}" style="--bc:${bm.c}"><h3>${bi + 1}. ${T(...bm.n)}</h3><div class="bd">${T(...bm.d)}${locked ? T(' · откроется после босса прошлого биома', ' · unlocks after the previous boss') : ''}</div><div class="path">${nodes}</div></div>`;
-      }).join('')}`;
-    body.querySelectorAll('.node[data-i]').forEach(b => b.onclick = () => {
-      const i = +b.dataset.i; if (i > X.Profile.camp) return;
-      sfx('click'); $('#camp-modal').classList.add('hidden'); createServer(true, { campaign: i });
-    });
+    body.innerHTML = `<h2>⚔ ${T('Кампания', 'Campaign')} <small class="camp-cnt">${done}/20</small></h2>
+      <div class="camp-map"><canvas></canvas></div><div class="camp-info"></div>`;
+    const wrap = body.querySelector('.camp-map'), cv = wrap.querySelector('canvas'), dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = MAPW * dpr; cv.height = MAPH * dpr;
+    const key = T('ru', 'en') + dpr;
+    if (!campBg || campBgKey !== key) { campBg = buildCampBg(dpr); campBgKey = key; }
+    cv.onclick = (e) => {
+      const rc = cv.getBoundingClientRect(), k = MAPW / rc.width, mx = (e.clientX - rc.left) * k, my = (e.clientY - rc.top) * k;
+      let best = -1, bd = 1e9; campPts().pts.forEach((p, i) => { const d = Math.hypot(p.x - mx, p.y - my); if (d < bd) { bd = d; best = i; } });
+      if (best >= 0 && bd < 34) { campSel = best; sfx('click'); renderCampInfo(); }
+    };
+    renderCampInfo();
+    requestAnimationFrame(() => { const p = campPts().pts[campSel], sc = wrap.clientWidth / MAPW; wrap.scrollTop = Math.max(0, p.y * sc - wrap.clientHeight / 2); });
+    cancelAnimationFrame(campRaf);
+    const loop = (now) => { if (!cv.isConnected || $('#camp-modal').classList.contains('hidden')) return; drawCampFrame(cv, now); campRaf = requestAnimationFrame(loop); };
+    campRaf = requestAnimationFrame(loop);
+  }
+  function renderCampInfo() {
+    const el = $('#camp-modal .camp-info'); if (!el) return;
+    const i = campSel, f = CAMP[i], done = X.Profile.camp, open = i <= done;
+    const tag = f.boss === 2 ? T('👑 Главный босс', '👑 Final boss') : f.boss ? T('💀 Босс биома', '💀 Biome boss') : T(`Противник ${i + 1} из 20`, `Opponent ${i + 1} of 20`);
+    el.innerHTML = `<div class="ci-main"><div class="ci-tag">${tag} · ${T(...BIOMES[f.b].n)}</div><b class="${f.boss ? 'gold' : ''}">${esc(T(...f.n))}</b>
+      <div class="ci-sub">${T('Сложность', 'Difficulty')}: ${T(...LVL_NAME[f.lvl])} · ✋ ${T('у тебя', 'you')} <b class="${f.me < f.op ? 'bad' : ''}">${f.me}</b> ${T('карт, у него', 'cards, them')} <b>${f.op}</b>${i < done ? ' · ✔ ' + T('пройден', 'defeated') : ''}</div>
+      ${f.boss === 2 && !X.Profile.isUnlocked('hat', 'bloodcrown') ? `<div class="ci-sub crown">🩸 ${T('Награда: кровавая корона', 'Reward: the blood crown')}</div>` : ''}</div>
+      <button class="btn gold" ${open ? '' : 'disabled'}>${open ? (i < done ? T('Переиграть', 'Replay') : T('В бой ⚔', 'Fight ⚔')) : '🔒 ' + T('Закрыто', 'Locked')}</button>`;
+    const b = el.querySelector('button'); if (open) b.onclick = () => { sfx('click'); $('#camp-modal').classList.add('hidden'); createServer(true, { campaign: i }); };
   }
   function campResult(c) {
     const f = CAMP[c.idx];
