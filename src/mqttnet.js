@@ -87,10 +87,12 @@ window.NDMqtt = (() => {
   }
 
   // ---------- адаптер «комнат» ----------
+  let lastBroker = 0;                     // последний брокер, который ответил: начинаем с него
+  let retryCount = 0;                     // подряд неудачных попыток — для растущей паузы
   async function connect() {
     const peer = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
     const lobbyTopic = `${BASE}/l/${peer}`;
-    let client = null, brokerIdx = 0, connected = false, myPresence = {};
+    let client = null, brokerIdx = lastBroker, connected = false, myPresence = {};
     const connFns = [], lobbyPeersFns = [];
     const lobby = new Map();              // peer -> {presence, seen}
     const rooms = new Map();              // name -> room internals
@@ -128,11 +130,13 @@ window.NDMqtt = (() => {
       const url = BROKERS[brokerIdx % BROKERS.length];
       let opened = false;
       client = Client(url, 'nd-' + peer, { topic: lobbyTopic, payload: '' }, () => {
-        opened = true; setConn(true); publishPresence();
+        opened = true; retryCount = 0; lastBroker = brokerIdx % BROKERS.length; setConn(true); publishPresence();
       }, () => {
         setConn(false);
-        if (!opened) brokerIdx++;          // брокер недоступен — пробуем следующий
-        setTimeout(open, opened ? 1500 : 800);
+        if (!opened) { brokerIdx++; retryCount++; }   // брокер недоступен — пробуем следующий
+        // пауза растёт (0.8 → 1.6 → … до 15 с) со случайным разбросом, чтобы не долбить брокеры
+        const base = opened ? 1500 : Math.min(15000, 800 * Math.pow(2, Math.min(retryCount, 5)));
+        setTimeout(open, base * (0.75 + Math.random() * 0.5));
       });
       for (const s of subsWanted) client.subscribe(s.filter, s.fn);
     }

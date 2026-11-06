@@ -60,6 +60,7 @@
         case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.45, 'triangle', NOTE(n), 0, 0.1)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.1, 'sawtooth', NOTE(n), 0, 0.03, null, 0.05)); break;
         case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.4, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.09)); break;
         case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.32, 'sine', NOTE(n), 0, 0.08)); noise(t, 0.5, 'highpass', 6000, 9000, 0.03); break;
+        case 'morph': tone(t, 0.42, 'triangle', 380, 2400, 0.12); noise(t + 0.04, 0.32, 'highpass', 4000, 9000, 0.08); [1046, 1568, 2093].forEach((f, i) => tone(t + 0.38 + i * 0.05, 0.5, 'sine', f, f, 0.08)); break;
         case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.45, 'triangle', NOTE(n), 0, 0.08)); break;
       }
     }
@@ -76,11 +77,15 @@
         mel: [79, -1, 76, -1, 72, -1, 74, 76, 77, -1, 76, -1, 74, -1, -1, -1, 76, -1, 72, -1, 69, -1, 71, 72, 74, -1, 72, -1, 72, -1, -1, -1], style: 'bells' },
       desert: { name: ['Пустыня', 'Desert'], bpm: 92, ch: [[52, 56, 59], [53, 57, 60], [52, 56, 59], [50, 53, 57]], bass: [40, 41, 40, 38],
         mel: [76, 77, 80, -1, 81, -1, 80, 77, 76, -1, -1, -1, 77, 76, 74, -1, 76, -1, 80, 81, 83, -1, 81, 80, 77, -1, 76, -1, -1, -1, -1, -1], style: 'darbuka' },
+      // отдельный трек только для боя с королём: не входит в общий пул (KEYS/AUTO)
+      king: { name: ['Битва за корону', 'Crown of Blood'], bpm: 136, ch: [[50, 53, 57], [46, 50, 53], [53, 57, 60], [48, 52, 55]], bass: [38, 34, 41, 36],
+        mel: [74, -1, -1, 77, -1, 79, 77, 74, -1, -1, 81, -1, 79, -1, 77, -1, 74, -1, -1, 77, -1, 79, 81, -1, 84, -1, 82, -1, 81, -1, -1, -1], style: 'epic' },
     };
     const AUTO = { lobby: 'tavern', sunset: 'duel', night: 'night', winter: 'winter', desert: 'desert' };
-    // авто-режим: трек меняется сам каждую минуту по кругу
-    const KEYS = Object.keys(TRACKS); let rot = Math.floor(Math.random() * KEYS.length);
-    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return KEYS[rot]; }
+    // авто-режим: трек меняется сам каждую минуту по кругу (king — только в бою с королём)
+    const KEYS = Object.keys(TRACKS).filter(k => k !== 'king'); let rot = Math.floor(Math.random() * KEYS.length);
+    let kingOn = false;   // идёт бой с королём
+    function wanted() { if (kingOn) return 'king'; if (st.track !== 'auto' && TRACKS[st.track] && st.track !== 'king') return st.track; return KEYS[rot]; }
     function schedule() {
       const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
@@ -119,11 +124,20 @@
             if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, B);
             if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(tr.bass[bar]), 0, 0.32, B);
             if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, B, 0.04));
+          break;
+          case 'epic': // бой с королём: тяжёлый барабан, перекличка медных и грохот тома
+            if (b16 % 4 === 0) tone(t, 0.32, 'sine', 120, 38, 0.75, B);
+            if (b16 === 4 || b16 === 12) noise(t, 0.22, 'bandpass', 2400, 1200, 0.4, B, 0.8);
+            if (b16 >= 12 && b16 % 2 === 0) tone(t, 0.12, 'triangle', 180, 120, 0.22, B);
+            if (b16 % 2 === 0) noise(t, 0.03, 'highpass', 7000, 9000, 0.05, B);
+            if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 14, 'sawtooth', NOTE(n), 0, 0.03, B, 0.2));
+            if (b16 % 2 === 0) tone(t, S16 * 1.6, 'sawtooth', NOTE(tr.bass[bar] + (b16 % 8 === 6 ? 12 : 0)), 0, 0.12, B);
+            break;
         }
         const m = tr.mel[step % 32];
         if (m > 0 && Math.floor(step / 32) % 2 === 1) {
-          const wave = tr.style === 'calm' || tr.style === 'bells' ? 'sine' : 'triangle';
-          tone(t, S16 * (tr.style === 'calm' ? 3.5 : 1.8), wave, NOTE(m), 0, tr.style === 'calm' ? 0.07 : 0.09, B, tr.style === 'calm' ? 0.03 : 0.005);
+          const wave = tr.style === 'calm' || tr.style === 'bells' ? 'sine' : tr.style === 'epic' ? 'sawtooth' : 'triangle';
+          tone(t, S16 * (tr.style === 'calm' ? 3.5 : 1.8), wave, NOTE(m), 0, tr.style === 'calm' ? 0.07 : tr.style === 'epic' ? 0.05 : 0.09, B, tr.style === 'calm' ? 0.03 : tr.style === 'epic' ? 0.01 : 0.005);
           if (tr.style === 'bells') tone(t, S16 * 2.5, 'sine', NOTE(m + 12), 0, 0.03, B);
         }
         nextNote += S16; step++;
@@ -168,6 +182,7 @@
       setVolume(kind, v) { st[kind] = Math.max(0, Math.min(100, Math.round(v))); save(); apply(); },
       setTrack(id) { st.track = TRACKS[id] ? id : 'auto'; save(); retarget(); },
       setContext(c, a) { context = c; if (a) arena = a; retarget(); },
+      setKing(on) { if (kingOn === !!on) return; kingOn = !!on; retarget(); },
       get sound() { return st.sound; }, get music() { return st.music; }, get state() { return Object.assign({}, st); },
       get nowPlaying() { return current; },
     };
@@ -182,7 +197,7 @@
       ['none', 1, 'Без шапки', 'No hat'], ['cap', 2, 'Кепка', 'Cap'], ['bandana', 4, 'Бандана', 'Bandana'],
       ['cowboy', 6, 'Ковбойская шляпа', 'Cowboy hat'], ['ushanka', 9, 'Ушанка', 'Ushanka'], ['viking', 12, 'Шлем викинга', 'Viking helmet'],
       ['tophat', 18, 'Цилиндр', 'Top hat'], ['crown', 'streak5', 'Корона', 'Crown'],
-      ['bloodcrown', 'kill_king', 'Кровавая корона', 'Blood crown'],
+      ['bloodcrown', 'kill_king', 'Алая корона', 'Scarlet crown'],
     ],
     shirt: [
       ['basic', 1, 'Футболка', 'T-shirt'], ['stripes', 3, 'Тельняшка', 'Sailor stripes'], ['leather', 7, 'Кожаная куртка', 'Leather jacket'],
@@ -193,15 +208,16 @@
       ['shades', 11, 'Тёмные очки', 'Shades'], ['beard', 14, 'Борода', 'Beard'], ['ninja', 'knock5', 'Маска ниндзя', 'Ninja mask'],
     ],
     back: [['none', 1, 'Ничего', 'Nothing'], ['scarf', 15, 'Шарф', 'Scarf'], ['cape', 20, 'Плащ', 'Cape']],
+    belt: [['none', 1, 'Ничего', 'Nothing'], ['redsword', 'kill_king', 'Алый меч короля', "Scarlet King's sword"]],
     trail: [
       ['plain', 1, 'Обычный след', 'Plain trail'], ['fire', 13, 'Огненный след', 'Fire trail'], ['sparks', 16, 'Искры', 'Sparks'],
       ['rainbow', 22, 'Радуга', 'Rainbow'], ['gold', 'win10', 'Золотой след', 'Gold trail'],
     ],
     arena: [['sunset', 1, 'Закат', 'Sunset'], ['night', 6, 'Ночь', 'Night'], ['winter', 9, 'Зима', 'Winter'], ['desert', 17, 'Пустыня', 'Desert']],
   };
-  const SLOTS = ['hat', 'shirt', 'face', 'back', 'trail', 'arena'];
-  const SLOT_NAMES = { hat: ['Шапки', 'Hats'], shirt: ['Одежда', 'Outfits'], face: ['Лицо', 'Face'], back: ['Спина', 'Back'], trail: ['След ножа', 'Knife trail'], arena: ['Арена', 'Arena'] };
-  const DEFAULT_LOOK = { hat: 'none', shirt: 'basic', face: 'none', back: 'none', trail: 'plain', arena: 'sunset' };
+  const SLOTS = ['hat', 'shirt', 'face', 'back', 'belt', 'trail', 'arena'];
+  const SLOT_NAMES = { hat: ['Шапки', 'Hats'], shirt: ['Одежда', 'Outfits'], face: ['Лицо', 'Face'], back: ['Спина', 'Back'], belt: ['Пояс', 'Belt'], trail: ['След ножа', 'Knife trail'], arena: ['Арена', 'Arena'] };
+  const DEFAULT_LOOK = { hat: 'none', shirt: 'basic', face: 'none', back: 'none', belt: 'none', trail: 'plain', arena: 'sunset' };
   const ACH = [
     ['first_hit', 'Первая кровь', 'First blood', 'Попади в пень', 'Hit the stump'],
     ['bull10', 'Снайпер', 'Sniper', '10 раз попади в яблочко', 'Hit 10 bullseyes'],
@@ -214,14 +230,15 @@
     ['beat_hard', 'Сильнее машины', 'Beat the machine', 'Победи сложного бота → камуфляж', 'Beat the hard bot → camo'],
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
-    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → кровавая корона', 'Defeat the true king in the campaign → blood crown'],
+    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → алая корона', 'Defeat the true king in the campaign → scarlet crown'],
   ];
   const MAX_LEVEL = 30;
   const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
   const xpFor = (L) => Math.round(60 * Math.pow(Math.max(0, L - 1), 1.6));   // всего опыта для уровня L
   const levelOf = (xp) => { let L = 1; while (L < MAX_LEVEL && xp >= xpFor(L + 1)) L++; return L; };
   const valid = (slot, id) => ITEMS[slot].some(x => x[0] === id);
-  function cleanLook(l) { const o = {}; for (const s of SLOTS) o[s] = l && valid(s, l[s]) ? l[s] : DEFAULT_LOOK[s]; return o; }
+  // меч раньше был на спине: переносим его на пояс у тех, кто его уже надел
+  function cleanLook(l) { if (l && l.back === 'redsword' && !l.belt) l = Object.assign({}, l, { back: 'none', belt: 'redsword' }); const o = {}; for (const s of SLOTS) o[s] = l && valid(s, l[s]) ? l[s] : DEFAULT_LOOK[s]; return o; }
 
   const Profile = (() => {
     const blank = () => ({ xp: 0, camp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
@@ -231,11 +248,12 @@
     const listeners = [];
     const save = () => LS.set('nd-profile', p);
     const emit = (ev) => listeners.forEach(f => f(ev));
-    const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
+    const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; if (p.cheat) return true; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
     function unlockedSet() { const s = new Set(); for (const sl of SLOTS) for (const it of ITEMS[sl]) if (isUnlocked(sl, it[0])) s.add(sl + ':' + it[0]); return s; }
     // против бота опыт обрезается так, чтобы не перешагнуть BOT_XP_CAP
     const botRoom = () => Math.max(0, xpFor(BOT_XP_CAP) - p.xp);
     function addXp(n, vsBot) {
+      if (p.cheat) return 0;   // по коду опыт и уровень не растут
       if (vsBot) n = Math.min(n, botRoom());
       if (n <= 0) return 0;
       const before = levelOf(p.xp), had = unlockedSet();
@@ -285,11 +303,19 @@
       emit({ type: 'camp' });
       return { first, xp: got };
     }
+    // код в настройках: все скины, вся кампания, без роста опыта
+    const CODES = { Admin228: 'cheat' };
+    function redeem(code) {
+      const c = String(code || '').trim();
+      if (CODES[c] !== 'cheat') return false;
+      p.cheat = true; p.camp = 20; save(); emit({ type: 'look' }); emit({ type: 'camp' });
+      return true;
+    }
     function equip(slot, id) { if (!isUnlocked(slot, id)) return false; p.look[slot] = id; save(); emit({ type: 'look' }); return true; }
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 
@@ -297,10 +323,25 @@
   // ПЕРСОНАЖ
   // =====================================================================
   // opts: { x, facing, color, look, arm (угол прицела|null), swing (0..1, бросок), holdCard, now }
+  const KING_SCALE = 1.4;
   function drawCharacter(g, o) {
     const L = cleanLook(o.look), f = o.facing, now = o.now || 0;
     const bob = Math.sin(now / 420 + (f > 0 ? 0 : 2)) * 1.5;
     g.save(); g.translate(o.x, o.ground);
+    const S = o.king ? KING_SCALE : 1; if (S !== 1) g.scale(S, S);   // король крупнее обычных людей
+    // алые мечи за спиной: у игрока с косметикой — один, у настоящего короля — сколько осталось
+    const nSw = o.king ? (o.swords != null ? o.swords : 2) : 0;
+    if (nSw > 0) {
+      const KS = KG.CARD_BY_ID['A3-h'];
+      // скрещённые клинки: первый наискось, второй круче и в другую сторону
+      const sw = [[-6 * f, -150 + bob, -0.45 * f, 0.9], [-2 * f, -146 + bob, -0.85 * f, 0.5]];
+      for (let i = 0; i < nSw && i < 2; i++) {
+        const [hx, hy2, dx, dy] = sw[i], n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n, SW = 0.8;
+        g.save(); g.translate(hx + ux * 42 * SW, hy2 + uy * 42 * SW); g.rotate(Math.atan2(uy, ux)); g.scale(SW, SW);
+        KG.drawKnife(g, KS, { trump: false });
+        g.restore();
+      }
+    }
     // плащ / шарф — позади тела
     if (L.back === 'cape') {
       const wave = Math.sin(now / 300) * 6;
@@ -315,7 +356,14 @@
     g.save(); g.translate(0, bob);
     const bx = -9, bw = 18, by = -152, bh = 72;
     const body = new Path2D(); body.roundRect ? body.roundRect(bx, by, bw, bh, 7) : body.rect(bx, by, bw, bh);
-    switch (L.shirt) {
+    if (o.king) {   // королевская мантия: алый бархат, золотая полоса, горностаевый воротник
+      g.fillStyle = '#8f1d24'; g.fill(body);
+      g.save(); g.clip(body);
+      g.fillStyle = '#d4a23a'; g.fillRect(-2, by, 4, bh);
+      g.fillStyle = '#f4efe6'; g.beginPath(); g.ellipse(0, by + 2, 13, 7, 0, 0, 7); g.fill();
+      g.fillStyle = '#1a1a1a'; [[-7, by + 3], [0, by + 6], [7, by + 3], [-3, by + 11], [4, by + 12]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 1.3, 0, 7); g.fill(); });
+      g.restore();
+    } else switch (L.shirt) {
       case 'stripes': g.fillStyle = '#f2f2f2'; g.fill(body); g.save(); g.clip(body); g.fillStyle = '#1d3d8f'; for (let y = by + 4; y < by + bh; y += 10) g.fillRect(bx, y, bw, 4); g.restore(); break;
       case 'leather': g.fillStyle = '#3b2416'; g.fill(body); g.strokeStyle = '#7a4d2e'; g.lineWidth = 2; g.beginPath(); g.moveTo(-5, by + 2); g.lineTo(0, by + 18); g.lineTo(5, by + 2); g.stroke(); g.fillStyle = '#c9a26a'; g.fillRect(-1, by + 24, 2, 40); break;
       case 'kimono': g.fillStyle = '#f4efe6'; g.fill(body); g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, by + 2); g.lineTo(4 * f, by + 30); g.stroke(); g.fillStyle = '#1a1a1a'; g.fillRect(bx, by + 38, bw, 8); break;
@@ -342,7 +390,14 @@
       case 'ninja': g.fillStyle = '#16161c'; g.beginPath(); g.arc(0, hy, 15.5, 0.15 * Math.PI, 0.85 * Math.PI); g.fill(); g.fillRect(-15, hy - 1, 30, 9); g.fillStyle = '#16161c'; g.fillRect(-15, hy - 15, 30, 7); break;
     }
     // шапка / волосы
-    switch (L.hat) {
+    if (o.king) {   // корона: алый бархат, золотой обод, жемчуг и рубин
+      g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
+      g.fillStyle = '#b3121f'; g.beginPath(); g.moveTo(-15, hy - 9); g.lineTo(-17, hy - 34); g.lineTo(-9, hy - 24); g.lineTo(-5, hy - 42); g.lineTo(0, hy - 26); g.lineTo(5, hy - 42); g.lineTo(9, hy - 24); g.lineTo(17, hy - 34); g.lineTo(15, hy - 9); g.closePath(); g.fill();
+      g.strokeStyle = '#f2c24a'; g.lineWidth = 1.8; g.stroke();
+      g.fillStyle = '#f2c24a'; g.fillRect(-17, hy - 13, 34, 5);
+      g.fillStyle = '#fff6d6'; [[-17, hy - 34], [-5, hy - 42], [5, hy - 42], [17, hy - 34]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill(); });
+      g.save(); g.shadowColor = '#ff2a3a'; g.shadowBlur = 8; g.fillStyle = '#ff3346'; g.beginPath(); g.arc(0, hy - 18, 3.4, 0, 7); g.fill(); g.restore();
+    } else switch (L.hat) {
       case 'cap': g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 3, 15, Math.PI, 0); g.fill(); g.fillRect(f > 0 ? 0 : -24, hy - 5, 24, 4); break;
       case 'bandana': g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 2, 15.5, Math.PI, 0); g.fill(); g.fillRect(-15, hy - 5, 30, 5); g.beginPath(); g.moveTo(-14 * f, hy - 4); g.lineTo(-26 * f, hy + 2); g.lineTo(-22 * f, hy - 8); g.fill(); break;
       case 'cowboy': g.fillStyle = '#7a4d2e'; g.beginPath(); g.ellipse(0, hy - 10, 26, 5, 0, 0, 7); g.fill(); g.beginPath(); g.roundRect ? g.roundRect(-12, hy - 28, 24, 18, 6) : g.rect(-12, hy - 28, 24, 18); g.fill(); g.fillStyle = '#3b2416'; g.fillRect(-12, hy - 15, 24, 3); break;
@@ -378,7 +433,20 @@
     g.strokeStyle = '#2a1d13'; g.lineWidth = 6;
     g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
     g.beginPath(); g.moveTo(sx, sy); g.lineTo(18 * f, -105); g.stroke();
-    if (L.shirt === 'armor') { g.fillStyle = '#d9a93a'; g.beginPath(); g.arc(sx + 2 * f, sy + 2, 6, 0, 7); g.fill(); }
+    if (L.shirt === 'armor' && !o.king) { g.fillStyle = '#d9a93a'; g.beginPath(); g.arc(sx + 2 * f, sy + 2, 6, 0, 7); g.fill(); }
+    if (o.king) {   // скипетр в руке, которая уже нарисована (18·f, −105): посох от руки к земле
+      g.strokeStyle = '#d4a23a'; g.lineWidth = 3; g.beginPath(); g.moveTo(18 * f, -105); g.lineTo(26 * f, -4); g.stroke();
+      g.fillStyle = '#d4a23a'; g.beginPath(); g.arc(18 * f, -112, 6, 0, 7); g.fill();
+      g.fillStyle = '#ff3346'; g.beginPath(); g.arc(18 * f, -112, 2.6, 0, 7); g.fill();
+    }
+    // алый меч на поясе: поверх одежды и рук, наискось назад-вниз
+    if (L.belt === 'redsword') {
+      const SW = 0.62, dx = -0.55 * f, dy = 0.85, n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n;
+      const hx = 3 * f, hy2 = -92 + bob;                        // рукоять у пояса
+      g.save(); g.translate(hx + ux * 42 * SW, hy2 + uy * 42 * SW); g.rotate(Math.atan2(uy, ux)); g.scale(SW, SW);
+      KG.drawKnife(g, KG.CARD_BY_ID['A3-h'], { trump: false });
+      g.restore();
+    }
     if (o.holdCard) {
       g.save(); g.translate(ex, ey);
       const ha = o.arm != null ? o.arm : -0.9;

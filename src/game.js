@@ -75,7 +75,7 @@
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
-  const RARE = ['hearts', 'A3-h', ['Меч Кровавого Короля', 'sword', ['bloodsword'], 'calm', 'power']];
+  const RARE = ['hearts', 'A3-h', ['Меч Алого Короля', 'sword', ['bloodsword'], 'calm', 'power']];
   const RARE_CHANCE = 0.25;
   // Модели хороших ножей: [имя, форма, качества, козырная способность, козырное качество]
   const GOOD = [
@@ -191,6 +191,8 @@
     s.twin = !!(shp && shp.twin);
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
+    // плохие ножи: окно втыкания +30% (окна «всегда втыкается» не трогаем)
+    if (card.tier === 'bad' && s.stick < 360) s.stick = Math.round(s.stick * 1.3);
     s.preview = Math.min(1, s.preview);
     s.spread = Math.round(s.spread * 100) / 100;
     return Object.assign(s, {
@@ -420,7 +422,8 @@
       code: hits ? 'volley' : main.result.code, reason: hits ? `Залп: ${hits} из ${VOLLEY_N}` : main.result.reason,
       stucks: shots.filter(x => x.result.hit).map(x => x.result.stuck) });
     res.stuck = null;
-    return { frames: main.frames, result: res, extra: shots.slice(1).map(x => x.frames), dur: Math.max(...shots.map(x => x.frames.length)) };
+    return { frames: main.frames, result: res, extra: shots.slice(1).map(x => x.frames), dur: Math.max(...shots.map(x => x.frames.length)),
+      shots: shots.map(x => ({ hit: x.result.hit, stuck: x.result.stuck })) };
   }
 
   // ---------- Английские названия ----------
@@ -448,7 +451,7 @@
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Кровавого Короля': 'Blood King\'s Sword',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -533,7 +536,7 @@
     spades: ['#6a6380', '#15131c'], hearts: ['#ffd7d7', '#c8263b'],
   };
 
-  // меч Кровавого Короля: длинный клинок с долом, кровь у острия, крестовина с рубином, тёмно-красное свечение
+  // меч Алого Короля: длинный клинок с долом, кровь у острия, крестовина с рубином, тёмно-красное свечение
   function drawSword(ctx, card, sh, opt) {
     const L = sh.len, w = sh.w, hl = sh.handle, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
     const glow = 0.5 + 0.5 * Math.sin(t * 2);
@@ -673,9 +676,26 @@
     ctx.restore();
   }
 
+  // Каталог: каждая карта игры ровно один раз (тузы мастей, особые, редкий, модели хороших и плохих ножей)
+  function catalog() {
+    const aces = SUIT_ORDER.map((suit) => mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', ACES[suit], false));
+    const special = [mkCard('A2-d', 'diamonds', 'ace', SPECIAL[0][2], false), mkCard('A2-s', 'spades', 'ace', SPECIAL[1][2], false)];
+    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false)];
+    const good = GOOD.map((d, i) => mkCard('cat-g' + i, SUIT_ORDER[i % 4], 'good', d, false));
+    const bad = BAD.map((d, i) => mkCard('cat-b' + i, SUIT_ORDER[i % 4], 'bad', d, true));
+    const pack = (list) => list.map((c) => cardWithStats(c, null));
+    return [
+      { id: 'aces', ru: 'Тузы мастей', en: 'Suit aces', cards: pack(aces) },
+      { id: 'special', ru: 'Особые тузы', en: 'Special aces', cards: pack(special) },
+      { id: 'rare', ru: 'Редкий туз', en: 'Rare ace', cards: pack(rare) },
+      { id: 'good', ru: 'Хорошие ножи', en: 'Good knives', cards: pack(good) },
+      { id: 'bad', ru: 'Плохие ножи', en: 'Bad knives', cards: pack(bad) },
+    ];
+  }
+
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
-    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, catalog, DECK_SIZES, HAND_SIZE,
+    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, VOLLEY_PTS, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });

@@ -49,6 +49,9 @@ html.layout-phone #room .slot-label { font-size: 10px; margin-bottom: 2px; }
 html.layout-phone #my-slot { zoom: .9; }
 html.layout-phone #deck-slot, html.layout-phone #opp-slot { zoom: .42; }
 html.layout-phone #room .side { order: 3; margin-top: 8px; }
+/* низ экрана на телефоне: чат не прячется под кнопками навигации и жестами */
+html.layout-phone #room { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 60px); }
+html.layout-phone #room .side { padding-bottom: 4px; }
 html.layout-phone #room .log { max-height: 140px; }
 html.layout-phone .logo .lang-toggle { top: 10px; right: 10px; }
 html.layout-phone .conn { position: static; display: block; text-align: center; margin-top: 14px; }

@@ -30,7 +30,7 @@ window.NDEngine = (() => {
         players: g.players.map(p => ({
           id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, cn: p.cn, hm: p.handMax || g.handMax, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
-          status: p.status, streak: p.streak, rt: p.rt || 0, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
+          status: p.status, streak: p.streak, rt: p.rt || 0, sw: p.swords || 0, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
         // компактно: [индекс игрока, карта, козырь, x, y, r, id броска]
         stuck: g.stuck.map(s => [g.players.findIndex(p => p.id === s.o), s.c, s.t ? 1 : 0, s.x, s.y, s.r, s.id]),
@@ -75,6 +75,7 @@ window.NDEngine = (() => {
       const bp = newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true, extra.look || BOT_LOOK[lvl], lvl);
       if (extra.cn != null) bp.cn = extra.cn;
       if (extra.hand) bp.handMax = extra.hand;
+      if (lvl === 'king') bp.swords = 2;   // настоящий король: два алых меча за спиной
       g.players.push(bp);
       log({ k: 'bot', cn: extra.cn }); push();
     }
@@ -118,6 +119,13 @@ window.NDEngine = (() => {
         for (const p of order) if (p.hand.length < HM(p) && g.deck.length) { p.hand.push(g.deck.shift()); drew = true; }
       }
       if (g.players.every(p => p.hand.length === 0)) return endGame();
+      // король превращает меч со спины в карту (по одному, с шансом на раунд)
+      g.players.forEach(p => {
+        if (p.isBot && p.lvl === 'king' && (p.swords || 0) > 0 && Math.random() < 0.6) {
+          p.swords--; p.hand.push(G.CARD_BY_ID['A3-h']);
+          log({ k: 'sword', b: true, cn: p.cn, left: p.swords }); push();
+        }
+      });
       g.round++;
       g.wind = Math.round((Math.random() * 2 - 1) * 100) / 100;
       g.phase = 'draw';
@@ -156,6 +164,37 @@ window.NDEngine = (() => {
       p.active = c; push();
     }
 
+    // залп: каждый из 12 кортиков может сбить чужой нож в полёте; сбитые кортики не втыкаются
+    function volleyClash(id, now, sim, flight, msg, result, st) {
+      const shotFr = [sim.frames, ...(sim.extra || [])];
+      const info = sim.shots || [];
+      const cutAt = {}, hitAt = new Map();   // hitAt: нож соперника -> самая ранняя точка касания
+      for (let k = 0; k < shotFr.length; k++) {
+        const sf = shotFr[k];
+        if (!sf || !sf.length) continue;
+        for (const f of g.flights) {
+          if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
+          const col = G.findCollision(sf, f.frames, Math.round(((now - f.t0) / 1000) * 60));
+          if (col) { cutAt[k] = col.i; if (hitAt.get(f) == null || col.j < hitAt.get(f)) hitAt.set(f, col.j); break; }
+        }
+      }
+      const knocks = [...hitAt].map(([f, at]) => ({ f, at }));
+      if (!knocks.length) return;
+      const bonus = knocks.reduce((sum, x) => sum + Math.max(5, Math.round(x.f.st.points / 2)), 0);
+      msg.shotCuts = Object.keys(cutAt).map(k => ({ k: +k, at: cutAt[k] }));
+      msg.knocks = knocks.map(({ f, at }) => {
+        f.frames = G.knockFrames(f.frames, at);
+        f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
+        if (f.msg) { f.msg.cut = at; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
+        scheduleLanding(f);
+        return { id: f.id, at, res: f.result };
+      });
+      if (cutAt[0] != null) { msg.cut = cutAt[0]; flight.frames = G.knockFrames(sim.frames, cutAt[0]); }
+      // в воздухе сбитые кортики не втыкаются: остальные считаются как обычно
+      const kept = info.map((s, k) => (s.hit && cutAt[k] == null ? s : null)).filter(Boolean);
+      Object.assign(result, { hit: kept.length > 0, knock: true, knocked: false, reason: 'Сбил нож соперника!', code: 'knock',
+        points: kept.length * G.VOLLEY_PTS + bonus, mult: 0, zone: null, stuck: null, volley: kept.length, stucks: kept.map(s => s.stuck) });
+    }
     function doThrow(id, angle, power) {
       const p = P(id);
       if (!p || g.state !== 'playing' || g.phase !== 'play' || p.status !== 'aim' || !p.active) return;
@@ -178,14 +217,14 @@ window.NDEngine = (() => {
       const msg = { ep: g.epoch, o: id, a: angle, p: power, s: seed, w: g.wind, c: card.id, ts: g.trumpSuit, id: throwId };
       flight.msg = msg;
 
-      // Столкновение с чужим ножом, который ещё в воздухе
+      // Столкновение с чужим ножом, который ещё в воздухе (залп сбивает каждым кортиком отдельно)
+      if (volley) volleyClash(id, now, sim, flight, msg, result, st); else
       for (const f of g.flights) {
-        if (volley) break;   // залп летит веером и не сбивает ножи
         if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
         const offset = Math.round(((now - f.t0) / 1000) * 60);
         const col = G.findCollision(frames, f.frames, offset);
         if (!col) continue;
-        // меч Кровавого Короля не сбить: чужой нож падает, а меч лишь чуть отклоняется
+        // меч Алого Короля не сбить: чужой нож падает, а меч лишь чуть отклоняется
         const kickOf = (sw, other, i, j) => ((other[Math.min(j, other.length - 1)] || {}).y > (sw[Math.min(i, sw.length - 1)] || {}).y ? -0.16 : 0.16);
         if (st.has('bloodsword')) {
           const k = kickOf(frames, f.frames, col.i, col.j), d = G.deflect(frames, col.i, st, g.wind, k);

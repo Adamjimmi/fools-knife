@@ -14,7 +14,7 @@
   let roomAt = 0;
   let myId = 'local';
   let logLines = [];
-  let anims = [], floaters = [], booms = [];
+  let anims = [], floaters = [], booms = [], swordFx = [];
   let aim = { active: false, angle: -0.6, power: 0 };
   let oppAim = null, lastAimSent = 0, morphing = false;
   let heartbeat = null, joinRetry = null;
@@ -69,7 +69,7 @@
     { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Палач «Без Лица»', 'Executioner "Faceless"'], look: LK('none', 'leather', 'ninja', 'cape', 'fire') },
     { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Рыцарь «Чёрный Ворон»', 'Knight "Black Raven"'], look: LK('viking', 'armor', 'eyepatch', 'cape', 'sparks') },
     { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Гвардеец «Последний Щит»', 'Guard "Last Shield"'], look: LK('tophat', 'armor', 'mustache', 'cape', 'rainbow') },
-    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король «Кровавый Венец»', 'The True King "Blood Crown"'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
+    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король «Алый Венец»', 'The True King "Scarlet Crown"'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
   ];
   const campSize = (f) => { const m = Math.max(f.me, f.op); return m >= 5 ? 50 : m >= 3 ? 30 : 20; };
   const campXp = (i) => (CAMP[i].boss === 2 ? 600 : CAMP[i].boss ? 120 + i * 15 : 40 + i * 10);
@@ -88,7 +88,7 @@
     const cn = card ? `${cardName(card)} ${KG.SUITS[card.suit].sym}` : T('нож', 'knife');
     switch (e.k) {
       case 'join': return T(`${e.n} зашёл на сервер`, `${e.n} joined the server`);
-      case 'rare': return T('⚔ В колоде меч Кровавого Короля! Он попадается не в каждом матче.', "⚔ The Blood King's Sword is in the deck! It doesn't show up every match.");
+      case 'rare': return T('⚔ В колоде меч Алого Короля! Он попадается не в каждом матче.', "⚔ The Scarlet King's Sword is in the deck! It doesn't show up every match.");
       case 'steal': { const thief = e.b ? (e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT()) : String(e.n || ''); const vic = e.fb ? (e.fcn != null && CAMP[e.fcn] ? T(...CAMP[e.fcn].n) : BOT()) : String(e.from || ''); const sc = KG.CARD_BY_ID[e.c];
         return T(`🩸 ${thief} украл у ${vic} карту: ${sc ? cardName(sc) + ' ' + KG.SUITS[sc.suit].sym : '?'}`, `🩸 ${thief} stole ${vic}'s card: ${sc ? cardName(sc) + ' ' + KG.SUITS[sc.suit].sym : '?'}`); }
       case 'bot': return e.cn != null && CAMP[e.cn] ? T(`${CAMP[e.cn].n[0]} вызывает тебя на бой`, `${CAMP[e.cn].n[1]} challenges you`) : T('Бот Ножовщик сел за стол', 'Knife Bot joined the table');
@@ -96,6 +96,7 @@
       case 'start': { const s = KG.SUITS[e.suit] || { sym: '' };
         if (e.hm && e.hm[0] !== e.hm[1]) return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. У тебя в руке до ${e.hm[0]} карт, у соперника до ${e.hm[1]}.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Your hand: up to ${e.hm[0]}, opponent: up to ${e.hm[1]}.`);
         return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
+      case 'sword': return T(`${who} превращает алый меч со спины в карту!`, `${who} turns a scarlet sword from the back into a card!`);
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
       case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }
@@ -296,7 +297,14 @@
       nr.on('am', (m) => { if (!m.sameTab) oppAim = { angle: +(m.data && m.data.a) || 0, power: +(m.data && m.data.p) || 0, at: performance.now() }; });
       nr.on('ch', (m) => addChat(m.data && m.data.n, m.data && m.data.t));
       nr.onPeers((ch) => { for (const p of ch.left) if (eng && eng.g.players.some(x => x.id === p.peer)) eng.removePlayer(p.peer); });
-      heartbeat = setInterval(() => { if (net && eng) net.room.emit('st', eng.pub()).catch(() => {}); }, 2500);
+      // состояние шлём только когда оно изменилось, а раз в 5 с — для страховки
+      let lastSt = '', lastStAt = 0;
+      heartbeat = setInterval(() => {
+        if (!net || !eng) return;
+        const s = eng.pub(), j = JSON.stringify(s);
+        if (j === lastSt && Date.now() - lastStAt < 5000) return;
+        lastSt = j; lastStAt = Date.now(); net.room.emit('st', s).catch(() => {});
+      }, 1500);
     }
     eng.addPlayer(myId, nick(), myLook());
     if (cf) { eng.setHand(myId, cf.me); eng.addBot(cf.lvl, { cn: opts.campaign, look: cf.look, hand: cf.op }); eng.start(); }
@@ -352,7 +360,7 @@
     if (net) { net.room.leave().catch(() => {}); net = null; }
     if (R) R.presence({ nick: nick(), srv: null }).catch(() => {});
     room = null; anims = []; floaters = []; booms = []; aim.active = false;
-    practice = null; showCoach(null); cmp = null;
+    practice = null; showCoach(null); cmp = null; X.Audio.setKing(false);
     Object.keys(slotKeys).forEach(k => delete slotKeys[k]);
     show('lobby');
     renderServers();
@@ -383,8 +391,14 @@
     if (!s || !Array.isArray(s.players)) return;
     const prev = room;
     if (prev && prev.ep !== s.ep) anims = [];
+    // меч со спины короля пропал — значит, он превращён в карту: запускаем эффект
+    if (prev && prev.ep === s.ep) for (const pl of s.players) {
+      const pp = prev.players.find(x => x.id === pl.id);
+      if (pp && pl.sw != null && pp.sw != null && pl.sw < pp.sw) { swordFx.push({ t0: performance.now(), fired: false }); sfx('whoosh'); }
+    }
     room = s; roomAt = performance.now();
     X.Audio.setContext('game', ['sunset', 'night', 'winter', 'desert'].includes(s.arena) ? s.arena : 'sunset');
+    X.Audio.setKing(s.state === 'playing' && cmp != null && !!CAMP[cmp] && CAMP[cmp].boss === 2);
     syncFlights(s);
     if (!prev) enterRoom();
     if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; reward = null; matchStartXp = X.Profile.data.xp; }
@@ -676,11 +690,14 @@
     let full = [], extra = [], dur = 0;
     const st0 = base ? KG.knifeStats(base, m.ts) : null;
     if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: st0, wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
+    // сбитые кортики залпа обрываются в точке удара
+    for (const sc of m.shotCuts || []) if (sc.k > 0 && extra[sc.k - 1]) extra[sc.k - 1] = KG.knockFrames(extra[sc.k - 1], +sc.at);
     if (m.defl && full.length) full = KG.deflect(full, +m.defl.at, st0, +m.w || 0, +m.defl.k).frames;   // меч отклонился от удара
     const cut = m.cut != null ? +m.cut : null;
     const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
+    for (const k of m.knocks || []) knockAnim(k.id, +k.at, k.res);
     if (m.defl2) deflAnim(m.defl2.id, +m.defl2.at, +m.defl2.k, m.defl2.res);
     const el = Math.max(0, +m.el || 0);
     const a = { owner: m.o, full, cut, frames, extra, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
@@ -804,9 +821,9 @@
     if (arena === 'winter') { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x + w / 2, top - 3, w / 2 + 3, 10, 0, Math.PI, 0); g.fill(); g.fillRect(x - 3, top - 3, w + 6, 6); }
   }
 
-  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn, look, swing, now) {
+  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn, look, swing, now, king, swords) {
     const g = ctx;
-    X.drawCharacter(g, { x, ground: GROUND, facing, color, look, arm: armAngle, swing, holdCard: holding ? card : null, now });
+    X.drawCharacter(g, { x, ground: GROUND, facing, color, look, arm: armAngle, swing, holdCard: holding ? card : null, now, king: !!king, swords });
     g.save(); g.translate(-10000, GROUND);
     g.strokeStyle = '#2a1d13'; g.lineWidth = 7; g.lineCap = 'round';
     g.beginPath(); g.moveTo(0, -80); g.lineTo(-12 * facing, 0); g.moveTo(0, -80); g.lineTo(12 * facing, 0); g.stroke();
@@ -895,7 +912,13 @@
   }
 
   let lastTick = 0, redAt = -1e9;
+  const roomScreen = document.getElementById('room');
+  let lastHint = null, lastTimer = null, lastTimerColor = null;
+  function putText(el, v, last) { if (v !== last) el.textContent = v; return v; }
   function frame(now) {
+    requestAnimationFrame(frame);
+    // на экране меню холст игры не нужен: не рисуем и не трогаем DOM, пока комната не открыта
+    if (!roomScreen.classList.contains('active') && !anims.length) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
     const [sx, sy] = X.shakeOffset(now);
@@ -922,7 +945,7 @@
       if (o) {
         const holding = playing && o.status === 'aim' && !!o.active;
         const oa = oppAim && o.status === 'aim' && now - oppAim.at < 1500 ? oppAim.angle : null;
-        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim', o.look, swingAt[o.id] ? (now - swingAt[o.id]) / 260 : null, now);
+        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim', o.look, swingAt[o.id] ? (now - swingAt[o.id]) / 260 : null, now, o.cn != null && CAMP[o.cn] && CAMP[o.cn].boss === 2, o.sw);
         if (oa != null) {
           ctx.fillStyle = 'rgba(20,12,6,.6)'; ctx.fillRect(W - 180, 20, 160, 22);
           ctx.fillStyle = '#ff7a59'; ctx.fillRect(W - 176, 26, 152 * Math.max(0, Math.min(1, oppAim.power)), 10);
@@ -955,6 +978,8 @@
         if (i >= Math.max(an.frames.length, an.dur || 0)) finishAnim(an);
       }
       booms = booms.filter(b => now - b.t0 < 450);
+      swordFx = swordFx.filter(fx => now - fx.t0 < 1700);
+      for (const fx of swordFx) drawSwordFx(ctx, fx, now);
       for (const b of booms) {
         const t = (now - b.t0) / 450;
         ctx.save(); ctx.globalAlpha = 1 - t; ctx.strokeStyle = '#fff4b0'; ctx.lineWidth = 3;
@@ -977,13 +1002,54 @@
       if (playing && m && m.status === 'aim' && m.left) {
         const left = Math.max(0, m.left - (now - roomAt));
         if (left < 5500 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); sfx('tick'); }
-        $('#hud-timer').textContent = Math.ceil(left / 1000) + T(' с', ' s');
-        $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
-      } else $('#hud-timer').textContent = '—';
-      $('#hint').textContent = hintText();
+        lastTimer = putText($('#hud-timer'), Math.ceil(left / 1000) + T(' с', ' s'), lastTimer);
+        const col = left < 8000 ? '#ff6b5b' : '';
+        if (col !== lastTimerColor) { $('#hud-timer').style.color = col; lastTimerColor = col; }
+      } else lastTimer = putText($('#hud-timer'), '—', lastTimer);
+      lastHint = putText($('#hint'), hintText(), lastHint);
     }
     else X.drawParts(ctx);
-    requestAnimationFrame(frame);
+  }
+  // превращение меча со спины короля в карту: меч летит над головой, рассыпается искрами, проявляется карта
+  function drawSwordFx(cx, fx, now) {
+    const DUR = 1700, t = Math.min(1, (now - fx.t0) / DUR);
+    const sx = W - 45 + 22, sy = GROUND - 150;          // спина короля
+    const hx = W - 45, hy = GROUND - 262;              // над головой
+    const pos = (u) => {
+      const e = 1 - Math.pow(1 - Math.min(u / 0.6, 1), 3);
+      return [sx + (hx - sx) * e + Math.sin(Math.min(u, 0.6) / 0.6 * Math.PI) * -56, sy + (hy - sy) * e];
+    };
+    const KS = KG.CARD_BY_ID['A3-h'];
+    if (t < 0.6) {
+      const [x, y] = pos(t);
+      if (now - (fx.lastSpark || 0) > 45) { fx.lastSpark = now; X.burst('sparks', x, y, 4); }   // искры-шлейф
+      const s = 0.85 * (1 - 0.45 * Math.max(0, (t - 0.3) / 0.3));
+      cx.save(); cx.translate(x, y); cx.rotate(t * Math.PI * 4); cx.scale(s, s); KG.drawKnife(cx, KS, { trump: false }); cx.restore();
+    }
+    if (!fx.fired && t >= 0.6) {
+      fx.fired = true; sfx('morph');
+      X.burst('sparks', hx, hy - 10, 26);
+      floaters.push({ text: T('⚔ Меч → карта', '⚔ Sword → card'), x: hx - 170, y: hy - 30, t0: now, color: '#ff7a8a' });
+    }
+    if (t >= 0.6) {
+      const u = (t - 0.6) / 0.4;
+      // вспышка и кольцо удара
+      cx.save(); cx.globalAlpha = (1 - u) * 0.85;
+      const rg = cx.createRadialGradient(hx, hy, 2, hx, hy, 80 + u * 30);
+      rg.addColorStop(0, '#fff3c4'); rg.addColorStop(0.4, 'rgba(255,90,110,.6)'); rg.addColorStop(1, 'rgba(255,40,60,0)');
+      cx.fillStyle = rg; cx.beginPath(); cx.arc(hx, hy, 110, 0, Math.PI * 2); cx.fill(); cx.restore();
+      cx.save(); cx.globalAlpha = 1 - u; cx.strokeStyle = '#ffd77a'; cx.lineWidth = 3; cx.beginPath(); cx.arc(hx, hy, 10 + u * 75, 0, Math.PI * 2); cx.stroke(); cx.restore();
+      // карта проявляется и пружинит
+      const k = Math.min(1, u / 0.5), bounce = 1 + Math.sin(Math.min(1, u * 1.6) * Math.PI) * 0.18 * (1 - k * 0.5), sc = (0.55 + 0.45 * k) * bounce;
+      const w = 46, h = 62;
+      cx.save(); cx.globalAlpha = Math.min(1, u * 2.2); cx.translate(hx, hy - 6); cx.scale(sc, sc);
+      cx.shadowColor = 'rgba(255,200,90,.9)'; cx.shadowBlur = 16;
+      cx.fillStyle = '#f6efe1'; cx.strokeStyle = '#d4a23a'; cx.lineWidth = 2.5;
+      cx.beginPath(); cx.roundRect ? cx.roundRect(-w / 2, -h / 2, w, h, 6) : cx.rect(-w / 2, -h / 2, w, h); cx.fill(); cx.stroke();
+      cx.shadowBlur = 0;
+      cx.save(); cx.scale(0.3, 0.3); cx.translate(0, -2); cx.rotate(-0.3); KG.drawKnife(cx, KS, { trump: false }); cx.restore();
+      cx.restore();
+    }
   }
   function hintText() {
     if (!room || room.state !== 'playing') return '';
@@ -1022,7 +1088,9 @@
     h.classList.toggle('layout-phone', layoutPhone);
     h.classList.toggle('native-app', !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
   }
-  window.addEventListener('resize', applyDevice);
+  let devT = 0;
+  const applyDeviceSoon = () => { clearTimeout(devT); devT = setTimeout(applyDevice, 150); };
+  window.addEventListener('resize', applyDeviceSoon);
   window.addEventListener('orientationchange', () => setTimeout(applyDevice, 200));
   const vibrateOn = () => { try { return localStorage.getItem('nd-vibrate') !== '0'; } catch (e) { return true; } };
 
@@ -1317,7 +1385,7 @@
     const tag = f.boss === 2 ? T('👑 Главный босс', '👑 Final boss') : f.boss ? T('💀 Босс биома', '💀 Biome boss') : T(`Противник ${i + 1} из 20`, `Opponent ${i + 1} of 20`);
     el.innerHTML = `<div class="ci-main"><div class="ci-tag">${tag} · ${T(...BIOMES[f.b].n)}</div><b class="${f.boss ? 'gold' : ''}">${esc(T(...f.n))}</b>
       <div class="ci-sub">${T('Сложность', 'Difficulty')}: ${T(...LVL_NAME[f.lvl])} · ✋ ${T('у тебя', 'you')} <b class="${f.me < f.op ? 'bad' : ''}">${f.me}</b> ${T('карт, у него', 'cards, them')} <b>${f.op}</b>${i < done ? ' · ✔ ' + T('пройден', 'defeated') : ''}</div>
-      ${f.boss === 2 && !X.Profile.isUnlocked('hat', 'bloodcrown') ? `<div class="ci-sub crown">🩸 ${T('Награда: кровавая корона', 'Reward: the blood crown')}</div>` : ''}</div>
+      ${f.boss === 2 && !X.Profile.isUnlocked('hat', 'bloodcrown') ? `<div class="ci-sub crown">🩸 ${T('Награда: алая корона', 'Reward: the scarlet crown')}</div>` : ''}</div>
       <button class="btn gold" ${open ? '' : 'disabled'}>${open ? (i < done ? T('Переиграть', 'Replay') : T('В бой ⚔', 'Fight ⚔')) : '🔒 ' + T('Закрыто', 'Locked')}</button>`;
     const b = el.querySelector('button'); if (open) b.onclick = () => { sfx('click'); $('#camp-modal').classList.add('hidden'); createServer(true, { campaign: i }); };
   }
@@ -1325,7 +1393,7 @@
     const f = CAMP[c.idx];
     if (c.draw) return `<div class="camp-res">${T('Ничья — бой не засчитан. Попробуй ещё раз!', 'A draw does not count. Try again!')}</div>`;
     if (!c.won) return `<div class="camp-res">${f.boss === 2 ? T('Король пока сильнее. Попробуй ещё раз!', 'The king is stronger for now. Try again!') : T(`${f.n[0]} победил. Попробуй ещё раз!`, `${f.n[1]} won. Try again!`)}</div>`;
-    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Кровавая корона теперь твоя — надень её в профиле.', 'The true king has fallen! The blood crown is yours — wear it from your profile.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
+    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Алая корона теперь твоя — надень её в профиле.', 'The true king has fallen! The scarlet crown is yours — wear it from your profile.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
     const next = CAMP[c.idx + 1], nb = next && next.b !== f.b;
     return `<div class="camp-res">${c.first ? T(`Бой пройден! +${c.xp} XP за кампанию.`, `Fight won! +${c.xp} campaign XP.`) : T('Бой пройден снова.', 'Fight won again.')}${nb && c.first ? ' ' + T(`Открыт новый биом: ${BIOMES[next.b].n[0]}!`, `New biome unlocked: ${BIOMES[next.b].n[1]}!`) : ''}</div>`;
   }
@@ -1346,9 +1414,11 @@
       ${slider('vMaster', T('Общая громкость', 'Master volume'))}
       ${slider('vMusic', T('Музыка', 'Music'))}
       ${slider('vSfx', T('Эффекты', 'Sound effects'))}
-      <label class="set-row"><span>${T('Трек', 'Track')}</span><select id="set-track"><option value="auto">${T('Авто: меняется каждую минуту', 'Auto: changes every minute')}</option>${Object.entries(X.Audio.TRACKS).map(([id, t]) => `<option value="${id}">${T(...t.name)}</option>`).join('')}</select></label>
+      <label class="set-row"><span>${T('Трек', 'Track')}</span><select id="set-track"><option value="auto">${T('Авто: меняется каждую минуту', 'Auto: changes every minute')}</option>${Object.entries(X.Audio.TRACKS).filter(([id]) => id !== 'king').map(([id, t]) => `<option value="${id}">${T(...t.name)}</option>`).join('')}</select></label>
       <label class="set-row"><span>${T('Звуки', 'Sound')}</span><input type="checkbox" id="set-snd" ${a.sound ? 'checked' : ''}></label>
       <label class="set-row"><span>${T('Музыка', 'Music')}</span><input type="checkbox" id="set-mus" ${a.music ? 'checked' : ''}></label>
+      <div class="set-row code-row"><span>${T('Код', 'Code')}</span><input id="set-code" type="text" autocomplete="off" placeholder="${T('введи код', 'enter code')}" value=""><button type="button" id="set-code-ok" class="btn small">${T('Ввести', 'Apply')}</button></div>
+      <p class="pm-note" id="set-code-msg">${X.Profile.cheat ? T('Код активен: все скины и вся кампания открыты.', 'Code active: all skins and the whole campaign are open.') : ''}</p>
       ${DEV.phone ? `<label class="set-row"><span>${T('Вибрация', 'Vibration')}</span><input type="checkbox" id="set-vib" ${vibrateOn() ? 'checked' : ''}></label>` : ''}
       <p class="pm-note">${T('Устройство', 'Device')}: ${DEV.phone ? T('телефон', 'phone') : DEV.tablet ? T('планшет', 'tablet') : T('компьютер', 'computer')} · ${T('раскладка подстраивается сама', 'layout adapts automatically')}</p>`;
     b.querySelectorAll('[data-vol]').forEach(r => r.oninput = () => { X.Audio.setVolume(r.dataset.vol, +r.value); r.nextElementSibling.textContent = r.value; });
@@ -1356,17 +1426,61 @@
     const tr = b.querySelector('#set-track'); tr.value = a.track; tr.onchange = () => X.Audio.setTrack(tr.value);
     b.querySelector('#set-snd').onchange = (e) => { X.Audio.setSound(e.target.checked); paintSnd(); };
     b.querySelector('#set-mus').onchange = (e) => { X.Audio.setMusic(e.target.checked); paintSnd(); };
+    const codeOk = () => {
+      const inp = b.querySelector('#set-code'), msg = b.querySelector('#set-code-msg');
+      if (X.Profile.redeem(inp.value)) { sfx('click'); inp.value = ''; msg.textContent = T('Код активен: все скины и вся кампания открыты.', 'Code active: all skins and the whole campaign are open.'); paintExtra(); }
+      else { msg.textContent = T('Неверный код', 'Wrong code'); }
+    };
+    b.querySelector('#set-code-ok').onclick = codeOk;
+    b.querySelector('#set-code').onkeydown = (e) => { if (e.key === 'Enter') codeOk(); };
     const vib = b.querySelector('#set-vib'); if (vib) vib.onchange = (e) => { try { localStorage.setItem('nd-vibrate', e.target.checked ? '1' : '0'); } catch (er) {} if (e.target.checked) try { navigator.vibrate(30); } catch (er) {} };
   }
+  // ---------- Все карты: галерея из каталога ----------
+  const CARDS_CSS = `
+  .cards-panel { width: min(1000px, 96vw) !important; }
+  .cards-btn { margin-top: 8px; }
+  .cards-h { font-family: 'Russo One', sans-serif; font-size: 16px; margin: 22px 0 12px; color: var(--gold, #e3b341); display: flex; align-items: center; gap: 8px; }
+  .cards-h span { font-size: 12px; color: var(--muted); font-family: inherit; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; justify-items: center; }
+  .cards-gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; font-size: 13px; line-height: 1.35; }
+  .cards-gloss b { color: var(--text, #f3ead8); }
+  .cards-gloss div { color: var(--muted); }`;
+  function openCards() { renderCards(); $('#cards-modal').classList.remove('hidden'); }
+  function renderCards() {
+    const body = $('#cards-modal .pm-body');
+    body.innerHTML = `<h2 style="margin:0 0 4px">${T('Все карты игры', 'All cards in the game')}</h2>
+      <div style="font-size:13px;color:var(--muted)">${T('Каждая карта встречается в колодах; здесь показаны все уникальные модели.', 'Every card appears in the decks; here are all unique designs.')}</div>`;
+    KG.catalog().forEach((sec) => {
+      const h = document.createElement('h3'); h.className = 'cards-h';
+      h.innerHTML = `${esc(T(sec.ru, sec.en))} <span>${sec.cards.length}</span>`;
+      const grid = document.createElement('div'); grid.className = 'cards-grid';
+      sec.cards.forEach((c) => grid.appendChild(cardEl(c)));
+      body.appendChild(h); body.appendChild(grid);
+    });
+    const gh = document.createElement('h3'); gh.className = 'cards-h'; gh.textContent = T('Способности и качества', 'Abilities and qualities');
+    const gl = document.createElement('div'); gl.className = 'cards-gloss';
+    const row = (k, fn, sign) => { const [n, d] = fn(k); return `<div><b>${sign} ${esc(n)}</b> — ${esc(d)}</div>`; };
+    gl.innerHTML = [
+      ...Object.keys(KG.ABILITIES).map((k) => row(k, abil, '✦')),
+      ...Object.keys(KG.QUALITIES).map((k) => row(k, qual, '+')),
+      ...Object.keys(KG.FLAWS).map((k) => row(k, flaw, '−')),
+    ].join('');
+    body.appendChild(gh); body.appendChild(gl);
+  }
+
   function buildExtraUI() {
     const mkModal = (id) => { const m = document.createElement('div'); m.id = id; m.className = 'modal hidden'; m.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
       m.onclick = (e) => { if (e.target === m) m.classList.add('hidden'); }; m.querySelector('.pm-close').onclick = () => m.classList.add('hidden'); document.body.appendChild(m); };
-    mkModal('board-modal'); mkModal('settings-modal'); mkModal('tut-modal'); mkModal('camp-modal');
+    mkModal('board-modal'); mkModal('settings-modal'); mkModal('tut-modal'); mkModal('camp-modal'); mkModal('cards-modal');
     $('#camp-modal .panel').classList.add('camp-panel');
+    $('#cards-modal .panel').classList.add('cards-panel');
     const cb = document.createElement('button'); cb.id = 'btn-camp'; cb.type = 'button'; cb.className = 'btn gold camp-btn';
     cb.onclick = () => { sfx('click'); openCampaign(); };
     $('#btn-bot').insertAdjacentElement('afterend', cb);
-    const st = document.createElement('style'); st.textContent = CAMP_CSS; document.head.appendChild(st);
+    const kb = document.createElement('button'); kb.id = 'btn-cards'; kb.type = 'button'; kb.className = 'btn cards-btn';
+    kb.onclick = () => { sfx('click'); openCards(); };
+    cb.insertAdjacentElement('afterend', kb);
+    const st = document.createElement('style'); st.textContent = CAMP_CSS + CARDS_CSS; document.head.appendChild(st);
     const coach = document.createElement('div'); coach.id = 'coach'; coach.className = 'coach hidden'; coach.innerHTML = '<span></span><button type="button" aria-label="close">✕</button>';
     coach.querySelector('button').onclick = () => { coach.classList.add('hidden'); practice = null; }; document.body.appendChild(coach);
     // кнопка обучения — сверху в меню (необязательная)
@@ -1381,6 +1495,8 @@
     const lb = $('.pc-lb'); if (lb) lb.textContent = T('🏆 Таблица лидеров', '🏆 Leaderboard');
     const cb = $('#btn-camp'); if (cb) cb.textContent = T(`⚔ Кампания · ${X.Profile.camp}/20`, `⚔ Campaign · ${X.Profile.camp}/20`);
     if ($('#camp-modal') && !$('#camp-modal').classList.contains('hidden')) renderCampaign();
+    const kb = $('#btn-cards'); if (kb) kb.textContent = T('🃏 Все карты', '🃏 All cards');
+    if ($('#cards-modal') && !$('#cards-modal').classList.contains('hidden')) renderCards();
     document.querySelectorAll('.snd-toggle.set').forEach(b => b.title = T('Настройки', 'Settings'));
     document.querySelectorAll('.tut-btn').forEach(b => { b.textContent = '❓ ' + T('Обучение', 'How to play'); b.title = T('Короткое обучение (необязательно)', 'Quick tutorial (optional)'); });
     if ($('#tut-modal') && !$('#tut-modal').classList.contains('hidden')) renderTutorial();

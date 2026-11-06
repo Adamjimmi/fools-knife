@@ -253,6 +253,9 @@ html.layout-phone #room .slot-label { font-size: 10px; margin-bottom: 2px; }
 html.layout-phone #my-slot { zoom: .9; }
 html.layout-phone #deck-slot, html.layout-phone #opp-slot { zoom: .42; }
 html.layout-phone #room .side { order: 3; margin-top: 8px; }
+/* низ экрана на телефоне: чат не прячется под кнопками навигации и жестами */
+html.layout-phone #room { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 60px); }
+html.layout-phone #room .side { padding-bottom: 4px; }
 html.layout-phone #room .log { max-height: 140px; }
 html.layout-phone .logo .lang-toggle { top: 10px; right: 10px; }
 html.layout-phone .conn { position: static; display: block; text-align: center; margin-top: 14px; }
@@ -535,7 +538,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
-  const RARE = ['hearts', 'A3-h', ['Меч Кровавого Короля', 'sword', ['bloodsword'], 'calm', 'power']];
+  const RARE = ['hearts', 'A3-h', ['Меч Алого Короля', 'sword', ['bloodsword'], 'calm', 'power']];
   const RARE_CHANCE = 0.25;
   // Модели хороших ножей: [имя, форма, качества, козырная способность, козырное качество]
   const GOOD = [
@@ -651,6 +654,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     s.twin = !!(shp && shp.twin);
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
+    // плохие ножи: окно втыкания +30% (окна «всегда втыкается» не трогаем)
+    if (card.tier === 'bad' && s.stick < 360) s.stick = Math.round(s.stick * 1.3);
     s.preview = Math.min(1, s.preview);
     s.spread = Math.round(s.spread * 100) / 100;
     return Object.assign(s, {
@@ -880,7 +885,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       code: hits ? 'volley' : main.result.code, reason: hits ? `Залп: ${hits} из ${VOLLEY_N}` : main.result.reason,
       stucks: shots.filter(x => x.result.hit).map(x => x.result.stuck) });
     res.stuck = null;
-    return { frames: main.frames, result: res, extra: shots.slice(1).map(x => x.frames), dur: Math.max(...shots.map(x => x.frames.length)) };
+    return { frames: main.frames, result: res, extra: shots.slice(1).map(x => x.frames), dur: Math.max(...shots.map(x => x.frames.length)),
+      shots: shots.map(x => ({ hit: x.result.hit, stuck: x.result.stuck })) };
   }
 
   // ---------- Английские названия ----------
@@ -908,7 +914,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Кровавого Короля': 'Blood King\'s Sword',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -993,7 +999,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     spades: ['#6a6380', '#15131c'], hearts: ['#ffd7d7', '#c8263b'],
   };
 
-  // меч Кровавого Короля: длинный клинок с долом, кровь у острия, крестовина с рубином, тёмно-красное свечение
+  // меч Алого Короля: длинный клинок с долом, кровь у острия, крестовина с рубином, тёмно-красное свечение
   function drawSword(ctx, card, sh, opt) {
     const L = sh.len, w = sh.w, hl = sh.handle, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
     const glow = 0.5 + 0.5 * Math.sin(t * 2);
@@ -1133,10 +1139,27 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     ctx.restore();
   }
 
+  // Каталог: каждая карта игры ровно один раз (тузы мастей, особые, редкий, модели хороших и плохих ножей)
+  function catalog() {
+    const aces = SUIT_ORDER.map((suit) => mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', ACES[suit], false));
+    const special = [mkCard('A2-d', 'diamonds', 'ace', SPECIAL[0][2], false), mkCard('A2-s', 'spades', 'ace', SPECIAL[1][2], false)];
+    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false)];
+    const good = GOOD.map((d, i) => mkCard('cat-g' + i, SUIT_ORDER[i % 4], 'good', d, false));
+    const bad = BAD.map((d, i) => mkCard('cat-b' + i, SUIT_ORDER[i % 4], 'bad', d, true));
+    const pack = (list) => list.map((c) => cardWithStats(c, null));
+    return [
+      { id: 'aces', ru: 'Тузы мастей', en: 'Suit aces', cards: pack(aces) },
+      { id: 'special', ru: 'Особые тузы', en: 'Special aces', cards: pack(special) },
+      { id: 'rare', ru: 'Редкий туз', en: 'Rare ace', cards: pack(rare) },
+      { id: 'good', ru: 'Хорошие ножи', en: 'Good knives', cards: pack(good) },
+      { id: 'bad', ru: 'Плохие ножи', en: 'Bad knives', cards: pack(bad) },
+    ];
+  }
+
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
-    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, catalog, DECK_SIZES, HAND_SIZE,
+    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, VOLLEY_PTS, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });
 
@@ -1174,7 +1197,7 @@ window.NDEngine = (() => {
         players: g.players.map(p => ({
           id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, cn: p.cn, hm: p.handMax || g.handMax, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
-          status: p.status, streak: p.streak, rt: p.rt || 0, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
+          status: p.status, streak: p.streak, rt: p.rt || 0, sw: p.swords || 0, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
         // компактно: [индекс игрока, карта, козырь, x, y, r, id броска]
         stuck: g.stuck.map(s => [g.players.findIndex(p => p.id === s.o), s.c, s.t ? 1 : 0, s.x, s.y, s.r, s.id]),
@@ -1219,6 +1242,7 @@ window.NDEngine = (() => {
       const bp = newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true, extra.look || BOT_LOOK[lvl], lvl);
       if (extra.cn != null) bp.cn = extra.cn;
       if (extra.hand) bp.handMax = extra.hand;
+      if (lvl === 'king') bp.swords = 2;   // настоящий король: два алых меча за спиной
       g.players.push(bp);
       log({ k: 'bot', cn: extra.cn }); push();
     }
@@ -1262,6 +1286,13 @@ window.NDEngine = (() => {
         for (const p of order) if (p.hand.length < HM(p) && g.deck.length) { p.hand.push(g.deck.shift()); drew = true; }
       }
       if (g.players.every(p => p.hand.length === 0)) return endGame();
+      // король превращает меч со спины в карту (по одному, с шансом на раунд)
+      g.players.forEach(p => {
+        if (p.isBot && p.lvl === 'king' && (p.swords || 0) > 0 && Math.random() < 0.6) {
+          p.swords--; p.hand.push(G.CARD_BY_ID['A3-h']);
+          log({ k: 'sword', b: true, cn: p.cn, left: p.swords }); push();
+        }
+      });
       g.round++;
       g.wind = Math.round((Math.random() * 2 - 1) * 100) / 100;
       g.phase = 'draw';
@@ -1300,6 +1331,37 @@ window.NDEngine = (() => {
       p.active = c; push();
     }
 
+    // залп: каждый из 12 кортиков может сбить чужой нож в полёте; сбитые кортики не втыкаются
+    function volleyClash(id, now, sim, flight, msg, result, st) {
+      const shotFr = [sim.frames, ...(sim.extra || [])];
+      const info = sim.shots || [];
+      const cutAt = {}, hitAt = new Map();   // hitAt: нож соперника -> самая ранняя точка касания
+      for (let k = 0; k < shotFr.length; k++) {
+        const sf = shotFr[k];
+        if (!sf || !sf.length) continue;
+        for (const f of g.flights) {
+          if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
+          const col = G.findCollision(sf, f.frames, Math.round(((now - f.t0) / 1000) * 60));
+          if (col) { cutAt[k] = col.i; if (hitAt.get(f) == null || col.j < hitAt.get(f)) hitAt.set(f, col.j); break; }
+        }
+      }
+      const knocks = [...hitAt].map(([f, at]) => ({ f, at }));
+      if (!knocks.length) return;
+      const bonus = knocks.reduce((sum, x) => sum + Math.max(5, Math.round(x.f.st.points / 2)), 0);
+      msg.shotCuts = Object.keys(cutAt).map(k => ({ k: +k, at: cutAt[k] }));
+      msg.knocks = knocks.map(({ f, at }) => {
+        f.frames = G.knockFrames(f.frames, at);
+        f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
+        if (f.msg) { f.msg.cut = at; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
+        scheduleLanding(f);
+        return { id: f.id, at, res: f.result };
+      });
+      if (cutAt[0] != null) { msg.cut = cutAt[0]; flight.frames = G.knockFrames(sim.frames, cutAt[0]); }
+      // в воздухе сбитые кортики не втыкаются: остальные считаются как обычно
+      const kept = info.map((s, k) => (s.hit && cutAt[k] == null ? s : null)).filter(Boolean);
+      Object.assign(result, { hit: kept.length > 0, knock: true, knocked: false, reason: 'Сбил нож соперника!', code: 'knock',
+        points: kept.length * G.VOLLEY_PTS + bonus, mult: 0, zone: null, stuck: null, volley: kept.length, stucks: kept.map(s => s.stuck) });
+    }
     function doThrow(id, angle, power) {
       const p = P(id);
       if (!p || g.state !== 'playing' || g.phase !== 'play' || p.status !== 'aim' || !p.active) return;
@@ -1322,14 +1384,14 @@ window.NDEngine = (() => {
       const msg = { ep: g.epoch, o: id, a: angle, p: power, s: seed, w: g.wind, c: card.id, ts: g.trumpSuit, id: throwId };
       flight.msg = msg;
 
-      // Столкновение с чужим ножом, который ещё в воздухе
+      // Столкновение с чужим ножом, который ещё в воздухе (залп сбивает каждым кортиком отдельно)
+      if (volley) volleyClash(id, now, sim, flight, msg, result, st); else
       for (const f of g.flights) {
-        if (volley) break;   // залп летит веером и не сбивает ножи
         if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
         const offset = Math.round(((now - f.t0) / 1000) * 60);
         const col = G.findCollision(frames, f.frames, offset);
         if (!col) continue;
-        // меч Кровавого Короля не сбить: чужой нож падает, а меч лишь чуть отклоняется
+        // меч Алого Короля не сбить: чужой нож падает, а меч лишь чуть отклоняется
         const kickOf = (sw, other, i, j) => ((other[Math.min(j, other.length - 1)] || {}).y > (sw[Math.min(i, sw.length - 1)] || {}).y ? -0.16 : 0.16);
         if (st.has('bloodsword')) {
           const k = kickOf(frames, f.frames, col.i, col.j), d = G.deflect(frames, col.i, st, g.wind, k);
@@ -1546,6 +1608,7 @@ window.NDEngine = (() => {
         case 'win': [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.09, 0.45, 'triangle', NOTE(n), 0, 0.1)); [48, 55, 60].forEach(n => tone(t + 0.6, 1.1, 'sawtooth', NOTE(n), 0, 0.03, null, 0.05)); break;
         case 'lose': [67, 63, 60, 55].forEach((n, i) => tone(t + i * 0.18, 0.4, 'triangle', NOTE(n), NOTE(n) * 0.97, 0.09)); break;
         case 'levelup': [72, 76, 79, 84, 88].forEach((n, i) => tone(t + i * 0.06, 0.32, 'sine', NOTE(n), 0, 0.08)); noise(t, 0.5, 'highpass', 6000, 9000, 0.03); break;
+        case 'morph': tone(t, 0.42, 'triangle', 380, 2400, 0.12); noise(t + 0.04, 0.32, 'highpass', 4000, 9000, 0.08); [1046, 1568, 2093].forEach((f, i) => tone(t + 0.38 + i * 0.05, 0.5, 'sine', f, f, 0.08)); break;
         case 'achieve': [79, 84, 91].forEach((n, i) => tone(t + i * 0.1, 0.45, 'triangle', NOTE(n), 0, 0.08)); break;
       }
     }
@@ -1562,11 +1625,15 @@ window.NDEngine = (() => {
         mel: [79, -1, 76, -1, 72, -1, 74, 76, 77, -1, 76, -1, 74, -1, -1, -1, 76, -1, 72, -1, 69, -1, 71, 72, 74, -1, 72, -1, 72, -1, -1, -1], style: 'bells' },
       desert: { name: ['Пустыня', 'Desert'], bpm: 92, ch: [[52, 56, 59], [53, 57, 60], [52, 56, 59], [50, 53, 57]], bass: [40, 41, 40, 38],
         mel: [76, 77, 80, -1, 81, -1, 80, 77, 76, -1, -1, -1, 77, 76, 74, -1, 76, -1, 80, 81, 83, -1, 81, 80, 77, -1, 76, -1, -1, -1, -1, -1], style: 'darbuka' },
+      // отдельный трек только для боя с королём: не входит в общий пул (KEYS/AUTO)
+      king: { name: ['Битва за корону', 'Crown of Blood'], bpm: 136, ch: [[50, 53, 57], [46, 50, 53], [53, 57, 60], [48, 52, 55]], bass: [38, 34, 41, 36],
+        mel: [74, -1, -1, 77, -1, 79, 77, 74, -1, -1, 81, -1, 79, -1, 77, -1, 74, -1, -1, 77, -1, 79, 81, -1, 84, -1, 82, -1, 81, -1, -1, -1], style: 'epic' },
     };
     const AUTO = { lobby: 'tavern', sunset: 'duel', night: 'night', winter: 'winter', desert: 'desert' };
-    // авто-режим: трек меняется сам каждую минуту по кругу
-    const KEYS = Object.keys(TRACKS); let rot = Math.floor(Math.random() * KEYS.length);
-    function wanted() { if (st.track !== 'auto' && TRACKS[st.track]) return st.track; return KEYS[rot]; }
+    // авто-режим: трек меняется сам каждую минуту по кругу (king — только в бою с королём)
+    const KEYS = Object.keys(TRACKS).filter(k => k !== 'king'); let rot = Math.floor(Math.random() * KEYS.length);
+    let kingOn = false;   // идёт бой с королём
+    function wanted() { if (kingOn) return 'king'; if (st.track !== 'auto' && TRACKS[st.track] && st.track !== 'king') return st.track; return KEYS[rot]; }
     function schedule() {
       const tr = TRACKS[current]; const S16 = 60 / tr.bpm / 4;
       while (nextNote < ac.currentTime + 0.15) {
@@ -1605,11 +1672,20 @@ window.NDEngine = (() => {
             if (b16 % 2 === 1) noise(t, 0.04, 'highpass', 7000, 9000, 0.07, B);
             if (b16 === 0 || b16 === 6 || b16 === 10) tone(t, S16 * 3.5, 'triangle', NOTE(tr.bass[bar]), 0, 0.32, B);
             if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 7, 'sawtooth', NOTE(n), 0, 0.025, B, 0.04));
+          break;
+          case 'epic': // бой с королём: тяжёлый барабан, перекличка медных и грохот тома
+            if (b16 % 4 === 0) tone(t, 0.32, 'sine', 120, 38, 0.75, B);
+            if (b16 === 4 || b16 === 12) noise(t, 0.22, 'bandpass', 2400, 1200, 0.4, B, 0.8);
+            if (b16 >= 12 && b16 % 2 === 0) tone(t, 0.12, 'triangle', 180, 120, 0.22, B);
+            if (b16 % 2 === 0) noise(t, 0.03, 'highpass', 7000, 9000, 0.05, B);
+            if (b16 === 0 || b16 === 8) tr.ch[bar].forEach(n => tone(t, S16 * 14, 'sawtooth', NOTE(n), 0, 0.03, B, 0.2));
+            if (b16 % 2 === 0) tone(t, S16 * 1.6, 'sawtooth', NOTE(tr.bass[bar] + (b16 % 8 === 6 ? 12 : 0)), 0, 0.12, B);
+            break;
         }
         const m = tr.mel[step % 32];
         if (m > 0 && Math.floor(step / 32) % 2 === 1) {
-          const wave = tr.style === 'calm' || tr.style === 'bells' ? 'sine' : 'triangle';
-          tone(t, S16 * (tr.style === 'calm' ? 3.5 : 1.8), wave, NOTE(m), 0, tr.style === 'calm' ? 0.07 : 0.09, B, tr.style === 'calm' ? 0.03 : 0.005);
+          const wave = tr.style === 'calm' || tr.style === 'bells' ? 'sine' : tr.style === 'epic' ? 'sawtooth' : 'triangle';
+          tone(t, S16 * (tr.style === 'calm' ? 3.5 : 1.8), wave, NOTE(m), 0, tr.style === 'calm' ? 0.07 : tr.style === 'epic' ? 0.05 : 0.09, B, tr.style === 'calm' ? 0.03 : tr.style === 'epic' ? 0.01 : 0.005);
           if (tr.style === 'bells') tone(t, S16 * 2.5, 'sine', NOTE(m + 12), 0, 0.03, B);
         }
         nextNote += S16; step++;
@@ -1654,6 +1730,7 @@ window.NDEngine = (() => {
       setVolume(kind, v) { st[kind] = Math.max(0, Math.min(100, Math.round(v))); save(); apply(); },
       setTrack(id) { st.track = TRACKS[id] ? id : 'auto'; save(); retarget(); },
       setContext(c, a) { context = c; if (a) arena = a; retarget(); },
+      setKing(on) { if (kingOn === !!on) return; kingOn = !!on; retarget(); },
       get sound() { return st.sound; }, get music() { return st.music; }, get state() { return Object.assign({}, st); },
       get nowPlaying() { return current; },
     };
@@ -1668,7 +1745,7 @@ window.NDEngine = (() => {
       ['none', 1, 'Без шапки', 'No hat'], ['cap', 2, 'Кепка', 'Cap'], ['bandana', 4, 'Бандана', 'Bandana'],
       ['cowboy', 6, 'Ковбойская шляпа', 'Cowboy hat'], ['ushanka', 9, 'Ушанка', 'Ushanka'], ['viking', 12, 'Шлем викинга', 'Viking helmet'],
       ['tophat', 18, 'Цилиндр', 'Top hat'], ['crown', 'streak5', 'Корона', 'Crown'],
-      ['bloodcrown', 'kill_king', 'Кровавая корона', 'Blood crown'],
+      ['bloodcrown', 'kill_king', 'Алая корона', 'Scarlet crown'],
     ],
     shirt: [
       ['basic', 1, 'Футболка', 'T-shirt'], ['stripes', 3, 'Тельняшка', 'Sailor stripes'], ['leather', 7, 'Кожаная куртка', 'Leather jacket'],
@@ -1679,15 +1756,16 @@ window.NDEngine = (() => {
       ['shades', 11, 'Тёмные очки', 'Shades'], ['beard', 14, 'Борода', 'Beard'], ['ninja', 'knock5', 'Маска ниндзя', 'Ninja mask'],
     ],
     back: [['none', 1, 'Ничего', 'Nothing'], ['scarf', 15, 'Шарф', 'Scarf'], ['cape', 20, 'Плащ', 'Cape']],
+    belt: [['none', 1, 'Ничего', 'Nothing'], ['redsword', 'kill_king', 'Алый меч короля', "Scarlet King's sword"]],
     trail: [
       ['plain', 1, 'Обычный след', 'Plain trail'], ['fire', 13, 'Огненный след', 'Fire trail'], ['sparks', 16, 'Искры', 'Sparks'],
       ['rainbow', 22, 'Радуга', 'Rainbow'], ['gold', 'win10', 'Золотой след', 'Gold trail'],
     ],
     arena: [['sunset', 1, 'Закат', 'Sunset'], ['night', 6, 'Ночь', 'Night'], ['winter', 9, 'Зима', 'Winter'], ['desert', 17, 'Пустыня', 'Desert']],
   };
-  const SLOTS = ['hat', 'shirt', 'face', 'back', 'trail', 'arena'];
-  const SLOT_NAMES = { hat: ['Шапки', 'Hats'], shirt: ['Одежда', 'Outfits'], face: ['Лицо', 'Face'], back: ['Спина', 'Back'], trail: ['След ножа', 'Knife trail'], arena: ['Арена', 'Arena'] };
-  const DEFAULT_LOOK = { hat: 'none', shirt: 'basic', face: 'none', back: 'none', trail: 'plain', arena: 'sunset' };
+  const SLOTS = ['hat', 'shirt', 'face', 'back', 'belt', 'trail', 'arena'];
+  const SLOT_NAMES = { hat: ['Шапки', 'Hats'], shirt: ['Одежда', 'Outfits'], face: ['Лицо', 'Face'], back: ['Спина', 'Back'], belt: ['Пояс', 'Belt'], trail: ['След ножа', 'Knife trail'], arena: ['Арена', 'Arena'] };
+  const DEFAULT_LOOK = { hat: 'none', shirt: 'basic', face: 'none', back: 'none', belt: 'none', trail: 'plain', arena: 'sunset' };
   const ACH = [
     ['first_hit', 'Первая кровь', 'First blood', 'Попади в пень', 'Hit the stump'],
     ['bull10', 'Снайпер', 'Sniper', '10 раз попади в яблочко', 'Hit 10 bullseyes'],
@@ -1700,14 +1778,15 @@ window.NDEngine = (() => {
     ['beat_hard', 'Сильнее машины', 'Beat the machine', 'Победи сложного бота → камуфляж', 'Beat the hard bot → camo'],
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
-    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → кровавая корона', 'Defeat the true king in the campaign → blood crown'],
+    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → алая корона', 'Defeat the true king in the campaign → scarlet crown'],
   ];
   const MAX_LEVEL = 30;
   const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
   const xpFor = (L) => Math.round(60 * Math.pow(Math.max(0, L - 1), 1.6));   // всего опыта для уровня L
   const levelOf = (xp) => { let L = 1; while (L < MAX_LEVEL && xp >= xpFor(L + 1)) L++; return L; };
   const valid = (slot, id) => ITEMS[slot].some(x => x[0] === id);
-  function cleanLook(l) { const o = {}; for (const s of SLOTS) o[s] = l && valid(s, l[s]) ? l[s] : DEFAULT_LOOK[s]; return o; }
+  // меч раньше был на спине: переносим его на пояс у тех, кто его уже надел
+  function cleanLook(l) { if (l && l.back === 'redsword' && !l.belt) l = Object.assign({}, l, { back: 'none', belt: 'redsword' }); const o = {}; for (const s of SLOTS) o[s] = l && valid(s, l[s]) ? l[s] : DEFAULT_LOOK[s]; return o; }
 
   const Profile = (() => {
     const blank = () => ({ xp: 0, camp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
@@ -1717,11 +1796,12 @@ window.NDEngine = (() => {
     const listeners = [];
     const save = () => LS.set('nd-profile', p);
     const emit = (ev) => listeners.forEach(f => f(ev));
-    const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
+    const isUnlocked = (slot, id) => { const it = ITEMS[slot].find(x => x[0] === id); if (!it) return false; if (p.cheat) return true; return typeof it[1] === 'number' ? levelOf(p.xp) >= it[1] : !!p.ach[it[1]]; };
     function unlockedSet() { const s = new Set(); for (const sl of SLOTS) for (const it of ITEMS[sl]) if (isUnlocked(sl, it[0])) s.add(sl + ':' + it[0]); return s; }
     // против бота опыт обрезается так, чтобы не перешагнуть BOT_XP_CAP
     const botRoom = () => Math.max(0, xpFor(BOT_XP_CAP) - p.xp);
     function addXp(n, vsBot) {
+      if (p.cheat) return 0;   // по коду опыт и уровень не растут
       if (vsBot) n = Math.min(n, botRoom());
       if (n <= 0) return 0;
       const before = levelOf(p.xp), had = unlockedSet();
@@ -1771,11 +1851,19 @@ window.NDEngine = (() => {
       emit({ type: 'camp' });
       return { first, xp: got };
     }
+    // код в настройках: все скины, вся кампания, без роста опыта
+    const CODES = { Admin228: 'cheat' };
+    function redeem(code) {
+      const c = String(code || '').trim();
+      if (CODES[c] !== 'cheat') return false;
+      p.cheat = true; p.camp = 20; save(); emit({ type: 'look' }); emit({ type: 'camp' });
+      return true;
+    }
     function equip(slot, id) { if (!isUnlocked(slot, id)) return false; p.look[slot] = id; save(); emit({ type: 'look' }); return true; }
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 
@@ -1783,10 +1871,25 @@ window.NDEngine = (() => {
   // ПЕРСОНАЖ
   // =====================================================================
   // opts: { x, facing, color, look, arm (угол прицела|null), swing (0..1, бросок), holdCard, now }
+  const KING_SCALE = 1.4;
   function drawCharacter(g, o) {
     const L = cleanLook(o.look), f = o.facing, now = o.now || 0;
     const bob = Math.sin(now / 420 + (f > 0 ? 0 : 2)) * 1.5;
     g.save(); g.translate(o.x, o.ground);
+    const S = o.king ? KING_SCALE : 1; if (S !== 1) g.scale(S, S);   // король крупнее обычных людей
+    // алые мечи за спиной: у игрока с косметикой — один, у настоящего короля — сколько осталось
+    const nSw = o.king ? (o.swords != null ? o.swords : 2) : 0;
+    if (nSw > 0) {
+      const KS = KG.CARD_BY_ID['A3-h'];
+      // скрещённые клинки: первый наискось, второй круче и в другую сторону
+      const sw = [[-6 * f, -150 + bob, -0.45 * f, 0.9], [-2 * f, -146 + bob, -0.85 * f, 0.5]];
+      for (let i = 0; i < nSw && i < 2; i++) {
+        const [hx, hy2, dx, dy] = sw[i], n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n, SW = 0.8;
+        g.save(); g.translate(hx + ux * 42 * SW, hy2 + uy * 42 * SW); g.rotate(Math.atan2(uy, ux)); g.scale(SW, SW);
+        KG.drawKnife(g, KS, { trump: false });
+        g.restore();
+      }
+    }
     // плащ / шарф — позади тела
     if (L.back === 'cape') {
       const wave = Math.sin(now / 300) * 6;
@@ -1801,7 +1904,14 @@ window.NDEngine = (() => {
     g.save(); g.translate(0, bob);
     const bx = -9, bw = 18, by = -152, bh = 72;
     const body = new Path2D(); body.roundRect ? body.roundRect(bx, by, bw, bh, 7) : body.rect(bx, by, bw, bh);
-    switch (L.shirt) {
+    if (o.king) {   // королевская мантия: алый бархат, золотая полоса, горностаевый воротник
+      g.fillStyle = '#8f1d24'; g.fill(body);
+      g.save(); g.clip(body);
+      g.fillStyle = '#d4a23a'; g.fillRect(-2, by, 4, bh);
+      g.fillStyle = '#f4efe6'; g.beginPath(); g.ellipse(0, by + 2, 13, 7, 0, 0, 7); g.fill();
+      g.fillStyle = '#1a1a1a'; [[-7, by + 3], [0, by + 6], [7, by + 3], [-3, by + 11], [4, by + 12]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 1.3, 0, 7); g.fill(); });
+      g.restore();
+    } else switch (L.shirt) {
       case 'stripes': g.fillStyle = '#f2f2f2'; g.fill(body); g.save(); g.clip(body); g.fillStyle = '#1d3d8f'; for (let y = by + 4; y < by + bh; y += 10) g.fillRect(bx, y, bw, 4); g.restore(); break;
       case 'leather': g.fillStyle = '#3b2416'; g.fill(body); g.strokeStyle = '#7a4d2e'; g.lineWidth = 2; g.beginPath(); g.moveTo(-5, by + 2); g.lineTo(0, by + 18); g.lineTo(5, by + 2); g.stroke(); g.fillStyle = '#c9a26a'; g.fillRect(-1, by + 24, 2, 40); break;
       case 'kimono': g.fillStyle = '#f4efe6'; g.fill(body); g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, by + 2); g.lineTo(4 * f, by + 30); g.stroke(); g.fillStyle = '#1a1a1a'; g.fillRect(bx, by + 38, bw, 8); break;
@@ -1828,7 +1938,14 @@ window.NDEngine = (() => {
       case 'ninja': g.fillStyle = '#16161c'; g.beginPath(); g.arc(0, hy, 15.5, 0.15 * Math.PI, 0.85 * Math.PI); g.fill(); g.fillRect(-15, hy - 1, 30, 9); g.fillStyle = '#16161c'; g.fillRect(-15, hy - 15, 30, 7); break;
     }
     // шапка / волосы
-    switch (L.hat) {
+    if (o.king) {   // корона: алый бархат, золотой обод, жемчуг и рубин
+      g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
+      g.fillStyle = '#b3121f'; g.beginPath(); g.moveTo(-15, hy - 9); g.lineTo(-17, hy - 34); g.lineTo(-9, hy - 24); g.lineTo(-5, hy - 42); g.lineTo(0, hy - 26); g.lineTo(5, hy - 42); g.lineTo(9, hy - 24); g.lineTo(17, hy - 34); g.lineTo(15, hy - 9); g.closePath(); g.fill();
+      g.strokeStyle = '#f2c24a'; g.lineWidth = 1.8; g.stroke();
+      g.fillStyle = '#f2c24a'; g.fillRect(-17, hy - 13, 34, 5);
+      g.fillStyle = '#fff6d6'; [[-17, hy - 34], [-5, hy - 42], [5, hy - 42], [17, hy - 34]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill(); });
+      g.save(); g.shadowColor = '#ff2a3a'; g.shadowBlur = 8; g.fillStyle = '#ff3346'; g.beginPath(); g.arc(0, hy - 18, 3.4, 0, 7); g.fill(); g.restore();
+    } else switch (L.hat) {
       case 'cap': g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 3, 15, Math.PI, 0); g.fill(); g.fillRect(f > 0 ? 0 : -24, hy - 5, 24, 4); break;
       case 'bandana': g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 2, 15.5, Math.PI, 0); g.fill(); g.fillRect(-15, hy - 5, 30, 5); g.beginPath(); g.moveTo(-14 * f, hy - 4); g.lineTo(-26 * f, hy + 2); g.lineTo(-22 * f, hy - 8); g.fill(); break;
       case 'cowboy': g.fillStyle = '#7a4d2e'; g.beginPath(); g.ellipse(0, hy - 10, 26, 5, 0, 0, 7); g.fill(); g.beginPath(); g.roundRect ? g.roundRect(-12, hy - 28, 24, 18, 6) : g.rect(-12, hy - 28, 24, 18); g.fill(); g.fillStyle = '#3b2416'; g.fillRect(-12, hy - 15, 24, 3); break;
@@ -1864,7 +1981,20 @@ window.NDEngine = (() => {
     g.strokeStyle = '#2a1d13'; g.lineWidth = 6;
     g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
     g.beginPath(); g.moveTo(sx, sy); g.lineTo(18 * f, -105); g.stroke();
-    if (L.shirt === 'armor') { g.fillStyle = '#d9a93a'; g.beginPath(); g.arc(sx + 2 * f, sy + 2, 6, 0, 7); g.fill(); }
+    if (L.shirt === 'armor' && !o.king) { g.fillStyle = '#d9a93a'; g.beginPath(); g.arc(sx + 2 * f, sy + 2, 6, 0, 7); g.fill(); }
+    if (o.king) {   // скипетр в руке, которая уже нарисована (18·f, −105): посох от руки к земле
+      g.strokeStyle = '#d4a23a'; g.lineWidth = 3; g.beginPath(); g.moveTo(18 * f, -105); g.lineTo(26 * f, -4); g.stroke();
+      g.fillStyle = '#d4a23a'; g.beginPath(); g.arc(18 * f, -112, 6, 0, 7); g.fill();
+      g.fillStyle = '#ff3346'; g.beginPath(); g.arc(18 * f, -112, 2.6, 0, 7); g.fill();
+    }
+    // алый меч на поясе: поверх одежды и рук, наискось назад-вниз
+    if (L.belt === 'redsword') {
+      const SW = 0.62, dx = -0.55 * f, dy = 0.85, n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n;
+      const hx = 3 * f, hy2 = -92 + bob;                        // рукоять у пояса
+      g.save(); g.translate(hx + ux * 42 * SW, hy2 + uy * 42 * SW); g.rotate(Math.atan2(uy, ux)); g.scale(SW, SW);
+      KG.drawKnife(g, KG.CARD_BY_ID['A3-h'], { trump: false });
+      g.restore();
+    }
     if (o.holdCard) {
       g.save(); g.translate(ex, ey);
       const ha = o.arm != null ? o.arm : -0.9;
@@ -2072,10 +2202,12 @@ window.NDMqtt = (() => {
   }
 
   // ---------- адаптер «комнат» ----------
+  let lastBroker = 0;                     // последний брокер, который ответил: начинаем с него
+  let retryCount = 0;                     // подряд неудачных попыток — для растущей паузы
   async function connect() {
     const peer = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
     const lobbyTopic = `${BASE}/l/${peer}`;
-    let client = null, brokerIdx = 0, connected = false, myPresence = {};
+    let client = null, brokerIdx = lastBroker, connected = false, myPresence = {};
     const connFns = [], lobbyPeersFns = [];
     const lobby = new Map();              // peer -> {presence, seen}
     const rooms = new Map();              // name -> room internals
@@ -2113,11 +2245,13 @@ window.NDMqtt = (() => {
       const url = BROKERS[brokerIdx % BROKERS.length];
       let opened = false;
       client = Client(url, 'nd-' + peer, { topic: lobbyTopic, payload: '' }, () => {
-        opened = true; setConn(true); publishPresence();
+        opened = true; retryCount = 0; lastBroker = brokerIdx % BROKERS.length; setConn(true); publishPresence();
       }, () => {
         setConn(false);
-        if (!opened) brokerIdx++;          // брокер недоступен — пробуем следующий
-        setTimeout(open, opened ? 1500 : 800);
+        if (!opened) { brokerIdx++; retryCount++; }   // брокер недоступен — пробуем следующий
+        // пауза растёт (0.8 → 1.6 → … до 15 с) со случайным разбросом, чтобы не долбить брокеры
+        const base = opened ? 1500 : Math.min(15000, 800 * Math.pow(2, Math.min(retryCount, 5)));
+        setTimeout(open, base * (0.75 + Math.random() * 0.5));
       });
       for (const s of subsWanted) client.subscribe(s.filter, s.fn);
     }
@@ -2237,7 +2371,7 @@ window.NDMqtt = (() => {
   let roomAt = 0;
   let myId = 'local';
   let logLines = [];
-  let anims = [], floaters = [], booms = [];
+  let anims = [], floaters = [], booms = [], swordFx = [];
   let aim = { active: false, angle: -0.6, power: 0 };
   let oppAim = null, lastAimSent = 0, morphing = false;
   let heartbeat = null, joinRetry = null;
@@ -2292,7 +2426,7 @@ window.NDMqtt = (() => {
     { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Палач «Без Лица»', 'Executioner "Faceless"'], look: LK('none', 'leather', 'ninja', 'cape', 'fire') },
     { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Рыцарь «Чёрный Ворон»', 'Knight "Black Raven"'], look: LK('viking', 'armor', 'eyepatch', 'cape', 'sparks') },
     { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Гвардеец «Последний Щит»', 'Guard "Last Shield"'], look: LK('tophat', 'armor', 'mustache', 'cape', 'rainbow') },
-    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король «Кровавый Венец»', 'The True King "Blood Crown"'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
+    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король «Алый Венец»', 'The True King "Scarlet Crown"'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
   ];
   const campSize = (f) => { const m = Math.max(f.me, f.op); return m >= 5 ? 50 : m >= 3 ? 30 : 20; };
   const campXp = (i) => (CAMP[i].boss === 2 ? 600 : CAMP[i].boss ? 120 + i * 15 : 40 + i * 10);
@@ -2311,7 +2445,7 @@ window.NDMqtt = (() => {
     const cn = card ? `${cardName(card)} ${KG.SUITS[card.suit].sym}` : T('нож', 'knife');
     switch (e.k) {
       case 'join': return T(`${e.n} зашёл на сервер`, `${e.n} joined the server`);
-      case 'rare': return T('⚔ В колоде меч Кровавого Короля! Он попадается не в каждом матче.', "⚔ The Blood King's Sword is in the deck! It doesn't show up every match.");
+      case 'rare': return T('⚔ В колоде меч Алого Короля! Он попадается не в каждом матче.', "⚔ The Scarlet King's Sword is in the deck! It doesn't show up every match.");
       case 'steal': { const thief = e.b ? (e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT()) : String(e.n || ''); const vic = e.fb ? (e.fcn != null && CAMP[e.fcn] ? T(...CAMP[e.fcn].n) : BOT()) : String(e.from || ''); const sc = KG.CARD_BY_ID[e.c];
         return T(`🩸 ${thief} украл у ${vic} карту: ${sc ? cardName(sc) + ' ' + KG.SUITS[sc.suit].sym : '?'}`, `🩸 ${thief} stole ${vic}'s card: ${sc ? cardName(sc) + ' ' + KG.SUITS[sc.suit].sym : '?'}`); }
       case 'bot': return e.cn != null && CAMP[e.cn] ? T(`${CAMP[e.cn].n[0]} вызывает тебя на бой`, `${CAMP[e.cn].n[1]} challenges you`) : T('Бот Ножовщик сел за стол', 'Knife Bot joined the table');
@@ -2319,6 +2453,7 @@ window.NDMqtt = (() => {
       case 'start': { const s = KG.SUITS[e.suit] || { sym: '' };
         if (e.hm && e.hm[0] !== e.hm[1]) return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. У тебя в руке до ${e.hm[0]} карт, у соперника до ${e.hm[1]}.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Your hand: up to ${e.hm[0]}, opponent: up to ${e.hm[1]}.`);
         return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
+      case 'sword': return T(`${who} превращает алый меч со спины в карту!`, `${who} turns a scarlet sword from the back into a card!`);
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
       case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }
@@ -2519,7 +2654,14 @@ window.NDMqtt = (() => {
       nr.on('am', (m) => { if (!m.sameTab) oppAim = { angle: +(m.data && m.data.a) || 0, power: +(m.data && m.data.p) || 0, at: performance.now() }; });
       nr.on('ch', (m) => addChat(m.data && m.data.n, m.data && m.data.t));
       nr.onPeers((ch) => { for (const p of ch.left) if (eng && eng.g.players.some(x => x.id === p.peer)) eng.removePlayer(p.peer); });
-      heartbeat = setInterval(() => { if (net && eng) net.room.emit('st', eng.pub()).catch(() => {}); }, 2500);
+      // состояние шлём только когда оно изменилось, а раз в 5 с — для страховки
+      let lastSt = '', lastStAt = 0;
+      heartbeat = setInterval(() => {
+        if (!net || !eng) return;
+        const s = eng.pub(), j = JSON.stringify(s);
+        if (j === lastSt && Date.now() - lastStAt < 5000) return;
+        lastSt = j; lastStAt = Date.now(); net.room.emit('st', s).catch(() => {});
+      }, 1500);
     }
     eng.addPlayer(myId, nick(), myLook());
     if (cf) { eng.setHand(myId, cf.me); eng.addBot(cf.lvl, { cn: opts.campaign, look: cf.look, hand: cf.op }); eng.start(); }
@@ -2575,7 +2717,7 @@ window.NDMqtt = (() => {
     if (net) { net.room.leave().catch(() => {}); net = null; }
     if (R) R.presence({ nick: nick(), srv: null }).catch(() => {});
     room = null; anims = []; floaters = []; booms = []; aim.active = false;
-    practice = null; showCoach(null); cmp = null;
+    practice = null; showCoach(null); cmp = null; X.Audio.setKing(false);
     Object.keys(slotKeys).forEach(k => delete slotKeys[k]);
     show('lobby');
     renderServers();
@@ -2606,8 +2748,14 @@ window.NDMqtt = (() => {
     if (!s || !Array.isArray(s.players)) return;
     const prev = room;
     if (prev && prev.ep !== s.ep) anims = [];
+    // меч со спины короля пропал — значит, он превращён в карту: запускаем эффект
+    if (prev && prev.ep === s.ep) for (const pl of s.players) {
+      const pp = prev.players.find(x => x.id === pl.id);
+      if (pp && pl.sw != null && pp.sw != null && pl.sw < pp.sw) { swordFx.push({ t0: performance.now(), fired: false }); sfx('whoosh'); }
+    }
     room = s; roomAt = performance.now();
     X.Audio.setContext('game', ['sunset', 'night', 'winter', 'desert'].includes(s.arena) ? s.arena : 'sunset');
+    X.Audio.setKing(s.state === 'playing' && cmp != null && !!CAMP[cmp] && CAMP[cmp].boss === 2);
     syncFlights(s);
     if (!prev) enterRoom();
     if (prev && prev.state !== 'playing' && room.state === 'playing') { anims = []; floaters = []; reward = null; matchStartXp = X.Profile.data.xp; }
@@ -2899,11 +3047,14 @@ window.NDMqtt = (() => {
     let full = [], extra = [], dur = 0;
     const st0 = base ? KG.knifeStats(base, m.ts) : null;
     if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: st0, wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
+    // сбитые кортики залпа обрываются в точке удара
+    for (const sc of m.shotCuts || []) if (sc.k > 0 && extra[sc.k - 1]) extra[sc.k - 1] = KG.knockFrames(extra[sc.k - 1], +sc.at);
     if (m.defl && full.length) full = KG.deflect(full, +m.defl.at, st0, +m.w || 0, +m.defl.k).frames;   // меч отклонился от удара
     const cut = m.cut != null ? +m.cut : null;
     const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
+    for (const k of m.knocks || []) knockAnim(k.id, +k.at, k.res);
     if (m.defl2) deflAnim(m.defl2.id, +m.defl2.at, +m.defl2.k, m.defl2.res);
     const el = Math.max(0, +m.el || 0);
     const a = { owner: m.o, full, cut, frames, extra, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
@@ -3027,9 +3178,9 @@ window.NDMqtt = (() => {
     if (arena === 'winter') { g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x + w / 2, top - 3, w / 2 + 3, 10, 0, Math.PI, 0); g.fill(); g.fillRect(x - 3, top - 3, w + 6, 6); }
   }
 
-  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn, look, swing, now) {
+  function drawPerson(x, color, name, facing, armAngle, holding, card, isTurn, look, swing, now, king, swords) {
     const g = ctx;
-    X.drawCharacter(g, { x, ground: GROUND, facing, color, look, arm: armAngle, swing, holdCard: holding ? card : null, now });
+    X.drawCharacter(g, { x, ground: GROUND, facing, color, look, arm: armAngle, swing, holdCard: holding ? card : null, now, king: !!king, swords });
     g.save(); g.translate(-10000, GROUND);
     g.strokeStyle = '#2a1d13'; g.lineWidth = 7; g.lineCap = 'round';
     g.beginPath(); g.moveTo(0, -80); g.lineTo(-12 * facing, 0); g.moveTo(0, -80); g.lineTo(12 * facing, 0); g.stroke();
@@ -3118,7 +3269,13 @@ window.NDMqtt = (() => {
   }
 
   let lastTick = 0, redAt = -1e9;
+  const roomScreen = document.getElementById('room');
+  let lastHint = null, lastTimer = null, lastTimerColor = null;
+  function putText(el, v, last) { if (v !== last) el.textContent = v; return v; }
   function frame(now) {
+    requestAnimationFrame(frame);
+    // на экране меню холст игры не нужен: не рисуем и не трогаем DOM, пока комната не открыта
+    if (!roomScreen.classList.contains('active') && !anims.length) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
     const [sx, sy] = X.shakeOffset(now);
@@ -3145,7 +3302,7 @@ window.NDMqtt = (() => {
       if (o) {
         const holding = playing && o.status === 'aim' && !!o.active;
         const oa = oppAim && o.status === 'aim' && now - oppAim.at < 1500 ? oppAim.angle : null;
-        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim', o.look, swingAt[o.id] ? (now - swingAt[o.id]) / 260 : null, now);
+        drawPerson(W - 45, PCOL(o.id), pname(o), -1, oa, holding, cardOf(o.active), o.status === 'aim', o.look, swingAt[o.id] ? (now - swingAt[o.id]) / 260 : null, now, o.cn != null && CAMP[o.cn] && CAMP[o.cn].boss === 2, o.sw);
         if (oa != null) {
           ctx.fillStyle = 'rgba(20,12,6,.6)'; ctx.fillRect(W - 180, 20, 160, 22);
           ctx.fillStyle = '#ff7a59'; ctx.fillRect(W - 176, 26, 152 * Math.max(0, Math.min(1, oppAim.power)), 10);
@@ -3178,6 +3335,8 @@ window.NDMqtt = (() => {
         if (i >= Math.max(an.frames.length, an.dur || 0)) finishAnim(an);
       }
       booms = booms.filter(b => now - b.t0 < 450);
+      swordFx = swordFx.filter(fx => now - fx.t0 < 1700);
+      for (const fx of swordFx) drawSwordFx(ctx, fx, now);
       for (const b of booms) {
         const t = (now - b.t0) / 450;
         ctx.save(); ctx.globalAlpha = 1 - t; ctx.strokeStyle = '#fff4b0'; ctx.lineWidth = 3;
@@ -3200,13 +3359,54 @@ window.NDMqtt = (() => {
       if (playing && m && m.status === 'aim' && m.left) {
         const left = Math.max(0, m.left - (now - roomAt));
         if (left < 5500 && left > 0 && Math.ceil(left / 1000) !== lastTick) { lastTick = Math.ceil(left / 1000); sfx('tick'); }
-        $('#hud-timer').textContent = Math.ceil(left / 1000) + T(' с', ' s');
-        $('#hud-timer').style.color = left < 8000 ? '#ff6b5b' : '';
-      } else $('#hud-timer').textContent = '—';
-      $('#hint').textContent = hintText();
+        lastTimer = putText($('#hud-timer'), Math.ceil(left / 1000) + T(' с', ' s'), lastTimer);
+        const col = left < 8000 ? '#ff6b5b' : '';
+        if (col !== lastTimerColor) { $('#hud-timer').style.color = col; lastTimerColor = col; }
+      } else lastTimer = putText($('#hud-timer'), '—', lastTimer);
+      lastHint = putText($('#hint'), hintText(), lastHint);
     }
     else X.drawParts(ctx);
-    requestAnimationFrame(frame);
+  }
+  // превращение меча со спины короля в карту: меч летит над головой, рассыпается искрами, проявляется карта
+  function drawSwordFx(cx, fx, now) {
+    const DUR = 1700, t = Math.min(1, (now - fx.t0) / DUR);
+    const sx = W - 45 + 22, sy = GROUND - 150;          // спина короля
+    const hx = W - 45, hy = GROUND - 262;              // над головой
+    const pos = (u) => {
+      const e = 1 - Math.pow(1 - Math.min(u / 0.6, 1), 3);
+      return [sx + (hx - sx) * e + Math.sin(Math.min(u, 0.6) / 0.6 * Math.PI) * -56, sy + (hy - sy) * e];
+    };
+    const KS = KG.CARD_BY_ID['A3-h'];
+    if (t < 0.6) {
+      const [x, y] = pos(t);
+      if (now - (fx.lastSpark || 0) > 45) { fx.lastSpark = now; X.burst('sparks', x, y, 4); }   // искры-шлейф
+      const s = 0.85 * (1 - 0.45 * Math.max(0, (t - 0.3) / 0.3));
+      cx.save(); cx.translate(x, y); cx.rotate(t * Math.PI * 4); cx.scale(s, s); KG.drawKnife(cx, KS, { trump: false }); cx.restore();
+    }
+    if (!fx.fired && t >= 0.6) {
+      fx.fired = true; sfx('morph');
+      X.burst('sparks', hx, hy - 10, 26);
+      floaters.push({ text: T('⚔ Меч → карта', '⚔ Sword → card'), x: hx - 170, y: hy - 30, t0: now, color: '#ff7a8a' });
+    }
+    if (t >= 0.6) {
+      const u = (t - 0.6) / 0.4;
+      // вспышка и кольцо удара
+      cx.save(); cx.globalAlpha = (1 - u) * 0.85;
+      const rg = cx.createRadialGradient(hx, hy, 2, hx, hy, 80 + u * 30);
+      rg.addColorStop(0, '#fff3c4'); rg.addColorStop(0.4, 'rgba(255,90,110,.6)'); rg.addColorStop(1, 'rgba(255,40,60,0)');
+      cx.fillStyle = rg; cx.beginPath(); cx.arc(hx, hy, 110, 0, Math.PI * 2); cx.fill(); cx.restore();
+      cx.save(); cx.globalAlpha = 1 - u; cx.strokeStyle = '#ffd77a'; cx.lineWidth = 3; cx.beginPath(); cx.arc(hx, hy, 10 + u * 75, 0, Math.PI * 2); cx.stroke(); cx.restore();
+      // карта проявляется и пружинит
+      const k = Math.min(1, u / 0.5), bounce = 1 + Math.sin(Math.min(1, u * 1.6) * Math.PI) * 0.18 * (1 - k * 0.5), sc = (0.55 + 0.45 * k) * bounce;
+      const w = 46, h = 62;
+      cx.save(); cx.globalAlpha = Math.min(1, u * 2.2); cx.translate(hx, hy - 6); cx.scale(sc, sc);
+      cx.shadowColor = 'rgba(255,200,90,.9)'; cx.shadowBlur = 16;
+      cx.fillStyle = '#f6efe1'; cx.strokeStyle = '#d4a23a'; cx.lineWidth = 2.5;
+      cx.beginPath(); cx.roundRect ? cx.roundRect(-w / 2, -h / 2, w, h, 6) : cx.rect(-w / 2, -h / 2, w, h); cx.fill(); cx.stroke();
+      cx.shadowBlur = 0;
+      cx.save(); cx.scale(0.3, 0.3); cx.translate(0, -2); cx.rotate(-0.3); KG.drawKnife(cx, KS, { trump: false }); cx.restore();
+      cx.restore();
+    }
   }
   function hintText() {
     if (!room || room.state !== 'playing') return '';
@@ -3245,7 +3445,9 @@ window.NDMqtt = (() => {
     h.classList.toggle('layout-phone', layoutPhone);
     h.classList.toggle('native-app', !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
   }
-  window.addEventListener('resize', applyDevice);
+  let devT = 0;
+  const applyDeviceSoon = () => { clearTimeout(devT); devT = setTimeout(applyDevice, 150); };
+  window.addEventListener('resize', applyDeviceSoon);
   window.addEventListener('orientationchange', () => setTimeout(applyDevice, 200));
   const vibrateOn = () => { try { return localStorage.getItem('nd-vibrate') !== '0'; } catch (e) { return true; } };
 
@@ -3540,7 +3742,7 @@ window.NDMqtt = (() => {
     const tag = f.boss === 2 ? T('👑 Главный босс', '👑 Final boss') : f.boss ? T('💀 Босс биома', '💀 Biome boss') : T(`Противник ${i + 1} из 20`, `Opponent ${i + 1} of 20`);
     el.innerHTML = `<div class="ci-main"><div class="ci-tag">${tag} · ${T(...BIOMES[f.b].n)}</div><b class="${f.boss ? 'gold' : ''}">${esc(T(...f.n))}</b>
       <div class="ci-sub">${T('Сложность', 'Difficulty')}: ${T(...LVL_NAME[f.lvl])} · ✋ ${T('у тебя', 'you')} <b class="${f.me < f.op ? 'bad' : ''}">${f.me}</b> ${T('карт, у него', 'cards, them')} <b>${f.op}</b>${i < done ? ' · ✔ ' + T('пройден', 'defeated') : ''}</div>
-      ${f.boss === 2 && !X.Profile.isUnlocked('hat', 'bloodcrown') ? `<div class="ci-sub crown">🩸 ${T('Награда: кровавая корона', 'Reward: the blood crown')}</div>` : ''}</div>
+      ${f.boss === 2 && !X.Profile.isUnlocked('hat', 'bloodcrown') ? `<div class="ci-sub crown">🩸 ${T('Награда: алая корона', 'Reward: the scarlet crown')}</div>` : ''}</div>
       <button class="btn gold" ${open ? '' : 'disabled'}>${open ? (i < done ? T('Переиграть', 'Replay') : T('В бой ⚔', 'Fight ⚔')) : '🔒 ' + T('Закрыто', 'Locked')}</button>`;
     const b = el.querySelector('button'); if (open) b.onclick = () => { sfx('click'); $('#camp-modal').classList.add('hidden'); createServer(true, { campaign: i }); };
   }
@@ -3548,7 +3750,7 @@ window.NDMqtt = (() => {
     const f = CAMP[c.idx];
     if (c.draw) return `<div class="camp-res">${T('Ничья — бой не засчитан. Попробуй ещё раз!', 'A draw does not count. Try again!')}</div>`;
     if (!c.won) return `<div class="camp-res">${f.boss === 2 ? T('Король пока сильнее. Попробуй ещё раз!', 'The king is stronger for now. Try again!') : T(`${f.n[0]} победил. Попробуй ещё раз!`, `${f.n[1]} won. Try again!`)}</div>`;
-    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Кровавая корона теперь твоя — надень её в профиле.', 'The true king has fallen! The blood crown is yours — wear it from your profile.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
+    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Алая корона теперь твоя — надень её в профиле.', 'The true king has fallen! The scarlet crown is yours — wear it from your profile.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
     const next = CAMP[c.idx + 1], nb = next && next.b !== f.b;
     return `<div class="camp-res">${c.first ? T(`Бой пройден! +${c.xp} XP за кампанию.`, `Fight won! +${c.xp} campaign XP.`) : T('Бой пройден снова.', 'Fight won again.')}${nb && c.first ? ' ' + T(`Открыт новый биом: ${BIOMES[next.b].n[0]}!`, `New biome unlocked: ${BIOMES[next.b].n[1]}!`) : ''}</div>`;
   }
@@ -3569,9 +3771,11 @@ window.NDMqtt = (() => {
       ${slider('vMaster', T('Общая громкость', 'Master volume'))}
       ${slider('vMusic', T('Музыка', 'Music'))}
       ${slider('vSfx', T('Эффекты', 'Sound effects'))}
-      <label class="set-row"><span>${T('Трек', 'Track')}</span><select id="set-track"><option value="auto">${T('Авто: меняется каждую минуту', 'Auto: changes every minute')}</option>${Object.entries(X.Audio.TRACKS).map(([id, t]) => `<option value="${id}">${T(...t.name)}</option>`).join('')}</select></label>
+      <label class="set-row"><span>${T('Трек', 'Track')}</span><select id="set-track"><option value="auto">${T('Авто: меняется каждую минуту', 'Auto: changes every minute')}</option>${Object.entries(X.Audio.TRACKS).filter(([id]) => id !== 'king').map(([id, t]) => `<option value="${id}">${T(...t.name)}</option>`).join('')}</select></label>
       <label class="set-row"><span>${T('Звуки', 'Sound')}</span><input type="checkbox" id="set-snd" ${a.sound ? 'checked' : ''}></label>
       <label class="set-row"><span>${T('Музыка', 'Music')}</span><input type="checkbox" id="set-mus" ${a.music ? 'checked' : ''}></label>
+      <div class="set-row code-row"><span>${T('Код', 'Code')}</span><input id="set-code" type="text" autocomplete="off" placeholder="${T('введи код', 'enter code')}" value=""><button type="button" id="set-code-ok" class="btn small">${T('Ввести', 'Apply')}</button></div>
+      <p class="pm-note" id="set-code-msg">${X.Profile.cheat ? T('Код активен: все скины и вся кампания открыты.', 'Code active: all skins and the whole campaign are open.') : ''}</p>
       ${DEV.phone ? `<label class="set-row"><span>${T('Вибрация', 'Vibration')}</span><input type="checkbox" id="set-vib" ${vibrateOn() ? 'checked' : ''}></label>` : ''}
       <p class="pm-note">${T('Устройство', 'Device')}: ${DEV.phone ? T('телефон', 'phone') : DEV.tablet ? T('планшет', 'tablet') : T('компьютер', 'computer')} · ${T('раскладка подстраивается сама', 'layout adapts automatically')}</p>`;
     b.querySelectorAll('[data-vol]').forEach(r => r.oninput = () => { X.Audio.setVolume(r.dataset.vol, +r.value); r.nextElementSibling.textContent = r.value; });
@@ -3579,17 +3783,61 @@ window.NDMqtt = (() => {
     const tr = b.querySelector('#set-track'); tr.value = a.track; tr.onchange = () => X.Audio.setTrack(tr.value);
     b.querySelector('#set-snd').onchange = (e) => { X.Audio.setSound(e.target.checked); paintSnd(); };
     b.querySelector('#set-mus').onchange = (e) => { X.Audio.setMusic(e.target.checked); paintSnd(); };
+    const codeOk = () => {
+      const inp = b.querySelector('#set-code'), msg = b.querySelector('#set-code-msg');
+      if (X.Profile.redeem(inp.value)) { sfx('click'); inp.value = ''; msg.textContent = T('Код активен: все скины и вся кампания открыты.', 'Code active: all skins and the whole campaign are open.'); paintExtra(); }
+      else { msg.textContent = T('Неверный код', 'Wrong code'); }
+    };
+    b.querySelector('#set-code-ok').onclick = codeOk;
+    b.querySelector('#set-code').onkeydown = (e) => { if (e.key === 'Enter') codeOk(); };
     const vib = b.querySelector('#set-vib'); if (vib) vib.onchange = (e) => { try { localStorage.setItem('nd-vibrate', e.target.checked ? '1' : '0'); } catch (er) {} if (e.target.checked) try { navigator.vibrate(30); } catch (er) {} };
   }
+  // ---------- Все карты: галерея из каталога ----------
+  const CARDS_CSS = `
+  .cards-panel { width: min(1000px, 96vw) !important; }
+  .cards-btn { margin-top: 8px; }
+  .cards-h { font-family: 'Russo One', sans-serif; font-size: 16px; margin: 22px 0 12px; color: var(--gold, #e3b341); display: flex; align-items: center; gap: 8px; }
+  .cards-h span { font-size: 12px; color: var(--muted); font-family: inherit; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; justify-items: center; }
+  .cards-gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; font-size: 13px; line-height: 1.35; }
+  .cards-gloss b { color: var(--text, #f3ead8); }
+  .cards-gloss div { color: var(--muted); }`;
+  function openCards() { renderCards(); $('#cards-modal').classList.remove('hidden'); }
+  function renderCards() {
+    const body = $('#cards-modal .pm-body');
+    body.innerHTML = `<h2 style="margin:0 0 4px">${T('Все карты игры', 'All cards in the game')}</h2>
+      <div style="font-size:13px;color:var(--muted)">${T('Каждая карта встречается в колодах; здесь показаны все уникальные модели.', 'Every card appears in the decks; here are all unique designs.')}</div>`;
+    KG.catalog().forEach((sec) => {
+      const h = document.createElement('h3'); h.className = 'cards-h';
+      h.innerHTML = `${esc(T(sec.ru, sec.en))} <span>${sec.cards.length}</span>`;
+      const grid = document.createElement('div'); grid.className = 'cards-grid';
+      sec.cards.forEach((c) => grid.appendChild(cardEl(c)));
+      body.appendChild(h); body.appendChild(grid);
+    });
+    const gh = document.createElement('h3'); gh.className = 'cards-h'; gh.textContent = T('Способности и качества', 'Abilities and qualities');
+    const gl = document.createElement('div'); gl.className = 'cards-gloss';
+    const row = (k, fn, sign) => { const [n, d] = fn(k); return `<div><b>${sign} ${esc(n)}</b> — ${esc(d)}</div>`; };
+    gl.innerHTML = [
+      ...Object.keys(KG.ABILITIES).map((k) => row(k, abil, '✦')),
+      ...Object.keys(KG.QUALITIES).map((k) => row(k, qual, '+')),
+      ...Object.keys(KG.FLAWS).map((k) => row(k, flaw, '−')),
+    ].join('');
+    body.appendChild(gh); body.appendChild(gl);
+  }
+
   function buildExtraUI() {
     const mkModal = (id) => { const m = document.createElement('div'); m.id = id; m.className = 'modal hidden'; m.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
       m.onclick = (e) => { if (e.target === m) m.classList.add('hidden'); }; m.querySelector('.pm-close').onclick = () => m.classList.add('hidden'); document.body.appendChild(m); };
-    mkModal('board-modal'); mkModal('settings-modal'); mkModal('tut-modal'); mkModal('camp-modal');
+    mkModal('board-modal'); mkModal('settings-modal'); mkModal('tut-modal'); mkModal('camp-modal'); mkModal('cards-modal');
     $('#camp-modal .panel').classList.add('camp-panel');
+    $('#cards-modal .panel').classList.add('cards-panel');
     const cb = document.createElement('button'); cb.id = 'btn-camp'; cb.type = 'button'; cb.className = 'btn gold camp-btn';
     cb.onclick = () => { sfx('click'); openCampaign(); };
     $('#btn-bot').insertAdjacentElement('afterend', cb);
-    const st = document.createElement('style'); st.textContent = CAMP_CSS; document.head.appendChild(st);
+    const kb = document.createElement('button'); kb.id = 'btn-cards'; kb.type = 'button'; kb.className = 'btn cards-btn';
+    kb.onclick = () => { sfx('click'); openCards(); };
+    cb.insertAdjacentElement('afterend', kb);
+    const st = document.createElement('style'); st.textContent = CAMP_CSS + CARDS_CSS; document.head.appendChild(st);
     const coach = document.createElement('div'); coach.id = 'coach'; coach.className = 'coach hidden'; coach.innerHTML = '<span></span><button type="button" aria-label="close">✕</button>';
     coach.querySelector('button').onclick = () => { coach.classList.add('hidden'); practice = null; }; document.body.appendChild(coach);
     // кнопка обучения — сверху в меню (необязательная)
@@ -3604,6 +3852,8 @@ window.NDMqtt = (() => {
     const lb = $('.pc-lb'); if (lb) lb.textContent = T('🏆 Таблица лидеров', '🏆 Leaderboard');
     const cb = $('#btn-camp'); if (cb) cb.textContent = T(`⚔ Кампания · ${X.Profile.camp}/20`, `⚔ Campaign · ${X.Profile.camp}/20`);
     if ($('#camp-modal') && !$('#camp-modal').classList.contains('hidden')) renderCampaign();
+    const kb = $('#btn-cards'); if (kb) kb.textContent = T('🃏 Все карты', '🃏 All cards');
+    if ($('#cards-modal') && !$('#cards-modal').classList.contains('hidden')) renderCards();
     document.querySelectorAll('.snd-toggle.set').forEach(b => b.title = T('Настройки', 'Settings'));
     document.querySelectorAll('.tut-btn').forEach(b => { b.textContent = '❓ ' + T('Обучение', 'How to play'); b.title = T('Короткое обучение (необязательно)', 'Quick tutorial (optional)'); });
     if ($('#tut-modal') && !$('#tut-modal').classList.contains('hidden')) renderTutorial();
