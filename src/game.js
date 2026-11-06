@@ -305,7 +305,7 @@
           if (stickFace) {
             const rn = flip(norm(r)), rr = Math.max(-lim, Math.min(lim, rn));
             r = rr; x = F0 + 10 - Math.cos(rr) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
-            const dy = Math.abs(y - BULL_Y);
+            const dy = Math.abs(y + Math.sin(r) * TIP - BULL_Y);   // зона — по остриём, а не по центру ножа
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
             else { res.mult = 1; res.zone = 'outer'; res.reason = 'Попадание'; res.code = 'outer'; }
@@ -336,7 +336,7 @@
           }
           if (!fromTop && tip && stickFace && tip[2] < F0) {   // остриё зашло в бок между кадрами
             r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
-            const dy = Math.abs(y - BULL_Y);
+            const dy = Math.abs(y + Math.sin(r) * TIP - BULL_Y);   // зона — по остриём, а не по центру ножа
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
             else { res.mult = 1; res.zone = 'outer'; res.reason = 'Попадание'; res.code = 'outer'; }
