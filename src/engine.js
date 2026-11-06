@@ -10,7 +10,7 @@ window.NDEngine = (() => {
     const size = G.DECK_SIZES.includes(+opts.size) ? +opts.size : 20;
     const g = {
       id: opts.id, name: opts.name, password: opts.password || '', hostId: opts.hostId,
-      size, handMax: G.HAND_SIZE[size], arena: opts.arena || 'sunset', botLevel: ['easy', 'medium', 'hard'].includes(opts.botLevel) ? opts.botLevel : 'medium',
+      size, handMax: G.HAND_SIZE[size], arena: opts.arena || 'sunset', botLevel: ['easy', 'medium', 'hard', 'elite', 'king'].includes(opts.botLevel) ? opts.botLevel : 'medium',
       players: [], state: 'lobby', phase: 'idle', deck: [], trumpSuit: null, trumpCard: null,
       round: 0, wind: 0, stuck: [], flights: [], timers: [], token: 0, winnerId: null, endReason: '', throwSeq: 0,
     };
@@ -28,7 +28,7 @@ window.NDEngine = (() => {
         trumpSuit: g.trumpSuit, trumpCard: g.trumpCard ? g.trumpCard.id : null, deckCount: g.deck.length,
         wind: g.wind, winnerId: g.winnerId, endReason: g.endReason, locked: !!g.password,
         players: g.players.map(p => ({
-          id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, look: p.look, score: p.score, hits: p.hits,
+          id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, cn: p.cn, hm: p.handMax || g.handMax, look: p.look, score: p.score, hits: p.hits,
           hand: p.hand.map(c => c.id), active: p.active ? p.active.id : null,
           status: p.status, streak: p.streak, left: p.status === 'aim' && p.deadline ? Math.max(0, p.deadline - now) : 0,
         })),
@@ -58,12 +58,22 @@ window.NDEngine = (() => {
       easy:   { hat: 'cap', shirt: 'basic', face: 'none', back: 'none', trail: 'plain' },
       medium: { hat: 'bandana', shirt: 'leather', face: 'mustache', back: 'none', trail: 'plain' },
       hard:   { hat: 'viking', shirt: 'armor', face: 'beard', back: 'cape', trail: 'fire' },
+      elite:  { hat: 'tophat', shirt: 'armor', face: 'shades', back: 'cape', trail: 'sparks' },
+      king:   { hat: 'bloodcrown', shirt: 'armor', face: 'beard', back: 'cape', trail: 'fire' },
     };
-    function addBot(level) {
+    // лимит руки конкретного игрока (в кампании у игрока и противника он может быть разным)
+    const HM = (p) => p.handMax || g.handMax;
+    function setHand(id, n) { const p = P(id); if (p && n > 0) p.handMax = n; }
+    // extra (кампания): { cn — номер противника, look, hand — лимит руки бота }
+    function addBot(level, extra) {
       if (g.players.length >= 2 || g.state === 'playing') return;
-      const lvl = ['easy', 'medium', 'hard'].includes(level) ? level : g.botLevel;
-      g.players.push(newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true, BOT_LOOK[lvl], lvl));
-      log({ k: 'bot' }); push();
+      extra = extra || {};
+      const lvl = ['easy', 'medium', 'hard', 'elite', 'king'].includes(level) ? level : g.botLevel;
+      const bp = newPlayer('bot-' + Math.random().toString(36).slice(2, 7), 'Бот Ножовщик', true, extra.look || BOT_LOOK[lvl], lvl);
+      if (extra.cn != null) bp.cn = extra.cn;
+      if (extra.hand) bp.handMax = extra.hand;
+      g.players.push(bp);
+      log({ k: 'bot', cn: extra.cn }); push();
     }
     function kickBot() { if (g.state === 'playing') return; g.players = g.players.filter(p => !p.isBot); push(); }
 
@@ -90,7 +100,7 @@ window.NDEngine = (() => {
       g.trumpSuit = g.trumpCard.suit;
       g.state = 'playing'; g.round = 0; g.stuck = []; g.flights = []; g.epoch = Math.random().toString(36).slice(2, 8); g.winnerId = null; g.endReason = '';
       g.players.forEach(reset);
-      log({ k: 'start', size: g.size, suit: g.trumpSuit, hand: g.handMax });
+      log({ k: 'start', size: g.size, suit: g.trumpSuit, hand: g.handMax, hm: g.players.map(HM) });
       nextRound();
     }
 
@@ -100,7 +110,7 @@ window.NDEngine = (() => {
       const order = g.round % 2 === 0 ? g.players : [...g.players].reverse();
       while (drew && g.deck.length) {
         drew = false;
-        for (const p of order) if (p.hand.length < g.handMax && g.deck.length) { p.hand.push(g.deck.shift()); drew = true; }
+        for (const p of order) if (p.hand.length < HM(p) && g.deck.length) { p.hand.push(g.deck.shift()); drew = true; }
       }
       if (g.players.every(p => p.hand.length === 0)) return endGame();
       g.round++;
@@ -232,7 +242,7 @@ window.NDEngine = (() => {
       if (a.score === b.score) { g.winnerId = null; g.endReason = 'draw'; }
       else { const w = a.score > b.score ? a : b; g.winnerId = w.id; g.endReason = 'win'; }
       const w = g.players.find(p => p.id === g.winnerId);
-      log({ k: 'end', w: w ? w.name : null, b: w ? w.isBot : false, s1: a.score, s2: b.score });
+      log({ k: 'end', w: w ? w.name : null, b: w ? w.isBot : false, cn: w ? w.cn : undefined, s1: a.score, s2: b.score });
       push();
     }
 
@@ -243,6 +253,8 @@ window.NDEngine = (() => {
       easy:   { angErr: 8.5, powErr: 0.075, bull: 0.1,  best: 0.2,  think: 1.8 },
       medium: { angErr: 3.8, powErr: 0.035, bull: 0.4,  best: 0.6,  think: 1.3 },
       hard:   { angErr: 1.1, powErr: 0.01,  bull: 0.8,  best: 1,    think: 1.0 },
+      elite:  { angErr: 0.8, powErr: 0.007, bull: 0.9,  best: 1,    think: 0.9 },
+      king:   { angErr: 0.5, powErr: 0.004, bull: 1,    best: 1,    think: 0.8 },
     };
     function botAim(bot, turnNo) {
       const mine = () => g.state === 'playing' && bot.status === 'aim' && bot.turnNo === turnNo;
@@ -276,7 +288,7 @@ window.NDEngine = (() => {
 
     function destroy() { clearTimers(); g.dead = true; }
 
-    return { g, pub, summary, addPlayer, addBot, kickBot, removePlayer, start, take, doThrow, destroy, checkPassword: (pw) => !g.password || g.password === pw };
+    return { g, pub, summary, addPlayer, addBot, setHand, kickBot, removePlayer, start, take, doThrow, destroy, checkPassword: (pw) => !g.password || g.password === pw };
   }
   return { create };
 })();

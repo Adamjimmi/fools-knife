@@ -35,8 +35,46 @@
   const flaw = (k) => (LANG === 'en' ? EN.flaws[k] : [KG.FLAWS[k].name, KG.FLAWS[k].desc]);
   const reasonText = (r) => (!r ? '' : LANG === 'en' ? (EN.reasons[r.code] || r.reason || '') : (KG.RU_REASONS[r.code] || r.reason || ''));
   const BOT = () => T('Бот Ножовщик', 'Knife Bot');
-  const LVL_NAME = { easy: ['лёгкий', 'easy'], medium: ['средний', 'medium'], hard: ['сложный', 'hard'] };
-  const pname = (p) => (p.isBot ? BOT() + (p.lvl && LVL_NAME[p.lvl] ? ` (${T(...LVL_NAME[p.lvl])})` : '') : p.name);
+  const LVL_NAME = { easy: ['лёгкий', 'easy'], medium: ['средний', 'medium'], hard: ['сложный', 'hard'], elite: ['мастер', 'master'], king: ['король', 'king'] };
+  // =================== КАМПАНИЯ: 4 биома, 20 противников ===================
+  // me / op — лимит руки у игрока и у противника; lvl — сложность бота
+  const BIOMES = [
+    { arena: 'sunset', n: ['Закатная опушка', 'Sunset Glade'], d: ['Лёгкие противники', 'Easy opponents'], c: '#c9773a' },
+    { arena: 'desert', n: ['Пески Барханов', 'Dune Sands'], d: ['Средние противники', 'Medium opponents'], c: '#c99a48' },
+    { arena: 'winter', n: ['Ледяной перевал', 'Frozen Pass'], d: ['Сложные противники', 'Hard opponents'], c: '#7fa6c4' },
+    { arena: 'night', n: ['Ночной замок', 'Night Castle'], d: ['Мастера и король', 'Masters and the king'], c: '#5a4f8f' },
+  ];
+  const LK = (hat, shirt, face, back, trail) => ({ hat, shirt, face, back, trail });
+  const CAMP = [
+    // биом 1: 2 на 2, босс 5 на 5
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Простофиля Ваня', 'Simple Vanya'], look: LK('none', 'basic', 'none', 'none', 'plain') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Пастух Ерёма', 'Yerema the Shepherd'], look: LK('cap', 'stripes', 'none', 'none', 'plain') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Мельник Фома', 'Foma the Miller'], look: LK('ushanka', 'basic', 'mustache', 'none', 'plain') },
+    { b: 0, lvl: 'easy', me: 2, op: 2, n: ['Кузнец Прохор', 'Prokhor the Smith'], look: LK('bandana', 'leather', 'beard', 'none', 'plain') },
+    { b: 0, lvl: 'medium', me: 5, op: 5, boss: 1, n: ['Атаман Кистень', 'Chieftain Flail'], look: LK('cowboy', 'leather', 'eyepatch', 'scarf', 'fire') },
+    // биом 2: 3 на 3, босс 5 против твоих 4
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Караванщик Али', 'Caravan Ali'], look: LK('bandana', 'stripes', 'mustache', 'none', 'plain') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Змеелов Карим', 'Karim the Snake-catcher'], look: LK('cowboy', 'basic', 'shades', 'none', 'plain') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Песчаный призрак', 'Sand Ghost'], look: LK('none', 'kimono', 'ninja', 'scarf', 'sparks') },
+    { b: 1, lvl: 'medium', me: 3, op: 3, n: ['Кочевница Зара', 'Zara the Nomad'], look: LK('bandana', 'kimono', 'none', 'scarf', 'plain') },
+    { b: 1, lvl: 'hard', me: 4, op: 5, boss: 1, n: ['Султан Скорпион', 'Sultan Scorpion'], look: LK('tophat', 'kimono', 'mustache', 'cape', 'fire') },
+    // биом 3: 4 на 4, босс 5 против твоих 3
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Охотник Тихон', 'Tikhon the Hunter'], look: LK('ushanka', 'camo', 'beard', 'none', 'plain') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Ледяная ведьма', 'Ice Witch'], look: LK('none', 'kimono', 'none', 'cape', 'sparks') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Медвежатник Савва', 'Savva the Bear-hunter'], look: LK('ushanka', 'leather', 'beard', 'scarf', 'plain') },
+    { b: 2, lvl: 'hard', me: 4, op: 4, n: ['Северный ярл', 'Northern Jarl'], look: LK('viking', 'leather', 'beard', 'cape', 'fire') },
+    { b: 2, lvl: 'elite', me: 3, op: 5, boss: 1, n: ['Ледяной воевода', 'Frost Warlord'], look: LK('viking', 'armor', 'beard', 'cape', 'sparks') },
+    // биом 4: 5 на 5, а вдали — настоящий король: 5 против твоих 2
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Стражник ворот', 'Gate Warden'], look: LK('viking', 'armor', 'none', 'none', 'plain') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Палач', 'The Executioner'], look: LK('none', 'leather', 'ninja', 'cape', 'fire') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Тёмный рыцарь', 'Dark Knight'], look: LK('viking', 'armor', 'eyepatch', 'cape', 'sparks') },
+    { b: 3, lvl: 'elite', me: 5, op: 5, n: ['Королевская гвардия', 'Royal Guard'], look: LK('tophat', 'armor', 'mustache', 'cape', 'rainbow') },
+    { b: 3, lvl: 'king', me: 2, op: 5, boss: 2, n: ['Настоящий король', 'The True King'], look: LK('bloodcrown', 'armor', 'beard', 'cape', 'fire') },
+  ];
+  const campSize = (f) => { const m = Math.max(f.me, f.op); return m >= 5 ? 50 : m >= 3 ? 30 : 20; };
+  const campXp = (i) => (CAMP[i].boss === 2 ? 600 : CAMP[i].boss ? 120 + i * 15 : 40 + i * 10);
+  let cmp = null;   // номер текущего боя кампании (0…19) или null
+  const pname = (p) => (p.isBot ? (p.cn != null && CAMP[p.cn] ? T(...CAMP[p.cn].n) : BOT() + (p.lvl && LVL_NAME[p.lvl] ? ` (${T(...LVL_NAME[p.lvl])})` : '')) : p.name);
   const X = window.NDX;
   const myLook = () => X.Profile.look();
   const botLevel = () => { const v = ($('#bot-level') || {}).value; return ['easy', 'medium', 'hard'].includes(v) ? v : 'medium'; };
@@ -45,17 +83,19 @@
   function fmtLog(e) {
     if (typeof e === 'string') return e;
     if (!e || typeof e !== 'object') return '';
-    const who = e.b ? BOT() : String(e.n || '');
+    const who = e.b ? (cmp != null && CAMP[cmp] ? T(...CAMP[cmp].n) : BOT()) : String(e.n || '');
     const card = KG.CARD_BY_ID[e.c];
     const cn = card ? `${cardName(card)} ${KG.SUITS[card.suit].sym}` : T('нож', 'knife');
     switch (e.k) {
       case 'join': return T(`${e.n} зашёл на сервер`, `${e.n} joined the server`);
-      case 'bot': return T('Бот Ножовщик сел за стол', 'Knife Bot joined the table');
+      case 'bot': return e.cn != null && CAMP[e.cn] ? T(`${CAMP[e.cn].n[0]} вызывает тебя на бой`, `${CAMP[e.cn].n[1]} challenges you`) : T('Бот Ножовщик сел за стол', 'Knife Bot joined the table');
       case 'leave': return T(`${who} покинул сервер`, `${who} left the server`);
-      case 'start': { const s = KG.SUITS[e.suit] || { sym: '' }; return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
+      case 'start': { const s = KG.SUITS[e.suit] || { sym: '' };
+        if (e.hm && e.hm[0] !== e.hm[1]) return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. У тебя в руке до ${e.hm[0]} карт, у соперника до ${e.hm[1]}.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Your hand: up to ${e.hm[0]}, opponent: up to ${e.hm[1]}.`);
+        return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
-      case 'end': return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? BOT() : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? BOT() : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`);
+      case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }
     }
     return '';
   }
@@ -223,8 +263,10 @@
     const id = rid();
     const name = ($('#room-name').value.trim() || T(`Сервер ${nick()}`, `${nick()}'s server`)).slice(0, 32);
     logLines = [];
-    const size = opts.size || +$('#deck-size').value || 20;
-    eng = NDEngine.create({ id, size, arena: myLook().arena, botLevel: opts.level || botLevel(), name: withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
+    const cf = opts.campaign != null ? CAMP[opts.campaign] : null;
+    cmp = cf ? opts.campaign : null;
+    const size = cf ? campSize(cf) : opts.size || +$('#deck-size').value || 20;
+    eng = NDEngine.create({ id, size, arena: cf ? BIOMES[cf.b].arena : myLook().arena, botLevel: cf ? cf.lvl : opts.level || botLevel(), name: cf ? T(`Кампания: ${cf.n[0]}`, `Campaign: ${cf.n[1]}`) : withBot ? T(`${nick()} против бота`, `${nick()} vs bot`) : name, password: withBot ? '' : $('#room-pass').value.trim().slice(0, 32), hostId: myId }, {
       state: hostPush,
       log: (t) => { addLog(t); if (net) net.room.emit('lg', { t }).catch(() => {}); },
       throwEv: (m) => { onThrow(m); if (net) net.room.emit('th', m).catch(() => {}); },
@@ -254,7 +296,8 @@
       heartbeat = setInterval(() => { if (net && eng) net.room.emit('st', eng.pub()).catch(() => {}); }, 2500);
     }
     eng.addPlayer(myId, nick(), myLook());
-    if (withBot) { eng.addBot(opts.level || botLevel()); eng.start(); }
+    if (cf) { eng.setHand(myId, cf.me); eng.addBot(cf.lvl, { cn: opts.campaign, look: cf.look, hand: cf.op }); eng.start(); }
+    else if (withBot) { eng.addBot(opts.level || botLevel()); eng.start(); }
     enterRoom();
   }
 
@@ -306,7 +349,7 @@
     if (net) { net.room.leave().catch(() => {}); net = null; }
     if (R) R.presence({ nick: nick(), srv: null }).catch(() => {});
     room = null; anims = []; floaters = []; booms = []; aim.active = false;
-    practice = null; showCoach(null);
+    practice = null; showCoach(null); cmp = null;
     Object.keys(slotKeys).forEach(k => delete slotKeys[k]);
     show('lobby');
     renderServers();
@@ -356,8 +399,10 @@
     const result = room.winnerId == null ? 'draw' : room.winnerId === myId ? 'win' : 'loss';
     const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
     const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
-    X.Profile.onMatch(result, oppKind, room.size || 20, m.score);
-    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level, capped: oppKind !== 'human' && X.Profile.botCapped };
+    X.Profile.onMatch(result, oppKind, room.size || 20, m.score, cmp != null);
+    let camp = null;
+    if (cmp != null) camp = Object.assign({ idx: cmp, won: result === 'win', draw: result === 'draw' }, result === 'win' ? X.Profile.campWin(cmp, campXp(cmp)) : {});
+    reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level, capped: cmp == null && oppKind !== 'human' && X.Profile.botCapped, camp };
     matchXp = 0;
     sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
     if (result === 'win') X.burst('confetti', 0, 0, 140);
@@ -368,6 +413,7 @@
     if (ev.type === 'level') { sfx('levelup'); toast(T(`Новый уровень: ${ev.level}!`, `Level up: ${ev.level}!`) + (ev.items.length ? T(' Открыто: ', ' Unlocked: ') + ev.items.map(itemName).join(', ') : '')); }
     if (ev.type === 'ach') { const a = X.ACH.find(x => x[0] === ev.id); if (a) { sfx('achieve'); toast('🏅 ' + T(a[1], a[2]) + (ev.items.length ? ' · ' + ev.items.map(itemName).join(', ') : '')); } }
     renderProfileCard();
+    if (ev.type === 'camp' && $('#settings-modal')) paintExtra();
     if (ev.type === 'xp' || ev.type === 'level') queueBoardPush();
   });
   function itemName(key) { const [slot, id] = key.split(':'); const it = X.ITEMS[slot].find(x => x[0] === id); return it ? T(it[2], it[3]) : id; }
@@ -430,15 +476,23 @@
         </div>
         ${reward ? `<div class="reward">+${reward.xp} XP · ${T('уровень', 'level')} ${reward.after}${reward.after > reward.before ? ' ⬆' : ''}
           <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div>
-          ${reward.capped ? `<div class="cap-note">${T(`🤖 С ботами опыт даётся только до ${X.Profile.BOT_XP_CAP} уровня. Дальше качайся в матчах с живыми игроками!`, `🤖 Bots only give XP up to level ${X.Profile.BOT_XP_CAP}. Play against real people to keep levelling up!`)}</div>` : ''}</div>` : ''}
+          ${reward.capped ? `<div class="cap-note">${T(`🤖 Быстрые матчи с ботом дают опыт только до ${X.Profile.BOT_XP_CAP} уровня. Дальше качайся в кампании или с живыми игроками!`, `🤖 Quick bot matches only give XP up to level ${X.Profile.BOT_XP_CAP}. Play the campaign or real people to keep levelling up!`)}</div>` : ''}</div>` : ''}
+        ${reward && reward.camp ? campResult(reward.camp) : ''}
         <div class="btns">
-          ${isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
+          ${cmp != null ? campButtons() : ''}
+          ${cmp == null && isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
           <button class="btn" data-a="leave">${T('В лобби', 'To lobby')}</button>
         </div>`;
       ov.classList.remove('hidden');
     } else ov.classList.add('hidden');
-    ov.querySelectorAll('[data-a]').forEach(b => b.onclick = () => b.dataset.a === 'leave' ? leave() : act(b.dataset.a));
+    ov.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+      const k = b.dataset.a;
+      if (k === 'leave') return leave();
+      if (k === 'campMap') { leave(); return openCampaign(); }
+      if (k === 'campNext') { const n = +b.dataset.n; leave(); return createServer(true, { campaign: n }); }
+      act(k);
+    });
   }
 
   function renderSlots() {
@@ -476,7 +530,7 @@
     slotKeys[sel] = key;
     el.innerHTML = '';
     if (!p || room.state !== 'playing') {
-      el.innerHTML = `<div class="slot-empty">${!p ? T('Нет игрока', 'No player') : T(`Карты появятся, когда начнётся матч (в руке до ${room.handMax})`, `Cards appear when the match starts (hand up to ${room.handMax})`)}</div>`;
+      el.innerHTML = `<div class="slot-empty">${!p ? T('Нет игрока', 'No player') : T(`Карты появятся, когда начнётся матч (в руке до ${p.hm || room.handMax})`, `Cards appear when the match starts (hand up to ${p.hm || room.handMax})`)}</div>`;
       return;
     }
     const wrap = document.createElement('div');
@@ -644,7 +698,7 @@
     else if (res.code === 'ground' || res.code === 'knocked') { X.burst('dirt', v.x, v.y, 10); sfx('dirt'); }
     if (a.owner === myId && DEV.phone && vibrateOn()) { try { navigator.vibrate(res.knock ? [30, 40, 40] : res.zone === 'bull' ? 60 : res.hit ? 25 : 0); } catch (e) {} }
     if (a.owner === myId && res.code !== 'knocked') {
-      const xp = X.Profile.onThrow(res, a.streak, !!(room && room.players.some(p => p.isBot)));
+      const xp = X.Profile.onThrow(res, a.streak, cmp == null && !!(room && room.players.some(p => p.isBot)));
       coachAfterThrow();
       matchXp += 0;   // опыт уже начислен, итог считается по разнице
       if (xp > 1) floaters.push({ text: `+${xp} XP`, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(110, v.y + 30), t0: performance.now(), color: '#c9b6ff', small: true });
@@ -883,7 +937,7 @@
     if (!room || room.state !== 'playing') return '';
     const m = me(), o = opp();
     if (!m) return '';
-    if (room.phase === 'draw') return T(`Раунд ${room.round}: добор карт до ${room.handMax}`, `Round ${room.round}: drawing up to ${room.handMax}`);
+    if (room.phase === 'draw') { const hm = (me() && me().hm) || room.handMax; return T(`Раунд ${room.round}: добор карт до ${hm}`, `Round ${room.round}: drawing up to ${hm}`); }
     if (room.phase === 'end') return T('Раунд окончен', 'Round over');
     if (m.status === 'aim') {
       if (!m.active) return m.streak ? T(`Попал! Серия ×${m.streak} — выбери следующий нож`, `Hit! Streak ×${m.streak} — pick your next knife`) : T('👇 Выбери карту внизу — она превратится в нож', '👇 Pick a card below — it turns into a knife');
@@ -952,7 +1006,7 @@
     rows.sort((a, b) => b.xp - a.xp);
     return { rows: rows.slice(0, 100), me: me.id, rank: rows.findIndex(r => r.id === me.id) + 1 };
   }
-  const HAT_ICON = { none: '', cap: '🧢', bandana: '🏴‍☠️', cowboy: '🤠', ushanka: '🧣', viking: '⚔️', tophat: '🎩', crown: '👑' };
+  const HAT_ICON = { none: '', cap: '🧢', bandana: '🏴‍☠️', cowboy: '🤠', ushanka: '🧣', viking: '⚔️', tophat: '🎩', crown: '👑', bloodcrown: '🩸👑' };
   async function openBoard() {
     const m = $('#board-modal'); m.classList.remove('hidden');
     const body = m.querySelector('.pm-body');
@@ -968,6 +1022,78 @@
       <div class="lb">${res.rows.map((r, i) => `<div class="lb-row ${r.id === res.me ? 'me' : ''}"><span class="lb-pos">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
         <span class="lb-name">${HAT_ICON[r.hat] || ''} ${esc(r.n)}${r.id === res.me ? T(' (ты)', ' (you)') : ''}</span>
         <span class="lb-lvl">${T('ур.', 'lv.')} ${r.lv}</span><span class="lb-xp">${r.xp} XP</span><span class="lb-w">🏆 ${r.w}</span></div>`).join('')}</div>`;
+  }
+
+  // =================== ОКНО КАМПАНИИ ===================
+  const CAMP_CSS = `
+.camp-btn { width: 100%; margin-top: 8px; }
+.camp-panel { width: min(640px, 94vw); }
+.camp-sum { color: var(--muted); font-size: 13px; margin: -4px 0 12px; }
+.camp-bar { height: 8px; border-radius: 6px; background: #1a120b; border: 1px solid var(--line); overflow: hidden; margin-bottom: 14px; }
+.camp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #e0ad45, #ffd77a); }
+.biome { border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: #1c130c; border-left: 4px solid var(--bc); background: linear-gradient(160deg, color-mix(in srgb, var(--bc) 34%, #140d08), #140d08 75%); }
+.biome.locked { opacity: .45; }
+.biome h3 { margin: 0; font: 400 18px 'Russo One', sans-serif; color: var(--gold2); }
+.biome .bd { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; }
+.path { display: flex; align-items: flex-start; gap: 4px; }
+.path .gap { flex: 0 0 28px; align-self: center; text-align: center; color: #8a3a3a; letter-spacing: 2px; font-size: 14px; }
+.node { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; color: inherit; padding: 2px; cursor: pointer; font: inherit; }
+.node:disabled { cursor: default; }
+.node .dot { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #2a1d13; border: 2px solid #5a4330; }
+.node.done .dot { background: #2f4a25; border-color: #7fbf5a; }
+.node.cur .dot { border-color: #ffd77a; box-shadow: 0 0 0 0 rgba(255,215,122,.6); animation: campPulse 1.6s infinite; }
+.node.boss .dot { width: 56px; height: 56px; font-size: 24px; border-width: 3px; }
+.node.king .dot { width: 66px; height: 66px; font-size: 30px; background: #3a0a10; border-color: #b3121f; }
+.node.king.cur .dot { border-color: #ff3346; }
+.node.lock .dot { filter: grayscale(1); opacity: .7; }
+.node .nn { font-size: 11.5px; line-height: 1.2; text-align: center; color: #f1e6d6; overflow-wrap: break-word; max-width: 100%; }
+.node .hh { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.node .hh b { color: #ffd77a; font-weight: 500; }
+.node .hh.unfair b { color: #ff7b85; }
+.camp-res { margin: 8px 0 4px; font-size: 14px; }
+.camp-res.crown { color: #ff6b78; font-weight: 600; }
+@keyframes campPulse { 0% { box-shadow: 0 0 0 0 rgba(255,215,122,.55); } 70% { box-shadow: 0 0 0 12px rgba(255,215,122,0); } 100% { box-shadow: 0 0 0 0 rgba(255,215,122,0); } }
+@media (max-width: 520px) { .node .dot { width: 38px; height: 38px; font-size: 17px; } .node.boss .dot { width: 46px; height: 46px; } .node.king .dot { width: 54px; height: 54px; font-size: 25px; } .node .nn { font-size: 10.5px; } .path .gap { flex-basis: 16px; } }
+`;
+  function openCampaign() { if (net || eng) return; $('#camp-modal').classList.remove('hidden'); renderCampaign(); }
+  function renderCampaign() {
+    const done = X.Profile.camp;
+    const node = (i) => {
+      const f = CAMP[i], st = i < done ? 'done' : i === done ? 'cur' : 'lock';
+      const icon = st === 'lock' ? '🔒' : f.boss === 2 ? '👑' : f.boss ? '💀' : st === 'done' ? '✔' : i + 1;
+      return `<button type="button" class="node ${st}${f.boss === 2 ? ' king' : f.boss ? ' boss' : ''}" data-i="${i}" ${st === 'lock' ? 'disabled' : ''}
+        title="${esc(T(...f.n))} · ${T(...LVL_NAME[f.lvl])}"><span class="dot">${icon}</span><span class="nn">${esc(T(...f.n))}</span>
+        <span class="hh ${f.me < f.op ? 'unfair' : ''}">✋ <b>${f.me}</b> ${T('на', 'vs')} ${f.op}</span></button>`;
+    };
+    const body = $('#camp-modal .pm-body');
+    body.innerHTML = `<h2>⚔ ${T('Кампания', 'Campaign')}</h2>
+      <p class="camp-sum">${T(`Пройдено ${done} из 20. Цифры под противником — сколько карт в руке у тебя и у него.`, `${done} of 20 defeated. The numbers under each foe are your hand size vs theirs.`)}${X.Profile.isUnlocked('hat', 'bloodcrown') ? T(' 🩸👑 Кровавая корона твоя!', ' 🩸👑 The blood crown is yours!') : T(' Победи настоящего короля, чтобы получить кровавую корону.', ' Defeat the true king to claim the blood crown.')}</p>
+      <div class="camp-bar"><i style="width:${done / 20 * 100}%"></i></div>
+      ${BIOMES.map((bm, bi) => {
+        const ids = CAMP.map((f, i) => i).filter(i => CAMP[i].b === bi);
+        const locked = done < ids[0];
+        const nodes = bi === 3 ? ids.slice(0, 4).map(node).join('') + `<span class="gap">· · ·</span>` + node(ids[4]) : ids.map(node).join('');
+        return `<div class="biome ${locked ? 'locked' : ''}" style="--bc:${bm.c}"><h3>${bi + 1}. ${T(...bm.n)}</h3><div class="bd">${T(...bm.d)}${locked ? T(' · откроется после босса прошлого биома', ' · unlocks after the previous boss') : ''}</div><div class="path">${nodes}</div></div>`;
+      }).join('')}`;
+    body.querySelectorAll('.node[data-i]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i; if (i > X.Profile.camp) return;
+      sfx('click'); $('#camp-modal').classList.add('hidden'); createServer(true, { campaign: i });
+    });
+  }
+  function campResult(c) {
+    const f = CAMP[c.idx];
+    if (c.draw) return `<div class="camp-res">${T('Ничья — бой не засчитан. Попробуй ещё раз!', 'A draw does not count. Try again!')}</div>`;
+    if (!c.won) return `<div class="camp-res">${f.boss === 2 ? T('Король пока сильнее. Попробуй ещё раз!', 'The king is stronger for now. Try again!') : T(`${f.n[0]} победил. Попробуй ещё раз!`, `${f.n[1]} won. Try again!`)}</div>`;
+    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Кровавая корона теперь твоя — надень её в профиле.', 'The true king has fallen! The blood crown is yours — wear it from your profile.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
+    const next = CAMP[c.idx + 1], nb = next && next.b !== f.b;
+    return `<div class="camp-res">${c.first ? T(`Бой пройден! +${c.xp} XP за кампанию.`, `Fight won! +${c.xp} campaign XP.`) : T('Бой пройден снова.', 'Fight won again.')}${nb && c.first ? ' ' + T(`Открыт новый биом: ${BIOMES[next.b].n[0]}!`, `New biome unlocked: ${BIOMES[next.b].n[1]}!`) : ''}</div>`;
+  }
+  function campButtons() {
+    const i = cmp, won = reward && reward.camp && reward.camp.won;
+    const nextOk = won && i < 19 && i + 1 <= X.Profile.camp;
+    return `${nextOk ? `<button class="btn gold" data-a="campNext" data-n="${i + 1}">${T('Следующий бой ▶', 'Next fight ▶')}</button>` : ''}
+      <button class="btn ${nextOk ? '' : 'gold'}" data-a="campNext" data-n="${i}">${won ? T('Сыграть снова', 'Play again') : T('Ещё раз', 'Try again')}</button>
+      <button class="btn" data-a="campMap">${T('Карта кампании', 'Campaign map')}</button>`;
   }
 
   // =================== НАСТРОЙКИ ===================
@@ -994,7 +1120,12 @@
   function buildExtraUI() {
     const mkModal = (id) => { const m = document.createElement('div'); m.id = id; m.className = 'modal hidden'; m.innerHTML = '<div class="panel pm"><button class="pm-close" type="button">✕</button><div class="pm-body"></div></div>';
       m.onclick = (e) => { if (e.target === m) m.classList.add('hidden'); }; m.querySelector('.pm-close').onclick = () => m.classList.add('hidden'); document.body.appendChild(m); };
-    mkModal('board-modal'); mkModal('settings-modal'); mkModal('tut-modal');
+    mkModal('board-modal'); mkModal('settings-modal'); mkModal('tut-modal'); mkModal('camp-modal');
+    $('#camp-modal .panel').classList.add('camp-panel');
+    const cb = document.createElement('button'); cb.id = 'btn-camp'; cb.type = 'button'; cb.className = 'btn gold camp-btn';
+    cb.onclick = () => { sfx('click'); openCampaign(); };
+    $('#btn-bot').insertAdjacentElement('afterend', cb);
+    const st = document.createElement('style'); st.textContent = CAMP_CSS; document.head.appendChild(st);
     const coach = document.createElement('div'); coach.id = 'coach'; coach.className = 'coach hidden'; coach.innerHTML = '<span></span><button type="button" aria-label="close">✕</button>';
     coach.querySelector('button').onclick = () => { coach.classList.add('hidden'); practice = null; }; document.body.appendChild(coach);
     // кнопка обучения — сверху в меню (необязательная)
@@ -1007,6 +1138,8 @@
   }
   function paintExtra() {
     const lb = $('.pc-lb'); if (lb) lb.textContent = T('🏆 Таблица лидеров', '🏆 Leaderboard');
+    const cb = $('#btn-camp'); if (cb) cb.textContent = T(`⚔ Кампания · ${X.Profile.camp}/20`, `⚔ Campaign · ${X.Profile.camp}/20`);
+    if ($('#camp-modal') && !$('#camp-modal').classList.contains('hidden')) renderCampaign();
     document.querySelectorAll('.snd-toggle.set').forEach(b => b.title = T('Настройки', 'Settings'));
     document.querySelectorAll('.tut-btn').forEach(b => { b.textContent = '❓ ' + T('Обучение', 'How to play'); b.title = T('Короткое обучение (необязательно)', 'Quick tutorial (optional)'); });
     if ($('#tut-modal') && !$('#tut-modal').classList.contains('hidden')) renderTutorial();
@@ -1032,7 +1165,7 @@
     { art: 'wind', t: T('Ветер и пень', 'Wind and the stump'), d: T('Ветер сносит нож, его сила и направление показаны вверху поля. Попадай в красную полосу — яблочко (×2), белая полоса даёт ×1,5, торец — ×1. Мимо — ноль очков.', 'Wind pushes the knife; its strength and direction are shown at the top of the field. Hit the red band for a bullseye (×2), the white band gives ×1.5, the top of the stump ×1. A miss scores nothing.') },
     { art: 'trump', t: T('Козырь', 'The trump'), d: T('Масть нижней открытой карты колоды — козырь. Козырные ножи получают +1 способность, +1 хорошее качество и летят ровнее. Береги их для важных бросков.', 'The suit of the face-up bottom card is the trump. Trump knives get +1 ability, +1 good quality and fly steadier. Save them for the important throws.') },
     { art: 'clash', t: T('Одновременно, серии и сбивание', 'Together, streaks and knockdowns'), d: T('Оба бросают одновременно. Попал — бросаешь ещё, пока есть карты; промахнулся — твой раунд окончен. Ножи можно сбить в воздухе: сбитый нож не даёт очков, а ты получаешь половину его очков. 💡 Совет: чаще всего выгодно сбивать нож соперника плохим ножом. Плохими ножами трудно попасть в пень, зато хорошим ножом соперника по ним удобно бить в воздухе.', 'Both players throw at once. Hit — keep throwing while you have cards; miss — your round is over. Knives can be knocked out of the air: a knocked knife scores nothing and you get half its points. 💡 Tip: it is usually best to knock down your opponent\'s knife with a bad knife. Bad knives are hard to land in the stump anyway, but they are handy for swatting your opponent\'s good knife out of the air.') },
-    { art: 'xp', t: T('Опыт и наряды', 'XP and outfits'), d: T('За попадания, серии и победы ты получаешь опыт, растёшь в уровнях и открываешь шляпы, одежду и арены (кнопка «Профиль»). С ботами опыт идёт до 5 уровня, дальше — в матчах с живыми игроками.', 'Hits, streaks and wins give XP. Level up to unlock hats, outfits and arenas (Profile button). Bots give XP up to level 5; after that, play real people.') },
+    { art: 'xp', t: T('Опыт и наряды', 'XP and outfits'), d: T('За попадания, серии и победы ты получаешь опыт, растёшь в уровнях и открываешь шляпы, одежду и арены (кнопка «Профиль»). Быстрые матчи с ботом дают опыт до 5 уровня, а кампания и матчи с живыми игроками — без ограничений.', 'Hits, streaks and wins give XP. Level up to unlock hats, outfits and arenas (Profile button). Quick bot matches give XP up to level 5; the campaign and matches against real people have no limit.') },
   ];
   let tutI = 0;
   function openTutorial() { tutI = 0; $('#tut-modal').classList.remove('hidden'); renderTutorial(); }
@@ -1124,7 +1257,7 @@
     M.innerHTML = `<div class="pm-head"><canvas width="200" height="230"></canvas><div class="pm-info">
         <h2>${esc(nick())}</h2><div class="pm-lvl">${T('Уровень', 'Level')} ${pr.L}</div>
         <div class="xpbar big"><i style="width:${Math.round(pr.pct * 100)}%"></i></div><small>${pr.L >= 30 ? 'MAX' : `${pr.cur} / ${pr.need} XP`} · ${T('всего', 'total')} ${d.xp} XP</small>
-        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. С ботами опыт идёт только до 5 уровня, дальше — только в матчах с людьми. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Bots only give XP up to level 5; after that, only matches against people count. Progress is saved in this browser.')}</p>
+        <p class="pm-note">${T('Опыт дают попадания, яблочки, сбитые ножи, серии и победы. Сложный бот и живые соперники дают больше. Быстрые матчи с ботом дают опыт только до 5 уровня, дальше — кампания и матчи с людьми. Прогресс хранится в этом браузере.', 'You earn XP for hits, bullseyes, knockdowns, streaks and wins. The hard bot and human opponents give more. Quick bot matches only give XP up to level 5; after that, play the campaign or real people. Progress is saved in this browser.')}</p>
       </div></div>
       <div class="pm-tabs">${tabs.map(([id, n]) => `<button class="chip-btn ${id === pmTab ? 'on' : ''}" data-tab="${id}">${n}</button>`).join('')}</div>${body}`;
     avatar(M.querySelector('.pm-head canvas'), look, true);

@@ -182,6 +182,7 @@
       ['none', 1, 'Без шапки', 'No hat'], ['cap', 2, 'Кепка', 'Cap'], ['bandana', 4, 'Бандана', 'Bandana'],
       ['cowboy', 6, 'Ковбойская шляпа', 'Cowboy hat'], ['ushanka', 9, 'Ушанка', 'Ushanka'], ['viking', 12, 'Шлем викинга', 'Viking helmet'],
       ['tophat', 18, 'Цилиндр', 'Top hat'], ['crown', 'streak5', 'Корона', 'Crown'],
+      ['bloodcrown', 'kill_king', 'Кровавая корона', 'Blood crown'],
     ],
     shirt: [
       ['basic', 1, 'Футболка', 'T-shirt'], ['stripes', 3, 'Тельняшка', 'Sailor stripes'], ['leather', 7, 'Кожаная куртка', 'Leather jacket'],
@@ -213,6 +214,7 @@
     ['beat_hard', 'Сильнее машины', 'Beat the machine', 'Победи сложного бота → камуфляж', 'Beat the hard bot → camo'],
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
+    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → кровавая корона', 'Defeat the true king in the campaign → blood crown'],
   ];
   const MAX_LEVEL = 30;
   const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
@@ -222,9 +224,9 @@
   function cleanLook(l) { const o = {}; for (const s of SLOTS) o[s] = l && valid(s, l[s]) ? l[s] : DEFAULT_LOOK[s]; return o; }
 
   const Profile = (() => {
-    const blank = () => ({ xp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
+    const blank = () => ({ xp: 0, camp: 0, stats: { matches: 0, wins: 0, losses: 0, draws: 0, throws: 0, hits: 0, bulls: 0, knocks: 0, bestStreak: 0, points: 0 }, ach: {}, look: Object.assign({}, DEFAULT_LOOK) });
     let p = Object.assign(blank(), LS.get('nd-profile', {}));
-    p.stats = Object.assign(blank().stats, p.stats || {}); p.look = cleanLook(p.look); p.ach = p.ach || {};
+    p.stats = Object.assign(blank().stats, p.stats || {}); p.look = cleanLook(p.look); p.ach = p.ach || {}; p.camp = Math.max(0, Math.min(20, +p.camp || 0));
     if (!p.pid) { p.pid = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 8); LS.set('nd-profile', p); }
     const listeners = [];
     const save = () => LS.set('nd-profile', p);
@@ -262,22 +264,32 @@
       return addXp(xp, vsBot);
     }
     // result: 'win' | 'loss' | 'draw'; opp: 'easy'|'medium'|'hard'|'human'
-    function onMatch(result, opp, size, myScore) {
+    // campaign: true — бой кампании, опыт идёт без ограничения для ботов
+    function onMatch(result, opp, size, myScore, campaign) {
       const s = p.stats; s.matches++;
       if (result === 'win') s.wins++; else if (result === 'loss') s.losses++; else s.draws++;
-      const mult = { easy: 0.6, medium: 1, hard: 1.5, human: 1.5 }[opp] || 1;
+      const mult = { easy: 0.6, medium: 1, hard: 1.5, elite: 2, king: 3, human: 1.5 }[opp] || 1;
       const base = result === 'win' ? 80 : result === 'draw' ? 50 : 30;
       const xp = Math.round(base * mult * (size / 20));
       if (result === 'win') { achieve('win1'); if (s.wins >= 10) achieve('win10'); if (opp === 'hard') achieve('beat_hard'); if (opp === 'human') achieve('online_win'); }
       if (size === 50) achieve('full50');
       save();
-      return addXp(xp, opp !== 'human');
+      return addXp(xp, opp !== 'human' && !campaign);
+    }
+    // победа в бою кампании: открывает следующий бой, первая победа даёт награду; 20-й бой — настоящий король
+    function campWin(idx, bonus) {
+      const first = idx === p.camp;
+      if (first) { p.camp = Math.min(20, p.camp + 1); save(); }
+      if (idx === 19) achieve('kill_king');
+      const got = first ? addXp(bonus, false) : 0;
+      emit({ type: 'camp' });
+      return { first, xp: got };
     }
     function equip(slot, id) { if (!isUnlocked(slot, id)) return false; p.look[slot] = id; save(); emit({ type: 'look' }); return true; }
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 
@@ -342,6 +354,16 @@
       case 'crown': { g.fillStyle = '#f2c24a'; g.beginPath(); g.moveTo(-14, hy - 10); g.lineTo(-14, hy - 26); g.lineTo(-7, hy - 18); g.lineTo(0, hy - 30); g.lineTo(7, hy - 18); g.lineTo(14, hy - 26); g.lineTo(14, hy - 10); g.closePath(); g.fill();
         g.strokeStyle = '#a87a1e'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 15, 2.5, 0, 7); g.fill(); g.fillStyle = '#3b82f6'; g.beginPath(); g.arc(-8, hy - 14, 2, 0, 7); g.arc(8, hy - 14, 2, 0, 7); g.fill();
         g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill(); break; }
+      case 'bloodcrown': { // тёмный металл, кровавые зубцы, капли и рубин
+        g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
+        g.fillStyle = '#5a0b12'; g.beginPath(); g.moveTo(-16, hy - 9); g.lineTo(-16, hy - 30); g.lineTo(-9, hy - 20); g.lineTo(-4, hy - 36); g.lineTo(0, hy - 22); g.lineTo(4, hy - 36); g.lineTo(9, hy - 20); g.lineTo(16, hy - 30); g.lineTo(16, hy - 9); g.closePath(); g.fill();
+        g.strokeStyle = '#d4a23a'; g.lineWidth = 1.6; g.stroke();
+        g.fillStyle = '#d4a23a'; g.fillRect(-16, hy - 13, 32, 4);
+        g.fillStyle = '#b3121f'; [[-16, hy - 30], [-4, hy - 36], [4, hy - 36], [16, hy - 30]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill(); });
+        const dr = (Math.sin(now / 500) + 1) * 1.5;   // капли медленно тянутся вниз
+        g.fillStyle = '#c0141f'; [[-11, 3], [2, 5], [12, 2]].forEach(([x, l]) => { g.beginPath(); g.moveTo(x - 1.6, hy - 9); g.lineTo(x + 1.6, hy - 9); g.lineTo(x + 1.2, hy - 9 + l + dr); g.arc(x, hy - 9 + l + dr, 1.6, 0, Math.PI); g.lineTo(x - 1.6, hy - 9); g.fill(); });
+        g.save(); g.shadowColor = '#ff2a3a'; g.shadowBlur = 8; g.fillStyle = '#ff3346'; g.beginPath(); g.arc(0, hy - 18, 3, 0, 7); g.fill(); g.restore();
+        break; }
       default: if (L.face !== 'ninja') { g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill(); }
     }
     // руки
