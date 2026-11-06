@@ -625,6 +625,11 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       if (a === 'sticky') s.stick = 360;
       if (a === 'magnet') s.magnet = 1.4;
     }
+    // длина ножа в физике = длина по рисунку (длинный клинок достаёт до пня раньше)
+    const shp = SH[card.shape];
+    s.reach = shp ? Math.max(26, Math.min(38, (shp.len + shp.handle) / 2)) : KNIFE_HALF;
+    // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
+    if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
     s.preview = Math.min(1, s.preview);
     s.spread = Math.round(s.spread * 100) / 100;
     return Object.assign(s, {
@@ -690,6 +695,17 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     const face = FACE_X - (big ? 20 : 0);
     const right = FACE_X + STUMP_W + (big ? 20 : 0);
     const win = stats.stick * Math.PI / 360; // половина окна
+    const reach = stats.reach || KNIFE_HALF, TIP = reach * 0.92;
+    const inStump = (X, Y) => X >= face && X <= right && Y >= top && Y <= GROUND;
+    // три точки ножа: остриё, центр, рукоять — [x, y, прошлый x, прошлый y, остриё?]
+    const probes3 = (x, y, px, py, r, rp) => { const c = Math.cos(r), sn = Math.sin(r), cp = Math.cos(rp), sp = Math.sin(rp);
+      return [[x + c * TIP, y + sn * TIP, px + cp * TIP, py + sp * TIP, true], [x, y, px, py, false], [x - c * TIP, y - sn * TIP, px - cp * TIP, py - sp * TIP, false]]; };
+    // выталкиваем нож целиком: вверх над торцом или в сторону от ближнего бока
+    const pushOut = (ins, fromTop) => {
+      if (fromTop) { y -= Math.max(...ins.map(q => q[1] - top)) + 1; return; }
+      const mid = (face + right) / 2;
+      if (x <= mid) x -= Math.max(...ins.map(q => q[0] - face)) + 1; else x += Math.max(...ins.map(q => right - q[0])) + 1;
+    };
     const dt = 1 / 120;
     const frames = [];
     const res = { hit: false, reason: 'Мимо', code: 'miss', mult: 0, points: 0, zone: null, stuck: null };
@@ -709,14 +725,14 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
         vx += ax * dt; vy += g * dt;
         x += vx * dt; y += vy * dt; r += omega * dt;
 
-        const tipNow = x + KNIFE_HALF * 0.9, tipPrev = px + KNIFE_HALF * 0.9;
+        const tipNow = x + TIP, tipPrev = px + TIP;
         if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
           // удар в бок пня
           const rn = norm(r);
           if (stats.stick >= 360 || Math.abs(rn) <= win) {
             const rr = Math.abs(rn) <= win ? rn : Math.sign(rn || 1) * Math.min(Math.abs(rn), 0.6);
             r = rr;
-            x = face + 10 - Math.cos(rr) * KNIFE_HALF;
+            x = face + 10 - Math.cos(rr) * reach;
             const dy = Math.abs(y - BULL_Y);
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -729,25 +745,40 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
             vx = -Math.abs(vx) * 0.25; vy = -140; omega *= -1.4;
             res.reason = 'Отскочил от пня'; res.code = 'bounce_face';
             state = 'fall';
+            const ins2 = probes3(x, y, px, py, r, r).filter(q => inStump(q[0], q[1]));
+            if (ins2.length) pushOut(ins2, false);
           }
-        } else if (py < top && y >= top && x >= face && x <= right) {
-          // удар в торец сверху
-          const rn = norm(r - Math.PI / 2);
-          if (stats.stick >= 360 || Math.abs(rn) <= win) {
-            y = top + 8;
-            res.hit = true; res.mult = 1; res.zone = 'top'; res.reason = 'В торец!'; res.code = 'top';
-            res.stuck = { x, y: y - Math.sin(r) * KNIFE_HALF + 4, r };
-            y = res.stuck.y;
-            push();
-            break;
-          } else {
-            vy = -Math.abs(vy) * 0.3; vx *= 0.4; omega *= -1.3;
-            res.reason = 'Отскочил от торца'; res.code = 'bounce_top';
+        } else {
+          // верх и бока пня: проверяем остриё, центр и рукоять, а не только центр
+          const pr = probes3(x, y, px, py, r, r - omega * dt);
+          const ins = pr.filter(q => inStump(q[0], q[1]));
+          if (ins.length) {
+            const fromTop = ins.some(q => q[3] < top);
+            const tip = ins.find(q => q[4]);
+            if (fromTop && tip && (stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win)) {
+              res.hit = true; res.mult = 1; res.zone = 'top'; res.reason = 'В торец!'; res.code = 'top';
+              const k = TIP - 8, c = Math.cos(r), sn = Math.sin(r);   // остриё входит в дерево на 8 px
+              x = tip[0] - c * k; y = top + 8 - sn * k;
+              res.stuck = { x, y, r };
+              push(); break;
+            }
+            pushOut(ins, fromTop);
+            if (fromTop) { vy = -Math.abs(vy) * 0.3; vx *= 0.4; omega *= -1.3; res.reason = 'Отскочил от торца'; res.code = 'bounce_top'; }
+            else { vx = -Math.abs(vx) * 0.25; vy = Math.min(vy, -140); omega *= -1.4; res.reason = 'Отскочил от пня'; res.code = 'bounce_face'; }
             state = 'fall';
           }
         }
       } else {
         vy += g * dt; x += vx * dt; y += vy * dt; r += omega * 0.6 * dt;
+        const ins = probes3(x, y, px, py, r, r - omega * 0.6 * dt).filter(q => inStump(q[0], q[1]));
+        if (ins.length) {
+          const fromTop = ins.some(q => q[3] < top);
+          pushOut(ins, fromTop);
+          if (fromTop) {   // лёг на торец
+            if (Math.abs(vy) < 260) { r = Math.cos(r) > 0 ? 0.03 : Math.PI - 0.03; y = top - 4; push(); break; }
+            vy = -Math.abs(vy) * 0.3; vx *= 0.6; omega *= -0.8;
+          } else vx = -vx * 0.3;
+        }
       }
 
       if (y >= GROUND) {
@@ -757,6 +788,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
           y = GROUND - 2;
           if (Math.sin(r) > 0.5) { y = GROUND + 6; } else { r = Math.cos(r) > 0 ? 0.04 : Math.PI - 0.04; }
           if (state === 'fly') { res.reason = 'В землю'; res.code = 'ground'; }
+          const ins3 = probes3(x, y, x, y - 20, r, r).filter(q => inStump(q[0], q[1]) && q[1] < GROUND - 2);
+          if (ins3.length) pushOut(ins3, false);
           push();
           break;
         }
