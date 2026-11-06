@@ -236,15 +236,19 @@
     const right = FACE_X + STUMP_W + (big ? 20 : 0);
     const win = stats.stick * Math.PI / 360; // половина окна
     const reach = stats.reach || KNIFE_HALF, TIP = reach * 0.92;
-    const inStump = (X, Y) => X >= face && X <= right && Y >= top && Y <= GROUND;
+    // настоящий пень (магнит только ловит, отскоки — от настоящего)
+    const T0 = STUMP_TOP, F0 = FACE_X, R0 = FACE_X + STUMP_W;
+    const lim = Math.min(win, 1.0);   // «всегда втыкается» тоже входит остриём, а не рукоятью
+    const topAngle = (r) => { const rn = norm(r - Math.PI / 2); return Math.PI / 2 + Math.max(-lim, Math.min(lim, rn)); };
+    const inStump = (X, Y) => X >= F0 && X <= R0 && Y >= T0 && Y <= GROUND;
     // три точки ножа: остриё, центр, рукоять — [x, y, прошлый x, прошлый y, остриё?]
     const probes3 = (x, y, px, py, r, rp) => { const c = Math.cos(r), sn = Math.sin(r), cp = Math.cos(rp), sp = Math.sin(rp);
       return [[x + c * TIP, y + sn * TIP, px + cp * TIP, py + sp * TIP, true], [x, y, px, py, false], [x - c * TIP, y - sn * TIP, px - cp * TIP, py - sp * TIP, false]]; };
     // выталкиваем нож целиком: вверх над торцом или в сторону от ближнего бока
     const pushOut = (ins, fromTop) => {
-      if (fromTop) { y -= Math.max(...ins.map(q => q[1] - top)) + 1; return; }
-      const mid = (face + right) / 2;
-      if (x <= mid) x -= Math.max(...ins.map(q => q[0] - face)) + 1; else x += Math.max(...ins.map(q => right - q[0])) + 1;
+      if (fromTop) { y -= Math.max(...ins.map(q => q[1] - T0)) + 1; return; }
+      const mid = (F0 + R0) / 2;
+      if (x <= mid) x -= Math.max(...ins.map(q => q[0] - F0)) + 1; else x += Math.max(...ins.map(q => R0 - q[0])) + 1;
     };
     const dt = 1 / 120;
     const frames = [];
@@ -266,57 +270,66 @@
         x += vx * dt; y += vy * dt; r += omega * dt;
 
         const tipNow = x + TIP, tipPrev = px + TIP;
+        const stickFace = stats.stick >= 360 || Math.abs(norm(r)) <= win;
+        const stickTop = stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win;
+        let done = false;
+        // 1) остриё входит в бок (магнит ловит раньше, но нож втыкается в настоящий бок пня)
         if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
-          // удар в бок пня
-          const rn = norm(r);
-          if (stats.stick >= 360 || Math.abs(rn) <= win) {
-            const rr = Math.abs(rn) <= win ? rn : Math.sign(rn || 1) * Math.min(Math.abs(rn), 0.6);
-            r = rr;
-            x = face + 10 - Math.cos(rr) * reach;
+          if (stickFace) {
+            const rn = norm(r), rr = Math.max(-lim, Math.min(lim, rn));
+            r = rr; x = F0 + 10 - Math.cos(rr) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y - BULL_Y);
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
             else { res.mult = 1; res.zone = 'outer'; res.reason = 'Попадание'; res.code = 'outer'; }
-            res.hit = true;
-            res.stuck = { x, y, r };
-            push();
-            break;
-          } else {
-            vx = -Math.abs(vx) * 0.25; vy = -140; omega *= -1.4;
-            res.reason = 'Отскочил от пня'; res.code = 'bounce_face';
-            state = 'fall';
-            const ins2 = probes3(x, y, px, py, r, r).filter(q => inStump(q[0], q[1]));
-            if (ins2.length) pushOut(ins2, false);
+            res.hit = true; res.stuck = { x, y, r }; push(); break;
           }
-        } else {
-          // верх и бока пня: проверяем остриё, центр и рукоять, а не только центр
-          const pr = probes3(x, y, px, py, r, r - omega * dt);
-          const ins = pr.filter(q => inStump(q[0], q[1]));
-          if (ins.length) {
-            const fromTop = ins.some(q => q[3] < top);
-            const tip = ins.find(q => q[4]);
-            if (fromTop && tip && (stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win)) {
-              res.hit = true; res.mult = 1; res.zone = 'top'; res.reason = 'В торец!'; res.code = 'top';
-              const k = TIP - 8, c = Math.cos(r), sn = Math.sin(r);   // остриё входит в дерево на 8 px
-              x = tip[0] - c * k; y = top + 8 - sn * k;
-              res.stuck = { x, y, r };
-              push(); break;
-            }
-            pushOut(ins, fromTop);
-            if (fromTop) { vy = -Math.abs(vy) * 0.3; vx *= 0.4; omega *= -1.3; res.reason = 'Отскочил от торца'; res.code = 'bounce_top'; }
-            else { vx = -Math.abs(vx) * 0.25; vy = Math.min(vy, -140); omega *= -1.4; res.reason = 'Отскочил от пня'; res.code = 'bounce_face'; }
-            state = 'fall';
+        }
+        // 2) магнит сверху: остриё пересекло расширенную зону — нож притягивается к торцу
+        if (big) {
+          const c = Math.cos(r), sn = Math.sin(r), rp = r - omega * dt;
+          const X = x + c * TIP, Y = y + sn * TIP, PY = py + Math.sin(rp) * TIP;
+          if (stickTop && PY < top && Y >= top && X >= face && X <= right && Y < T0 + 8) {
+            const tx = Math.max(F0 + 6, Math.min(R0 - 6, X)), k = TIP - 8;
+            r = topAngle(r); const c2 = Math.cos(r), s2 = Math.sin(r);
+            res.hit = true; res.mult = 1; res.zone = 'top'; res.reason = 'В торец!'; res.code = 'top';
+            x = tx - c2 * k; y = T0 + 8 - s2 * k; res.stuck = { x, y, r }; push(); break;
           }
+        }
+        // 3) настоящий пень: остриё, центр и рукоять
+        const ins = probes3(x, y, px, py, r, r - omega * dt).filter(q => inStump(q[0], q[1]));
+        if (ins.length) {
+          const fromTop = ins.some(q => q[3] < T0);
+          const tip = ins.find(q => q[4]);
+          if (fromTop && tip && stickTop) {
+            res.hit = true; res.mult = 1; res.zone = 'top'; res.reason = 'В торец!'; res.code = 'top';
+            r = topAngle(r); const k = TIP - 8, c = Math.cos(r), sn = Math.sin(r);   // остриё входит в дерево на 8 px
+            x = Math.max(F0 + 6, Math.min(R0 - 6, tip[0])) - c * k; y = T0 + 8 - sn * k;
+            res.stuck = { x, y, r }; push(); break;
+          }
+          if (!fromTop && tip && stickFace && tip[2] < F0) {   // остриё зашло в бок между кадрами
+            r = Math.max(-lim, Math.min(lim, norm(r))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            const dy = Math.abs(y - BULL_Y);
+            if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
+            else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
+            else { res.mult = 1; res.zone = 'outer'; res.reason = 'Попадание'; res.code = 'outer'; }
+            res.hit = true; res.stuck = { x, y, r }; push(); break;
+          }
+          pushOut(ins, fromTop);
+          if (fromTop) { vy = -Math.abs(vy) * 0.3; vx *= 0.4; omega *= -1.3; res.reason = 'Отскочил от торца'; res.code = 'bounce_top'; }
+          else { vx = -Math.abs(vx) * 0.25; vy = Math.min(vy, -140); omega *= -1.4; res.reason = 'Отскочил от пня'; res.code = 'bounce_face'; }
+          state = 'fall';
         }
       } else {
         vy += g * dt; x += vx * dt; y += vy * dt; r += omega * 0.6 * dt;
         const ins = probes3(x, y, px, py, r, r - omega * 0.6 * dt).filter(q => inStump(q[0], q[1]));
         if (ins.length) {
-          const fromTop = ins.some(q => q[3] < top);
+          const fromTop = ins.some(q => q[3] < T0);
           pushOut(ins, fromTop);
-          if (fromTop) {   // лёг на торец
-            if (Math.abs(vy) < 260) { r = Math.cos(r) > 0 ? 0.03 : Math.PI - 0.03; y = top - 4; push(); break; }
-            vy = -Math.abs(vy) * 0.3; vx *= 0.6; omega *= -0.8;
+          if (fromTop) {
+            if (x >= F0 + 4 && x <= R0 - 4 && Math.abs(vy) < 260) { r = Math.cos(r) > 0 ? 0.03 : Math.PI - 0.03; y = T0 - 4; push(); break; }   // лёг на торец
+            if (x < F0 + 4 || x > R0 - 4) { vx = (x < (F0 + R0) / 2 ? -1 : 1) * Math.max(90, Math.abs(vx)); vy = Math.max(0, -Math.abs(vy) * 0.2); omega = (vx > 0 ? 1 : -1) * 5; }   // центр за краем — соскальзывает
+            else { vy = -Math.abs(vy) * 0.3; vx *= 0.6; omega *= -0.8; }
           } else vx = -vx * 0.3;
         }
       }
