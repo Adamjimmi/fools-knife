@@ -3029,6 +3029,7 @@ window.NDMqtt = (() => {
 .camp-panel { width: min(660px, 96vw); }
 .camp-cnt { color: var(--muted); font: 400 14px Rubik, sans-serif; margin-left: 6px; }
 .camp-map { max-height: min(62vh, 640px); overflow-y: auto; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line), 0 10px 30px rgba(0,0,0,.45); background: #1a120b; overscroll-behavior: contain; }
+.camp-map, .camp-map canvas { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; outline: none; }
 .camp-map canvas { display: block; width: 100%; height: auto; aspect-ratio: 600 / 1800; cursor: pointer; }
 .camp-info { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #1c130c; }
 .camp-info .ci-main { flex: 1; min-width: 0; }
