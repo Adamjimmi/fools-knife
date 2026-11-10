@@ -230,7 +230,7 @@
     ['beat_hard', 'Сильнее машины', 'Beat the machine', 'Победи сложного бота → камуфляж', 'Beat the hard bot → camo'],
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
-    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → алая корона', 'Defeat the true king in the campaign → scarlet crown'],
+    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи короля и изгони его → алая корона', 'Defeat the king and exile him → scarlet crown'],
     ['king_lose', 'Я пришёл договариваться', 'I came to negotiate', 'Проиграй настоящему королю в кампании', 'Lose to the true king in the campaign'],
     ['king_lose5', 'Короля не убить', "Can't kill the king", 'Умри в битве с королём 5 раз', 'Die in battle with the king 5 times'],
     ['noble', 'Благородное дело', 'A noble deed', 'Пощади короля после его поражения', 'Spare the king after defeating him'],
@@ -306,11 +306,12 @@
     }
     // пощадил короля после победы над ним
     function spareKing() { achieve('noble'); }
+    // изгнал короля после победы над ним
+    function exileKing() { achieve('kill_king'); }
     // победа в бою кампании: открывает следующий бой, первая победа даёт награду; 20-й бой — настоящий король
     function campWin(idx, bonus) {
       const first = idx === p.camp;
       if (first) { p.camp = Math.min(20, p.camp + 1); save(); }
-      if (idx === 19) achieve('kill_king');
       const got = first ? addXp(bonus, false) : 0;
       emit({ type: 'camp' });
       return { first, xp: got };
@@ -327,7 +328,7 @@
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, lostToKing, spareKing, get camp() { return p.camp; }, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, lostToKing, spareKing, exileKing, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 

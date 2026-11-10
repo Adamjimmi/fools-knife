@@ -177,8 +177,8 @@ input:focus { border-color: var(--gold); }
 .card.mini { transform: scale(.82); }
 /* магическая колода (третья фаза): аура цвета зачарования поверх фиолетового свечения */
 .card.magic {
-  border-color: var(--ench, #b48cff);
-  box-shadow: 0 0 0 2px var(--ench, #b48cff), 0 0 12px var(--ench, #b48cff), 0 0 26px rgba(170,110,255,.85), 0 6px 16px rgba(0,0,0,.45);
+  border-width: 4px; border-color: var(--ench, #b48cff);   /* обшивка в 2 раза толще */
+  box-shadow: 0 0 0 4px var(--ench, #b48cff), 0 0 24px var(--ench, #b48cff), 0 0 52px rgba(170,110,255,.85), 0 6px 16px rgba(0,0,0,.45);
 }
 .card.magic .magic-ench { color: #5b2aa8; font-weight: 600; }
 
@@ -2111,7 +2111,7 @@ window.NDEngine = (() => {
     ['beat_hard', 'Сильнее машины', 'Beat the machine', 'Победи сложного бота → камуфляж', 'Beat the hard bot → camo'],
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
-    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → алая корона', 'Defeat the true king in the campaign → scarlet crown'],
+    ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи короля и изгони его → алая корона', 'Defeat the king and exile him → scarlet crown'],
     ['king_lose', 'Я пришёл договариваться', 'I came to negotiate', 'Проиграй настоящему королю в кампании', 'Lose to the true king in the campaign'],
     ['king_lose5', 'Короля не убить', "Can't kill the king", 'Умри в битве с королём 5 раз', 'Die in battle with the king 5 times'],
     ['noble', 'Благородное дело', 'A noble deed', 'Пощади короля после его поражения', 'Spare the king after defeating him'],
@@ -2187,11 +2187,12 @@ window.NDEngine = (() => {
     }
     // пощадил короля после победы над ним
     function spareKing() { achieve('noble'); }
+    // изгнал короля после победы над ним
+    function exileKing() { achieve('kill_king'); }
     // победа в бою кампании: открывает следующий бой, первая победа даёт награду; 20-й бой — настоящий король
     function campWin(idx, bonus) {
       const first = idx === p.camp;
       if (first) { p.camp = Math.min(20, p.camp + 1); save(); }
-      if (idx === 19) achieve('kill_king');
       const got = first ? addXp(bonus, false) : 0;
       emit({ type: 'camp' });
       return { first, xp: got };
@@ -2208,7 +2209,7 @@ window.NDEngine = (() => {
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, lostToKing, spareKing, get camp() { return p.camp; }, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, lostToKing, spareKing, exileKing, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 
@@ -3339,19 +3340,22 @@ window.NDMqtt = (() => {
   };
   // в описаниях магических карт все числа заменяются на «?»
   const hideNums = (text) => String(text).replace(/\d+(?:[.,]\d+)?/g, '?');
+  // описание магической карты — только вопросики (пробелы сохраняются, чтобы строка делилась так же)
+  const maskDesc = (text) => String(text).replace(/\S/g, '?');
   function cardEl(card) {
     const st = card.stats;
     const s = SUITS[card.suit];
     const c = document.createElement('div');
     const en = card.ench ? KG.ENCH[card.ench] : null;
     const hide = card.magic ? hideNums : (x) => x;
+    const descOf = card.magic ? maskDesc : (x) => x;
     c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}${card.magic ? ' magic' : ''}`;
     if (en) c.style.setProperty('--ench', en.color);
     const items = [];
-    if (en) items.push(`<li class="ab magic-ench">✦ ${esc(T(en.name, en.en))} — ${esc(hide(LANG === 'en' ? ENCH_EN[card.ench] : en.desc))}</li>`);
-    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${hide(abil(a)[0])}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(abil(a)[1])}</li>`));
-    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${hide(qual(q)[0])}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(qual(q)[1])}</li>`));
-    st.flaws.forEach(f => items.push(`<li class="fl">− ${hide(flaw(f)[0])} — ${hide(flaw(f)[1])}</li>`));
+    if (en) items.push(`<li class="ab magic-ench">✦ ${esc(T(en.name, en.en))} — ${esc(descOf(LANG === 'en' ? ENCH_EN[card.ench] : en.desc))}</li>`);
+    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${hide(abil(a)[0])}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${descOf(abil(a)[1])}</li>`));
+    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${hide(qual(q)[0])}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${descOf(qual(q)[1])}</li>`));
+    st.flaws.forEach(f => items.push(`<li class="fl">− ${hide(flaw(f)[0])} — ${descOf(flaw(f)[1])}</li>`));
     if (st.trump) items.push(`<li class="ab">★ ${T('Козырь: летит ровнее, меньше ветра', 'Trump: steadier flight, less wind')}</li>`);
     const nv = (v) => (card.magic ? '?' : v);
     c.innerHTML = `
@@ -4245,7 +4249,7 @@ window.NDMqtt = (() => {
   }
   function kingChoose(spare) {
     kingDecision = spare ? 'spare' : 'exile';
-    if (spare) X.Profile.spareKing();
+    if (spare) X.Profile.spareKing(); else X.Profile.exileKing();
     sfx(spare ? 'achieve' : 'clank');
     renderOverlay();
   }

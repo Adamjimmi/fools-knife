@@ -634,19 +634,22 @@
   };
   // в описаниях магических карт все числа заменяются на «?»
   const hideNums = (text) => String(text).replace(/\d+(?:[.,]\d+)?/g, '?');
+  // описание магической карты — только вопросики (пробелы сохраняются, чтобы строка делилась так же)
+  const maskDesc = (text) => String(text).replace(/\S/g, '?');
   function cardEl(card) {
     const st = card.stats;
     const s = SUITS[card.suit];
     const c = document.createElement('div');
     const en = card.ench ? KG.ENCH[card.ench] : null;
     const hide = card.magic ? hideNums : (x) => x;
+    const descOf = card.magic ? maskDesc : (x) => x;
     c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}${card.magic ? ' magic' : ''}`;
     if (en) c.style.setProperty('--ench', en.color);
     const items = [];
-    if (en) items.push(`<li class="ab magic-ench">✦ ${esc(T(en.name, en.en))} — ${esc(hide(LANG === 'en' ? ENCH_EN[card.ench] : en.desc))}</li>`);
-    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${hide(abil(a)[0])}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(abil(a)[1])}</li>`));
-    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${hide(qual(q)[0])}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(qual(q)[1])}</li>`));
-    st.flaws.forEach(f => items.push(`<li class="fl">− ${hide(flaw(f)[0])} — ${hide(flaw(f)[1])}</li>`));
+    if (en) items.push(`<li class="ab magic-ench">✦ ${esc(T(en.name, en.en))} — ${esc(descOf(LANG === 'en' ? ENCH_EN[card.ench] : en.desc))}</li>`);
+    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${hide(abil(a)[0])}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${descOf(abil(a)[1])}</li>`));
+    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${hide(qual(q)[0])}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${descOf(qual(q)[1])}</li>`));
+    st.flaws.forEach(f => items.push(`<li class="fl">− ${hide(flaw(f)[0])} — ${descOf(flaw(f)[1])}</li>`));
     if (st.trump) items.push(`<li class="ab">★ ${T('Козырь: летит ровнее, меньше ветра', 'Trump: steadier flight, less wind')}</li>`);
     const nv = (v) => (card.magic ? '?' : v);
     c.innerHTML = `
@@ -1540,7 +1543,7 @@
   }
   function kingChoose(spare) {
     kingDecision = spare ? 'spare' : 'exile';
-    if (spare) X.Profile.spareKing();
+    if (spare) X.Profile.spareKing(); else X.Profile.exileKing();
     sfx(spare ? 'achieve' : 'clank');
     renderOverlay();
   }

@@ -168,8 +168,8 @@ input:focus { border-color: var(--gold); }
 .card.mini { transform: scale(.82); }
 /* магическая колода (третья фаза): аура цвета зачарования поверх фиолетового свечения */
 .card.magic {
-  border-color: var(--ench, #b48cff);
-  box-shadow: 0 0 0 2px var(--ench, #b48cff), 0 0 12px var(--ench, #b48cff), 0 0 26px rgba(170,110,255,.85), 0 6px 16px rgba(0,0,0,.45);
+  border-width: 4px; border-color: var(--ench, #b48cff);   /* обшивка в 2 раза толще */
+  box-shadow: 0 0 0 4px var(--ench, #b48cff), 0 0 24px var(--ench, #b48cff), 0 0 52px rgba(170,110,255,.85), 0 6px 16px rgba(0,0,0,.45);
 }
 .card.magic .magic-ench { color: #5b2aa8; font-weight: 600; }
 
