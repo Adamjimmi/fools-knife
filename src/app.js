@@ -98,7 +98,7 @@
         return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
       case 'sword': return T(`${who} превращает алый меч со спины в карту!`, `${who} turns a scarlet sword from the back into a card!`);
       case 'phase3': return T('🌌 Колода опустела. Из земли выходит магическая колода: 30 карт с зачарованиями!', '🌌 The deck is empty. A magic deck of 30 enchanted cards rises from the ground!');
-      case 'phase2': return T('🌑 Колода пуста, а ты впереди короля! Вторая фаза: в колоду добавлено 20 карт. Ты тянешь ножи паладина, король — алые мечи.', '🌑 The deck is empty and you lead the king! Phase two: 20 cards are added. You draw paladin knives, the king draws scarlet swords.');
+      case 'phase2': return T('🌑 Колода пуста, а ты впереди короля! Вторая фаза: в колоду добавлено 20 карт. Ты тянешь мечи паладина, король — алые мечи.', '🌑 The deck is empty and you lead the king! Phase two: 20 cards are added. You draw paladin swords, the king draws scarlet swords.');
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
       case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }

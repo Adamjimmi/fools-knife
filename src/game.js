@@ -75,7 +75,7 @@
   const SPECIAL = [
     ['diamonds', 'A2-d', ['Дюжина кортиков', 'dirk',  ['volley'],                   'calm', 'balance']],
     ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
-    ['clubs',    'A4-c', ['Нож паладина',    'paladin', ['paladin'],                  'calm', 'value']],
+    ['clubs',    'A4-c', ['Меч паладина',    'paladin', ['paladin'],                  'calm', 'value']],
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
@@ -565,7 +565,7 @@
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword', 'Нож паладина': 'Paladin Knife', 'Меч паладина': 'Paladin\'s Sword',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword', 'Меч паладина': 'Paladin\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -819,7 +819,7 @@
   function catalog() {
     const aces = SUIT_ORDER.map((suit) => mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', ACES[suit], false));
     const special = SPECIAL.map(([suit, id, d]) => mkCard(id, suit, 'ace', d, false));
-    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false), mkCard('R-pal', 'clubs', 'ace', ['Меч паладина', 'paladin', ['paladin'], 'calm', 'power'], false)];
+    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false)];
     const good = GOOD.map((d, i) => mkCard('cat-g' + i, SUIT_ORDER[i % 4], 'good', d, false));
     const bad = BAD.map((d, i) => mkCard('cat-b' + i, SUIT_ORDER[i % 4], 'bad', d, true));
     const pack = (list) => list.map((c) => cardWithStats(c, null));

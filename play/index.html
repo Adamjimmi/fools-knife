@@ -559,7 +559,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   const SPECIAL = [
     ['diamonds', 'A2-d', ['Дюжина кортиков', 'dirk',  ['volley'],                   'calm', 'balance']],
     ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
-    ['clubs',    'A4-c', ['Нож паладина',    'paladin', ['paladin'],                  'calm', 'value']],
+    ['clubs',    'A4-c', ['Меч паладина',    'paladin', ['paladin'],                  'calm', 'value']],
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
@@ -1049,7 +1049,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword', 'Нож паладина': 'Paladin Knife', 'Меч паладина': 'Paladin\'s Sword',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword', 'Меч паладина': 'Paladin\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -1303,7 +1303,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   function catalog() {
     const aces = SUIT_ORDER.map((suit) => mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', ACES[suit], false));
     const special = SPECIAL.map(([suit, id, d]) => mkCard(id, suit, 'ace', d, false));
-    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false), mkCard('R-pal', 'clubs', 'ace', ['Меч паладина', 'paladin', ['paladin'], 'calm', 'power'], false)];
+    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false)];
     const good = GOOD.map((d, i) => mkCard('cat-g' + i, SUIT_ORDER[i % 4], 'good', d, false));
     const bad = BAD.map((d, i) => mkCard('cat-b' + i, SUIT_ORDER[i % 4], 'bad', d, true));
     const pack = (list) => list.map((c) => cardWithStats(c, null));
@@ -1492,12 +1492,16 @@ window.NDEngine = (() => {
         }
       }
       // вторая фаза опустела (ни одного ножа паладина и алого меча не осталось) — третья фаза: магическая колода
+      // третья фаза — как и вторая, только если игрок впереди короля по очкам
       if (g.kingBattle && g.phase2 && !g.phase3 && !g.deck.some(c => c.id === 'A4-c' || c.id === 'A3-h')) {
-        g.phase3 = true;
-        g.magicCards = G.magicDeck();
-        g.deck = G.shuffle(g.magicCards.slice());
-        log({ k: 'phase3' });
-        drawRound();
+        const me = g.players.find(p => !p.isBot), king = g.players.find(p => p.isBot && p.lvl === 'king');
+        if (me && king && me.score > king.score) {
+          g.phase3 = true;
+          g.magicCards = G.magicDeck();
+          g.deck = G.shuffle(g.magicCards.slice());
+          log({ k: 'phase3' });
+          drawRound();
+        }
       }
       if (g.players.every(p => p.hand.length === 0)) return endGame();
       // король превращает меч со спины в карту (по одному, с шансом на раунд)
@@ -1683,6 +1687,7 @@ window.NDEngine = (() => {
           Object.assign(result, { hit: false, knock: true, reason: 'Сбил нож соперника!', code: 'knock', points: bonus, mult: 0, zone: null, stuck: null });
           msg.cut = col.i;
           msg.pal = { id: f.id, at: col.j };
+          f.bounced = true;   // нож вернулся в свой пень после отбивания паладином
           scheduleLanding(f);
           break;
         }
@@ -1778,13 +1783,15 @@ window.NDEngine = (() => {
       if (r.hit && f.st.has('thief') && opp) { r.steal = Math.min(5, opp.score); opp.score -= r.steal; r.points += r.steal; }
       p.score += r.points || 0;
       if (r.hit && f.st.has('bloodsword') && opp) {   // меч крадёт лучшую карту соперника
-        const pool = opp.hand.filter(c => c !== opp.active);
+        // меч, отбитый паладином и вернувшийся в свой пень, крадёт у своего владельца (Алого Короля) — в пользу того, кто его отбил
+        const thief = f.bounced ? opp : p, victim = f.bounced ? p : opp;
+        const pool = victim.hand.filter(c => c !== victim.active);
         if (pool.length) {
           const val = (c) => TIER_RANK[c.tier] + (c.suit === g.trumpSuit ? 0.5 : 0);
           const best = pool.reduce((a, b) => (val(b) > val(a) ? b : a));
-          opp.hand = opp.hand.filter(c => c !== best); p.hand.push(best);
-          r.stoleLog = { k: 'steal', n: p.name, b: p.isBot, cn: p.cn, c: best.id, from: opp.name, fb: opp.isBot, fcn: opp.cn };
-          if (opp.status === 'aim' && !opp.active && !usable(opp).length) { opp.status = 'done'; opp.deadline = 0; }
+          victim.hand = victim.hand.filter(c => c !== best); thief.hand.push(best);
+          r.stoleLog = { k: 'steal', n: thief.name, b: thief.isBot, cn: thief.cn, c: best.id, from: victim.name, fb: victim.isBot, fcn: victim.cn };
+          if (victim.status === 'aim' && !victim.active && !usable(victim).length) { victim.status = 'done'; victim.deadline = 0; }
         }
       }
       // бумеранг, перелетев пенёк, возвращается в руку (и ход продолжается)
@@ -2804,7 +2811,7 @@ window.NDMqtt = (() => {
         return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
       case 'sword': return T(`${who} превращает алый меч со спины в карту!`, `${who} turns a scarlet sword from the back into a card!`);
       case 'phase3': return T('🌌 Колода опустела. Из земли выходит магическая колода: 30 карт с зачарованиями!', '🌌 The deck is empty. A magic deck of 30 enchanted cards rises from the ground!');
-      case 'phase2': return T('🌑 Колода пуста, а ты впереди короля! Вторая фаза: в колоду добавлено 20 карт. Ты тянешь ножи паладина, король — алые мечи.', '🌑 The deck is empty and you lead the king! Phase two: 20 cards are added. You draw paladin knives, the king draws scarlet swords.');
+      case 'phase2': return T('🌑 Колода пуста, а ты впереди короля! Вторая фаза: в колоду добавлено 20 карт. Ты тянешь мечи паладина, король — алые мечи.', '🌑 The deck is empty and you lead the king! Phase two: 20 cards are added. You draw paladin swords, the king draws scarlet swords.');
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
       case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }

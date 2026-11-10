@@ -165,12 +165,16 @@ window.NDEngine = (() => {
         }
       }
       // вторая фаза опустела (ни одного ножа паладина и алого меча не осталось) — третья фаза: магическая колода
+      // третья фаза — как и вторая, только если игрок впереди короля по очкам
       if (g.kingBattle && g.phase2 && !g.phase3 && !g.deck.some(c => c.id === 'A4-c' || c.id === 'A3-h')) {
-        g.phase3 = true;
-        g.magicCards = G.magicDeck();
-        g.deck = G.shuffle(g.magicCards.slice());
-        log({ k: 'phase3' });
-        drawRound();
+        const me = g.players.find(p => !p.isBot), king = g.players.find(p => p.isBot && p.lvl === 'king');
+        if (me && king && me.score > king.score) {
+          g.phase3 = true;
+          g.magicCards = G.magicDeck();
+          g.deck = G.shuffle(g.magicCards.slice());
+          log({ k: 'phase3' });
+          drawRound();
+        }
       }
       if (g.players.every(p => p.hand.length === 0)) return endGame();
       // король превращает меч со спины в карту (по одному, с шансом на раунд)
@@ -356,6 +360,7 @@ window.NDEngine = (() => {
           Object.assign(result, { hit: false, knock: true, reason: 'Сбил нож соперника!', code: 'knock', points: bonus, mult: 0, zone: null, stuck: null });
           msg.cut = col.i;
           msg.pal = { id: f.id, at: col.j };
+          f.bounced = true;   // нож вернулся в свой пень после отбивания паладином
           scheduleLanding(f);
           break;
         }
@@ -451,13 +456,15 @@ window.NDEngine = (() => {
       if (r.hit && f.st.has('thief') && opp) { r.steal = Math.min(5, opp.score); opp.score -= r.steal; r.points += r.steal; }
       p.score += r.points || 0;
       if (r.hit && f.st.has('bloodsword') && opp) {   // меч крадёт лучшую карту соперника
-        const pool = opp.hand.filter(c => c !== opp.active);
+        // меч, отбитый паладином и вернувшийся в свой пень, крадёт у своего владельца (Алого Короля) — в пользу того, кто его отбил
+        const thief = f.bounced ? opp : p, victim = f.bounced ? p : opp;
+        const pool = victim.hand.filter(c => c !== victim.active);
         if (pool.length) {
           const val = (c) => TIER_RANK[c.tier] + (c.suit === g.trumpSuit ? 0.5 : 0);
           const best = pool.reduce((a, b) => (val(b) > val(a) ? b : a));
-          opp.hand = opp.hand.filter(c => c !== best); p.hand.push(best);
-          r.stoleLog = { k: 'steal', n: p.name, b: p.isBot, cn: p.cn, c: best.id, from: opp.name, fb: opp.isBot, fcn: opp.cn };
-          if (opp.status === 'aim' && !opp.active && !usable(opp).length) { opp.status = 'done'; opp.deadline = 0; }
+          victim.hand = victim.hand.filter(c => c !== best); thief.hand.push(best);
+          r.stoleLog = { k: 'steal', n: thief.name, b: thief.isBot, cn: thief.cn, c: best.id, from: victim.name, fb: victim.isBot, fcn: victim.cn };
+          if (victim.status === 'aim' && !victim.active && !usable(victim).length) { victim.status = 'done'; victim.deadline = 0; }
         }
       }
       // бумеранг, перелетев пенёк, возвращается в руку (и ход продолжается)
