@@ -231,6 +231,9 @@
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
     ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → алая корона', 'Defeat the true king in the campaign → scarlet crown'],
+    ['king_lose', 'Я пришёл договариваться', 'I came to negotiate', 'Проиграй настоящему королю в кампании', 'Lose to the true king in the campaign'],
+    ['king_lose5', 'Короля не убить', "Can't kill the king", 'Умри в битве с королём 5 раз', 'Die in battle with the king 5 times'],
+    ['noble', 'Благородное дело', 'A noble deed', 'Пощади короля после его поражения', 'Spare the king after defeating him'],
   ];
   const MAX_LEVEL = 30;
   const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
@@ -294,6 +297,15 @@
       save();
       return addXp(xp, opp !== 'human' && !campaign);
     }
+    // поражение от настоящего короля (20-й бой кампании)
+    function lostToKing() {
+      achieve('king_lose');
+      p.stats.kingDeaths = (p.stats.kingDeaths || 0) + 1;   // сколько раз король убил игрока в кампании
+      if (p.stats.kingDeaths >= 5) achieve('king_lose5');
+      save();
+    }
+    // пощадил короля после победы над ним
+    function spareKing() { achieve('noble'); }
     // победа в бою кампании: открывает следующий бой, первая победа даёт награду; 20-й бой — настоящий король
     function campWin(idx, bonus) {
       const first = idx === p.camp;
@@ -315,7 +327,7 @@
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, lostToKing, spareKing, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 
@@ -391,7 +403,6 @@
     }
     // шапка / волосы
     if (o.king) {   // корона: алый бархат, золотой обод, жемчуг и рубин
-      g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
       g.fillStyle = '#b3121f'; g.beginPath(); g.moveTo(-15, hy - 9); g.lineTo(-17, hy - 34); g.lineTo(-9, hy - 24); g.lineTo(-5, hy - 42); g.lineTo(0, hy - 26); g.lineTo(5, hy - 42); g.lineTo(9, hy - 24); g.lineTo(17, hy - 34); g.lineTo(15, hy - 9); g.closePath(); g.fill();
       g.strokeStyle = '#f2c24a'; g.lineWidth = 1.8; g.stroke();
       g.fillStyle = '#f2c24a'; g.fillRect(-17, hy - 13, 34, 5);
@@ -408,9 +419,8 @@
       case 'tophat': g.fillStyle = '#16161c'; g.beginPath(); g.ellipse(0, hy - 12, 20, 4, 0, 0, 7); g.fill(); g.fillRect(-11, hy - 40, 22, 28); g.fillStyle = '#8f1d24'; g.fillRect(-11, hy - 18, 22, 4); break;
       case 'crown': { g.fillStyle = '#f2c24a'; g.beginPath(); g.moveTo(-14, hy - 10); g.lineTo(-14, hy - 26); g.lineTo(-7, hy - 18); g.lineTo(0, hy - 30); g.lineTo(7, hy - 18); g.lineTo(14, hy - 26); g.lineTo(14, hy - 10); g.closePath(); g.fill();
         g.strokeStyle = '#a87a1e'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 15, 2.5, 0, 7); g.fill(); g.fillStyle = '#3b82f6'; g.beginPath(); g.arc(-8, hy - 14, 2, 0, 7); g.arc(8, hy - 14, 2, 0, 7); g.fill();
-        g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill(); break; }
+        break; }
       case 'bloodcrown': { // тёмный металл, кровавые зубцы, капли и рубин
-        g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
         g.fillStyle = '#5a0b12'; g.beginPath(); g.moveTo(-16, hy - 9); g.lineTo(-16, hy - 30); g.lineTo(-9, hy - 20); g.lineTo(-4, hy - 36); g.lineTo(0, hy - 22); g.lineTo(4, hy - 36); g.lineTo(9, hy - 20); g.lineTo(16, hy - 30); g.lineTo(16, hy - 9); g.closePath(); g.fill();
         g.strokeStyle = '#d4a23a'; g.lineWidth = 1.6; g.stroke();
         g.fillStyle = '#d4a23a'; g.fillRect(-16, hy - 13, 32, 4);
@@ -467,14 +477,19 @@
       night:  { sky: ['#0b1028', '#1d2550', '#3a3460'], sun: 'rgba(235,240,255,.95)', mtn: '#2a2748', tree: '#162a26', grass: '#14241f', g1: '#1f3a2c', g2: '#1c1a22', g3: '#0c0b10', blade: '#2f5a44' },
       winter: { sky: ['#9fc4e8', '#cfe3f3', '#eef4f8'], sun: 'rgba(255,255,240,.8)', mtn: '#c8d6e3', tree: '#3d5a54', grass: '#dfe9f0', g1: '#f4f8fb', g2: '#cfdbe4', g3: '#9fb1bf', blade: '#ffffff' },
       desert: { sky: ['#f7b267', '#f8d49a', '#f3e2bd'], sun: 'rgba(255,248,215,.95)', mtn: '#d18e52', tree: '#6d8b4a', grass: '#e2b878', g1: '#e9c48a', g2: '#d3a568', g3: '#a87a46', blade: '#c79a5c' },
+      // вторая фаза битвы с королём: красная ночь и красная луна
+      nightred: { sky: ['#1e0306', '#520b12', '#8a1d1f'], sun: 'rgba(255,128,118,.95)', mtn: '#2e0f15', tree: '#24090d', grass: '#230c10', g1: '#3f1217', g2: '#1f0c11', g3: '#0c0407', blade: '#6e1a1f' },
+      // третья фаза: фиолетовая ночь и фиолетовая луна
+      nightpurple: { sky: ['#0d0218', '#2a0d4a', '#4a1d7a'], sun: 'rgba(214,160,255,.95)', mtn: '#1f0f33', tree: '#1a0b2a', grass: '#1c0c2c', g1: '#2e1450', g2: '#1a0a26', g3: '#0a0412', blade: '#4a1f7a' },
     }[id] || null;
     const p = P || { sky: ['#f2a65a', '#e7c38a', '#c9b48e'], sun: 'rgba(255,240,200,.85)', mtn: '#9a7c63', tree: '#5d6b46', grass: '#4c5a39', g1: '#5f7d3a', g2: '#4b3826', g3: '#2c1f14', blade: '#7da04a' };
     const sky = g.createLinearGradient(0, 0, 0, GROUND);
     sky.addColorStop(0, p.sky[0]); sky.addColorStop(0.55, p.sky[1]); sky.addColorStop(1, p.sky[2]);
     g.fillStyle = sky; g.fillRect(0, 0, W, H);
-    if (id === 'night') { for (let i = 0; i < 90; i++) { const x = (i * 211) % W, y = (i * 97) % 300; g.fillStyle = `rgba(255,255,255,${0.3 + (i % 5) * 0.12})`; g.fillRect(x, y, 1.6, 1.6); } }
-    g.fillStyle = p.sun; g.beginPath(); g.arc(id === 'night' ? 760 : 500, id === 'desert' ? 150 : 180, id === 'desert' ? 75 : id === 'night' ? 42 : 60, 0, Math.PI * 2); g.fill();
-    if (id === 'night') { g.fillStyle = p.sky[0]; g.beginPath(); g.arc(776, 170, 38, 0, 7); g.fill(); }
+    const isNight = id === 'night' || id === 'nightred' || id === 'nightpurple';
+    if (isNight) { for (let i = 0; i < 90; i++) { const x = (i * 211) % W, y = (i * 97) % 300; g.fillStyle = `rgba(255,255,255,${0.3 + (i % 5) * 0.12})`; g.fillRect(x, y, 1.6, 1.6); } }
+    g.fillStyle = p.sun; g.beginPath(); g.arc(isNight ? 760 : 500, id === 'desert' ? 150 : 180, id === 'desert' ? 75 : isNight ? 42 : 60, 0, Math.PI * 2); g.fill();
+    if (isNight) { g.fillStyle = p.sky[0]; g.beginPath(); g.arc(776, 170, 38, 0, 7); g.fill(); }
     g.fillStyle = p.mtn; g.beginPath(); g.moveTo(0, 360);
     for (let x = 0; x <= W; x += 50) g.lineTo(x, (id === 'desert' ? 360 : 330) - Math.sin(x * 0.011) * (id === 'desert' ? 25 : 50) - Math.sin(x * 0.03) * 14);
     g.lineTo(W, GROUND); g.lineTo(0, GROUND); g.fill();

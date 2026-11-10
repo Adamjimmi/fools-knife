@@ -98,7 +98,11 @@ input:focus { border-color: var(--gold); }
 .overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
   background: rgba(15,10,6,.72); backdrop-filter: blur(2px); text-align: center; padding: 20px;
+  /* длинное содержимое (монолог короля, кнопки) прокручивается внутри оверлея, а не уходит за экран */
+  justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
+.overlay > :first-child { margin-top: auto; }
+.overlay > :last-child { margin-bottom: auto; }
 .overlay.hidden { display: none; }
 .overlay h2 { font-family: 'Russo One'; font-weight: 400; font-size: 34px; color: var(--gold); margin: 0; }
 .overlay p { color: var(--muted); margin: 0; }
@@ -171,6 +175,12 @@ input:focus { border-color: var(--gold); }
 .card.morph { animation: morph .55s forwards; }
 @keyframes morph { 0% { transform: rotateY(0) scale(1); } 60% { transform: rotateY(90deg) scale(.9); filter: brightness(2); } 100% { transform: rotateY(90deg) scale(.6); opacity: 0; } }
 .card.mini { transform: scale(.82); }
+/* магическая колода (третья фаза): аура цвета зачарования поверх фиолетового свечения */
+.card.magic {
+  border-color: var(--ench, #b48cff);
+  box-shadow: 0 0 0 2px var(--ench, #b48cff), 0 0 12px var(--ench, #b48cff), 0 0 26px rgba(170,110,255,.85), 0 6px 16px rgba(0,0,0,.45);
+}
+.card.magic .magic-ench { color: #5b2aa8; font-weight: 600; }
 
 .card-back {
   width: 176px; height: 252px; border-radius: 12px; border: 2px solid #c9b48a; box-shadow: 0 6px 16px rgba(0,0,0,.45);
@@ -178,6 +188,13 @@ input:focus { border-color: var(--gold); }
     repeating-linear-gradient(45deg, rgba(255,255,255,.07) 0 6px, transparent 6px 12px),
     radial-gradient(circle at center, #8b2a22 0%, #5a1712 80%);
   display: flex; align-items: center; justify-content: center; font-size: 46px; color: rgba(255,220,150,.75);
+}
+.card-back.magic {
+  border-color: #b48cff; color: rgba(235,210,255,.9);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 12px),
+    radial-gradient(circle at center, #6a2bbd 0%, #2a0f4d 80%);
+  box-shadow: 0 0 18px rgba(170,110,255,.75), 0 6px 16px rgba(0,0,0,.45);
 }
 .knife-hand {
   width: 176px; height: 252px; border-radius: 12px; border: 2px solid rgba(232,182,74,.6);
@@ -201,6 +218,10 @@ input:focus { border-color: var(--gold); }
   padding: 10px 18px; border-radius: 10px; transition: transform .25s; z-index: 50;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
+
+/* выбор после победы над королём: монолог короля */
+.king-scene { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: rgba(120, 10, 20, .22); border: 1px solid rgba(255, 90, 90, .35); }
+.king-say { font-style: italic; line-height: 1.5; margin: 6px 0 12px; color: #ffe6e6; font-size: 15px; max-width: 640px; }
 
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 40; }
 .modal.hidden { display: none; }
@@ -475,6 +496,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   const BULL_Y = 390;                                // «яблочко» на боку пня
   const HAND = { x: 75, y: 285 };                    // точка выброса
   const GRAV = 900, SPIN = Math.PI * 2, WIND_ACC = 80, KNIFE_HALF = 30;
+  // острие плохих ножей (px от оси вращения вдоль лезвия) — по разметке зоны втыкания
+  const BAD_TIP = { cleaver: 32.2, shiv: 27, butter: 29.1, penknife: 27, broken: 16.2, bread: 36.2, kitchen: 35.3, table: 29.9 };
   const TURN_MS = 35000;
 
   const SUITS = {
@@ -497,6 +520,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     calm:   { name: 'Штиль',            desc: 'ветер не действует' },
     double: { name: 'Двойной удар',     desc: 'очки за попадание ×2' },
     sticky: { name: 'Всегда втыкается', desc: 'втыкается под любым углом' },
+    paladin: { name: 'Паладин', desc: 'видна вся траектория, но не видно вращение; шлейф сбивает ножи соперника; отбитый нож летит в дерево и втыкается с 80%' },
     eagle:  { name: 'Орлиный глаз',     desc: 'видна вся траектория' },
     magnet: { name: 'Магнит',           desc: 'пень-мишень крупнее' },
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
@@ -535,6 +559,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   const SPECIAL = [
     ['diamonds', 'A2-d', ['Дюжина кортиков', 'dirk',  ['volley'],                   'calm', 'balance']],
     ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
+    ['clubs',    'A4-c', ['Нож паладина',    'paladin', ['paladin'],                  'calm', 'value']],
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
@@ -605,6 +630,31 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   const CARDS = deckFor(20);
   const CARD_BY_ID = Object.fromEntries(deckFor(50).concat(deckFor(50, { rare: true })).map(c => [c.id, c]));
 
+  // ---------- Третья фаза: зачарования магической колоды ----------
+  // цвет — аура карты; в описании все числа заменяются на «?»
+  const ENCH = {
+    boom:   { name: 'Бумеранг',    en: 'Boomerang',   color: '#3aa0ff', desc: 'перелетев пенёк, летит обратно и всегда возвращается в руку (100%)' },
+    split:  { name: 'Раскол',      en: 'Split',       color: '#3ddc84', desc: 'после 20% пути делится на 3 полупрозрачных ножа' },
+    seek:   { name: 'Самонаводка', en: 'Homing',      color: '#d9c9a3', desc: 'брошенный во время броска соперника сам наводится на его нож и сбивает его' },
+    freeze: { name: 'Фриз',        en: 'Freeze',      color: '#ff3b3b', desc: 'чем дальше летит, тем сильнее замедляется; на 50% пути замирает и становится преградой' },
+    explode:{ name: 'Взрывчатка',  en: 'Explosive',   color: '#8b5a2b', desc: 'при столкновении с ножом соперника взрывается: 20 осколков по 2 очка, втыкаются только в пень соперника в окне 160°' },
+    rocket: { name: 'Ракета',      en: 'Rocket',      color: '#ff8c1a', desc: 'не крутится, летит строго по прямой очень быстро, всегда втыкается в пень' },
+    drop:   { name: 'Ножепад',     en: 'Dropper',     color: '#b44dff', desc: 'каждые 0.25 с роняет вниз кортик; кортик, упавший на пень соперника, даёт 5 очков' },
+    smart:  { name: 'Умный нож',   en: 'Smart knife', color: '#ffd84d', desc: 'за попадание в пень даёт в руку 2 случайные карты' },
+  };
+  const ENCH_KEYS = Object.keys(ENCH);
+  // магическая колода: 30 обычных карт, каждой — одно случайное зачарование; взрывчатка чаще достаётся плохим ножам (75%)
+  function magicDeck() {
+    return deckFor(30).map((c, i) => {
+      let ench = ENCH_KEYS[Math.floor(Math.random() * ENCH_KEYS.length)];
+      if (ench === 'explode' && c.tier !== 'bad' && Math.random() < 0.75) {
+        const rest = ENCH_KEYS.filter(k => k !== 'explode');
+        ench = rest[Math.floor(Math.random() * rest.length)];
+      }
+      return Object.assign({}, c, { id: 'M' + i, ench, magic: true });
+    });
+  }
+
   const BASE = {
     ace:  { maxSpeed: 1100, gravityMul: 0.9,  spread: 0.5, stick: 100, spinMul: 1,   points: 30, preview: 0.7,  windMul: 0.5 },
     good: { maxSpeed: 1030, gravityMul: 1.0,  spread: 1.5, stick: 70,  spinMul: 1,   points: 15, preview: 0.4,  windMul: 0.9 },
@@ -642,24 +692,29 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     for (const a of abilities) {
       if (a === 'calm') s.windMul = 0;
       if (a === 'eagle') s.preview = 1;
+      if (a === 'paladin') { s.preview = 1; s.trail = 5; }   // шлейф ~10% длины ножа (px), виден весь путь
       if (a === 'sticky') s.stick = 360;
       if (a === 'magnet') s.magnet = 1.4;
       if (a === 'slowmo') s.stick = 360;
       if (a === 'bloodsword') { s.stick = 360; s.preview = 1; }
       if (a === 'volley') s.points = VOLLEY_PTS;
     }
+    // ракета: без вращения, строго по прямой, без ветра, очень быстрая и всегда втыкается в пень
+    if (card.ench === 'rocket') { s.gravityMul = 0; s.spinMul = 0; s.windMul = 0; s.maxSpeed *= 1.5; s.stick = 360; }
     // длина ножа в физике = длина по рисунку (длинный клинок достаёт до пня раньше)
     const shp = SH[card.shape];
-    s.reach = shp ? (shp.sword ? 54 : shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
+    s.reach = shp ? (shp.pal ? (shp.len + shp.handle) / 2 : shp.sword ? 54 : shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
     s.twin = !!(shp && shp.twin);
+    // плохие ножи: острие, которым они втыкаются, — по разметке зоны (кончик от оси вращения, px)
+    s.tipLen = card.tier === 'bad' && BAD_TIP[card.shape] ? BAD_TIP[card.shape] : null;
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
     // плохие ножи: окно втыкания +30% (окна «всегда втыкается» не трогаем)
-    if (card.tier === 'bad' && s.stick < 360) s.stick = Math.round(s.stick * 1.3);
+    if (card.tier === 'bad' && s.stick < 360) s.stick = Math.round(s.stick * 1.3 * 1.2);   // окно втыкания: +30%, затем ещё +20%
     s.preview = Math.min(1, s.preview);
     s.spread = Math.round(s.spread * 100) / 100;
     return Object.assign(s, {
-      abilities, qualities, flaws, trump,
+      abilities, qualities, flaws, trump, ench: card.ench || null,
       extraAbility: trump ? card.trumpAbility : null,
       extraQuality: trump ? card.trumpQuality : null,
       has: (a) => abilities.includes(a),
@@ -707,6 +762,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   function simulate({ angle, power, stats, wind = 0, seed = 1, noNoise = false, start = null }) {
     const has = (a) => stats.abilities.includes(a);
     const rng = mulberry32(seed);
+    // отбитый нож паладина втыкается с 80%: бросок решается один раз на полёт
+    const retOk = stats.returnStick ? rng() < 0.8 : true;
     let a = angle, sp = Math.max(0, Math.min(1, power)) * stats.maxSpeed;
     if (!noNoise) {
       a += gauss(rng) * stats.spread * Math.PI / 180;
@@ -723,7 +780,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     const face = FACE_X - (big ? 20 : 0);
     const right = FACE_X + STUMP_W + (big ? 20 : 0);
     const win = stats.stick * Math.PI / 360; // половина окна
-    const reach = stats.reach || KNIFE_HALF, TIP = reach * 0.92;
+    const reach = stats.reach || KNIFE_HALF, TIP = stats.tipLen || reach * 0.92;
+    const TIP_GAP = reach * 0.08;   // торец ножа всегда у пня: позиция оси = торец − TIP − зазор
     // настоящий пень (магнит только ловит, отскоки — от настоящего)
     const T0 = STUMP_TOP, F0 = FACE_X, R0 = FACE_X + STUMP_W;
     const lim = Math.min(win, 1.0);   // «всегда втыкается» тоже входит остриём, а не рукоятью
@@ -760,14 +818,14 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
         x += vx * dt; y += vy * dt; r += omega * dt;
 
         const tipNow = x + TIP, tipPrev = px + TIP;
-        const stickFace = stats.stick >= 360 || Math.abs(norm(r)) <= win;
-        const stickTop = stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win;
+        const stickFace = (stats.stick >= 360 || Math.abs(norm(r)) <= win) && retOk;
+        const stickTop = (stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win) && retOk;
         let done = false;
         // 1) остриё входит в бок (магнит ловит раньше, но нож втыкается в настоящий бок пня)
         if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
           if (stickFace) {
             const rn = flip(norm(r)), rr = Math.max(-lim, Math.min(lim, rn));
-            r = rr; x = F0 + 10 - Math.cos(rr) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            r = rr; x = F0 + 10 - Math.cos(rr) * (TIP_GAP + TIP); y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y + Math.sin(r) * TIP - BULL_Y);   // зона — по остриём, а не по центру ножа
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -798,7 +856,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
             res.stuck = { x, y, r }; push(); break;
           }
           if (!fromTop && tip && stickFace && tip[2] < F0) {   // остриё зашло в бок между кадрами
-            r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * (TIP_GAP + TIP); y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y + Math.sin(r) * TIP - BULL_Y);   // зона — по остриём, а не по центру ножа
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -866,6 +924,82 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     const sim = simulate({ angle: 0, power: 0, stats, wind, noNoise: true, start: { x: b.x, y: b.y, vx, vy, r: b.r, omega: (b.r - a.r) * k + kick * 6 } });
     return { frames: frames.slice(0, at + 1).concat(sim.frames.slice(1)), result: sim.result };
   }
+  const palSeed = (id) => ((id * 7919 + 13) | 0);
+  // отбитый нож паладина летит обратно к дереву (вправо) и втыкается с 80%; seed — общий для сервера и клиентов
+  // отбитый нож летит назад к отправителю и втыкается в его пень (80%).
+  // Считаем в зеркальной системе (x → W−x): там это обычный бросок в пень, а пень отправителя — тот же FACE_X.
+  // самонаводка: как только нож «увидел» чужой нож в воздухе (в радиусе SIGHT), он поворачивает к нему и летит до контакта.
+  // targets — чужие ножи в воздухе: { off: сколько кадров назад они начали лететь, frames (в их системе координат) }
+  function seekPath(frames, targets, W) {
+    const SIGHT = 320, SPEED = 900, TURN = 0.25, CONTACT = 26, MAX = 240;
+    const pos = (tg, j) => { const q = tg.frames[Math.min(tg.frames.length - 1, Math.max(0, j))]; return { x: W - q.x, y: q.y }; };
+    for (let i = 1; i < frames.length; i++) {
+      const p = frames[i];
+      let tgt = null, bd = Infinity;
+      for (const tg of targets) {
+        const j = tg.off + i;
+        if (j < 0 || j >= tg.frames.length - 1) continue;     // чужой нож ещё не летит или уже долетел
+        const t = pos(tg, j), d = Math.hypot(t.x - p.x, t.y - p.y);
+        if (d < bd) { bd = d; tgt = tg; }
+      }
+      if (!tgt || bd >= SIGHT) continue;
+      const a = frames[i - 1];
+      const vx0 = (p.x - a.x) * 60, vy0 = (p.y - a.y) * 60;
+      const sp = Math.max(Math.hypot(vx0, vy0), SPEED), rOff = p.r - Math.atan2(vy0, vx0);
+      let x = p.x, y = p.y, vx = vx0, vy = vy0, contact = false;
+      const out = frames.slice(0, i + 1);
+      for (let k = 1; k <= MAX; k++) {
+        if (tgt.off + i + k >= tgt.frames.length - 1) break;   // цель уже долетела — поворачивать не к чему
+        const t = pos(tgt, tgt.off + i + k);
+        const dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy);
+        if (d < CONTACT) { contact = true; break; }
+        const cur = Math.hypot(vx, vy) || 1, s = Math.max(cur, sp);
+        vx += (dx / d * s - vx) * TURN; vy += (dy / d * s - vy) * TURN;
+        x += vx / 60; y += vy / 60;
+        out.push({ x, y, r: Math.atan2(vy, vx) + rOff });
+      }
+      return { frames: out, contact };
+    }
+    return null;
+  }
+  // раскол: после 20% пути нож делится на три; два боковых клинка летят с отклонением ±7° от основного
+  // (общая функция: её считают и движок, и клиент — результат одинаковый). Клинки крутятся, как оригинал, втыкаются в пень.
+  function splitGhosts(frames, stats, wind, seed) {
+    const k = Math.max(1, Math.min(frames.length - 2, Math.floor(frames.length * 0.2)));
+    const a = frames[k - 1], b = frames[k];
+    const vx = (b.x - a.x) * 60, vy = (b.y - a.y) * 60;
+    const out = [];
+    for (const da of [-0.12, 0.12]) {
+      const c = Math.cos(da), s = Math.sin(da);
+      const sim = simulate({ angle: 0, power: 0, stats, wind, seed: seed + (da > 0 ? 1 : 2), noNoise: true,
+        start: { x: b.x, y: b.y, vx: vx * c - vy * s, vy: vx * s + vy * c, r: b.r, omega: SPIN * stats.spinMul } });
+      out.push({ frames: frames.slice(0, k).concat(sim.frames), result: sim.result });
+    }
+    return out;
+  }
+  function returnFlight(frames, at, stats, wind, seed) {
+    at = Math.max(1, Math.min(frames.length - 2, at | 0));
+    const a = frames[at - 1], b = frames[at], k = 60 * slowOf(stats);
+    const mx = (x) => W - x, mr = (r) => Math.PI - r;
+    // возврат: подбираем скорость и угол так, чтобы нож долетел до торца пня на высоте яблочка
+    // (остриё втыкается в торец, поэтому центр ножа целится левее торца)
+    const sx = mx(b.x), sy = b.y, g = GRAV * stats.gravityMul, ty = BULL_Y;
+    const tipLen = stats.tipLen || (stats.reach || KNIFE_HALF) * 0.92, tx = FACE_X - tipLen;
+    let best = null;
+    for (let S = 300; S <= 1100; S += 40) for (let th = -1.5; th <= 0.3; th += 0.01) {
+      const vx = S * Math.cos(th), vy = S * Math.sin(th), dx = tx - sx;
+      if (vx <= 0 || dx <= 0) continue;
+      const t = dx / vx, yy = sy + vy * t + 0.5 * g * t * t, err = Math.abs(yy - ty) + S * 0.02;   // слабое предпочтение медленных
+      if (!best || err < best.err) best = { err, vx, vy };
+    }
+    const vx = best ? best.vx : 820, vy = best ? best.vy : 0;
+    const sim = simulate({ angle: 0, power: 0, stats: Object.assign({}, stats, { returnStick: true, stick: 360 }), wind: -wind, seed, noNoise: true,
+      start: { x: sx, y: sy, vx, vy, r: mr(b.r), omega: -(b.r - a.r) * k } });
+    const back = sim.frames.slice(1).map((p) => ({ x: mx(p.x), y: p.y, r: mr(p.r) }));
+    const result = Object.assign({}, sim.result);
+    if (result.stuck) result.stuck = { x: mx(result.stuck.x), y: result.stuck.y, r: mr(result.stuck.r) };
+    return { frames: frames.slice(0, at + 1).concat(back), result };
+  }
   // залп: 12 кортиков веером. Первый летит точно в прицел, остальные — с небольшим разбросом угла и силы
   function volleyShots(angle, power) {
     const out = [];
@@ -900,6 +1034,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
       volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
       bloodsword: ['Titan', 'points ×2, can\'t be knocked down, steals the best card; slow, sticks with any side'],
+      paladin: ['Paladin', 'full trajectory visible, knife spin hidden; the trail knocks knives, a knocked knife flies back to the stump and sticks 80%'],
       slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {
@@ -914,7 +1049,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword', 'Нож паладина': 'Paladin Knife', 'Меч паладина': 'Paladin\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -948,7 +1083,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   }
   // Ищет столкновение нового ножа (кадры newF) с чужим ножом oldF, который летит уже offset кадров.
   // Чужой нож в зеркальной системе координат. Возвращает {i, j} или null.
-  function findCollision(newF, oldF, offset) {
+  function findCollision(newF, oldF, offset, extra = 0) {
+    const D = KNOCK_DIST + extra;   // extra — шлейф паладина, добавляет радиус удара
     for (let i = 0; i < newF.length; i++) {
       const j = offset + i;
       if (j >= oldF.length - 1) return null;          // чужой нож уже долетел
@@ -956,7 +1092,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
       const A = newF[i], B = oldF[j];
       if (A.y >= GROUND - 4 || B.y >= GROUND - 4) continue;
       const dx = A.x - (W - B.x), dy = A.y - B.y;
-      if (dx * dx + dy * dy < KNOCK_DIST * KNOCK_DIST) return { i, j };
+      if (dx * dx + dy * dy < D * D) return { i, j };
     }
     return null;
   }
@@ -968,6 +1104,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     dagger:    { len: 52, w: 10, handle: 24, guard: 18, pts: [[0,-.7],[.7,-.45],[1,0],[.7,.45],[0,.7]], pommel: true },
     sword:     { len: 84, w: 8, handle: 22, guard: 0, pts: [[0,0]], sword: true },
     twin:      { len: 30, w: 8, handle: 16, guard: 0, pts: [[0,0]], twin: true },
+    paladin:   { len: 42, w: 4.4, handle: 11, guard: 0, pts: [[0,0]], sword: true, pal: true },
     karambit:  { len: 36, w: 9, handle: 24, guard: 0, pts: [[0,0]], karambit: true },
     fang:      { len: 50, w: 10, handle: 24, guard: 14, pts: [[0,-.5],[.5,-.75],[.85,-.4],[1,.4],[.78,.05],[.4,.5],[0,.6]], pommel: true },
     bowie:     { len: 46, w: 9,  handle: 24, guard: 14, pts: [[0,-.6],[.62,-.6],[.78,-.35],[1,.15],[.85,.6],[0,.6]] },
@@ -1022,6 +1159,28 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     ctx.fillStyle = '#3a3036'; ctx.beginPath(); ctx.moveTo(-3, -12); ctx.lineTo(3, -10); ctx.lineTo(3, 10); ctx.lineTo(-3, 12); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#d4a23a'; ctx.fillRect(-3.5, -13, 7, 3); ctx.fillRect(-3.5, 10, 7, 3);
     ctx.save(); ctx.shadowColor = '#ff2a3a'; ctx.shadowBlur = 4 + glow * 8; ctx.fillStyle = '#e0162a'; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+
+  // меч паладина: уменьшенная вдвое копия меча Алого Короля, синяя палитра, без крови; вдоль всего клинка идёт синяя линия
+  function drawPaladinSword(ctx, sh) {
+    const L = sh.len, w = sh.w, hl = sh.handle, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const glow = 0.5 + 0.5 * Math.sin(t * 2);
+    ctx.translate(-(L - hl) / 2, 0);
+    // рукоять, навершие
+    ctx.fillStyle = '#0b1a33'; ctx.fillRect(-hl, -1.7, hl, 3.4);
+    ctx.strokeStyle = '#2f7fd6'; ctx.lineWidth = 0.8; for (let i = 0; i < 5; i++) { const x = -hl + 1 + i * 2; ctx.beginPath(); ctx.moveTo(x, -1.7); ctx.lineTo(x + 1.5, 1.7); ctx.stroke(); }
+    ctx.fillStyle = '#d4a23a'; ctx.beginPath(); ctx.arc(-hl - 1.5, 0, 2.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#2f7fd6'; ctx.beginPath(); ctx.arc(-hl - 1.5, 0, 1, 0, Math.PI * 2); ctx.fill();
+    // клинок
+    ctx.shadowColor = `rgba(60,140,255,${0.45 + glow * 0.5})`; ctx.shadowBlur = 3 + glow * 5;
+    ctx.beginPath(); ctx.moveTo(0, -w * 0.62); ctx.lineTo(L * 0.86, -w * 0.5); ctx.lineTo(L, 0); ctx.lineTo(L * 0.86, w * 0.5); ctx.lineTo(0, w * 0.62); ctx.closePath();
+    const gr = ctx.createLinearGradient(0, -w, 0, w); gr.addColorStop(0, '#eef6ff'); gr.addColorStop(0.5, '#a9c4e0'); gr.addColorStop(1, '#4b6582');
+    ctx.fillStyle = gr; ctx.fill(); ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(10,25,50,.7)'; ctx.lineWidth = 0.6; ctx.stroke();
+    // синяя линия вдоль всего лезвия
+    ctx.strokeStyle = '#1d5fc4'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(L * 0.97, 0); ctx.stroke();
+    // крестовина с сапфиром
+    ctx.fillStyle = '#1f2a3a'; ctx.beginPath(); ctx.moveTo(-1.5, -6); ctx.lineTo(1.5, -5); ctx.lineTo(1.5, 5); ctx.lineTo(-1.5, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d4a23a'; ctx.fillRect(-1.8, -6.5, 3.5, 1.5); ctx.fillRect(-1.8, 5, 3.5, 1.5);
+    ctx.save(); ctx.shadowColor = '#3fa0ff'; ctx.shadowBlur = 2 + glow * 4; ctx.fillStyle = '#2a7bff'; ctx.beginPath(); ctx.arc(0, 0, 1.3, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
 
   // слоумо-нож: рукоять в центре, клинки с обеих сторон, пульсирующее синее свечение
@@ -1088,6 +1247,7 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
     const L = sh.len, w = sh.w, hl = sh.handle, hw = sh.fat ? 6 : 4.5;
     ctx.save();
     if (sh.twin) { drawTwin(ctx, card, sh, suit, opt); ctx.restore(); return; }
+    if (sh.pal) { drawPaladinSword(ctx, sh); ctx.restore(); return; }
     if (sh.sword) { drawSword(ctx, card, sh, opt); ctx.restore(); return; }
     ctx.translate(-(L - hl) / 2, 0);
     if (opt.trump) { ctx.shadowColor = 'rgba(255,214,90,.95)'; ctx.shadowBlur = 14; }
@@ -1142,8 +1302,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
   // Каталог: каждая карта игры ровно один раз (тузы мастей, особые, редкий, модели хороших и плохих ножей)
   function catalog() {
     const aces = SUIT_ORDER.map((suit) => mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', ACES[suit], false));
-    const special = [mkCard('A2-d', 'diamonds', 'ace', SPECIAL[0][2], false), mkCard('A2-s', 'spades', 'ace', SPECIAL[1][2], false)];
-    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false)];
+    const special = SPECIAL.map(([suit, id, d]) => mkCard(id, suit, 'ace', d, false));
+    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false), mkCard('R-pal', 'clubs', 'ace', ['Меч паладина', 'paladin', ['paladin'], 'calm', 'power'], false)];
     const good = GOOD.map((d, i) => mkCard('cat-g' + i, SUIT_ORDER[i % 4], 'good', d, false));
     const bad = BAD.map((d, i) => mkCard('cat-b' + i, SUIT_ORDER[i % 4], 'bad', d, true));
     const pack = (list) => list.map((c) => cardWithStats(c, null));
@@ -1158,8 +1318,8 @@ html.layout-phone .set-row > span { flex-basis: 110px; }
 
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
-    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, catalog, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, VOLLEY_PTS, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, catalog, DECK_SIZES, HAND_SIZE, ENCH, magicDeck,
+    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, VOLLEY_PTS, knockFrames, findCollision, returnFlight, splitGhosts, seekPath, palSeed, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });
 
@@ -1192,7 +1352,8 @@ window.NDEngine = (() => {
       return {
         id: g.id, name: g.name, hostId: g.hostId, state: g.state, phase: g.phase, round: g.round,
         size: g.size, handMax: g.handMax, arena: g.arena,
-        trumpSuit: g.trumpSuit, trumpCard: g.trumpCard ? g.trumpCard.id : null, deckCount: g.deck.length,
+        trumpSuit: g.trumpSuit, trumpCard: g.trumpCard ? g.trumpCard.id : null, deckCount: g.deck.length, phase2: !!g.phase2, phase3: !!g.phase3,
+        magic: g.phase3 && g.magicCards ? g.magicCards : null, ice: (g.ice || []).map(({ x, y, r, o, c }) => ({ x, y, r, o, c })),
         wind: g.wind, winnerId: g.winnerId, endReason: g.endReason, locked: !!g.password,
         players: g.players.map(p => ({
           id: p.id, name: p.name, isBot: p.isBot, lvl: p.lvl, cn: p.cn, hm: p.handMax || g.handMax, look: p.look, score: p.score, hits: p.hits,
@@ -1266,10 +1427,14 @@ window.NDEngine = (() => {
     function start() {
       if (g.players.length !== 2 || g.state === 'playing') return;
       clearTimers();
-      g.rare = Math.random() < G.RARE_CHANCE;   // редкий меч — не в каждом матче
-      g.deck = G.shuffle(G.deckFor(g.size, { rare: g.rare }));
+      // в бою с настоящим королём меча в колоде нет вообще
+      const kingBattle = g.players.some(p => p.isBot && p.lvl === 'king');
+      g.rare = !kingBattle && Math.random() < G.RARE_CHANCE;   // редкий меч — не в каждом матче
+      // в бою с настоящим королём первая фаза — колода из 20 карт (остальные бои — по размеру матча)
+      g.deck = G.shuffle(G.deckFor(kingBattle ? 20 : g.size, { rare: g.rare }));
       g.trumpCard = g.deck[g.deck.length - 1];
       g.trumpSuit = g.trumpCard.suit;
+      g.kingBattle = kingBattle; g.phase2 = false; g.phase3 = false; g.magicCards = null; g.ice = [];
       g.state = 'playing'; g.round = 0; g.stuck = []; g.flights = []; g.epoch = Math.random().toString(36).slice(2, 8); g.winnerId = null; g.endReason = '';
       g.players.forEach(reset);
       log({ k: 'start', size: g.size, suit: g.trumpSuit, hand: g.handMax, hm: g.players.map(HM) });
@@ -1277,13 +1442,62 @@ window.NDEngine = (() => {
       nextRound();
     }
 
-    function nextRound() {
-      // добор по очереди, пока у обоих не будет лимит или колода не кончится
+    // в первом раунде у игрока шанс на хорошую карту (туз или хороший нож) выше на 50%: P = p + q(1 − p) = 1.5p
+    function takeCard(p) {
+      if (g.round === 0 && !p.isBot && g.deck.length) {
+        const good = g.deck.filter(c => c.tier !== 'bad').length;
+        const share = good / g.deck.length;
+        if (share > 0 && Math.random() < Math.min(1, 0.5 * share / (1 - share || 1))) {
+          const i = g.deck.findIndex(c => c.tier !== 'bad');
+          if (i >= 0) return g.deck.splice(i, 1)[0];
+        }
+      }
+      return g.deck.shift();
+    }
+    // добор по очереди, пока у обоих не будет лимит или колода не кончится
+    function drawRound() {
       let drew = true;
       const order = g.round % 2 === 0 ? g.players : [...g.players].reverse();
       while (drew && g.deck.length) {
         drew = false;
-        for (const p of order) if (p.hand.length < HM(p) && g.deck.length) { p.hand.push(g.deck.shift()); drew = true; }
+        for (const p of order) {
+          if (g.phase3) {
+            // третья фаза: оба тянут из магической колоды по две карты
+            for (let k = 0; k < 2 && p.hand.length < HM(p) && g.deck.length; k++) { p.hand.push(g.deck.shift()); drew = true; }
+          } else if (g.phase2) {
+            // вторая фаза: игрок тянет только ножи паладина, король — только алые мечи, по две штуки
+            const want = p.isBot ? 'A3-h' : 'A4-c';
+            for (let k = 0; k < 2 && p.hand.length < HM(p); k++) {
+              const i = g.deck.findIndex(c => c.id === want);
+              if (i < 0) break;
+              p.hand.push(g.deck.splice(i, 1)[0]); drew = true;
+            }
+          } else if (p.hand.length < HM(p) && g.deck.length) { p.hand.push(takeCard(p)); drew = true; }
+        }
+      }
+    }
+
+    function nextRound() {
+      drawRound();
+      // колода кончилась, а игрок впереди короля — вторая фаза: +20 карт (10 паладиновых ножей и 10 алых мечей)
+      if (g.kingBattle && !g.phase2 && !g.deck.length) {
+        const me = g.players.find(p => !p.isBot), king = g.players.find(p => p.isBot && p.lvl === 'king');
+        if (me && king && me.score > king.score) {
+          g.phase2 = true;
+          const extra = [];
+          for (let i = 0; i < 10; i++) extra.push({ ...G.CARD_BY_ID['A4-c'] }, { ...G.CARD_BY_ID['A3-h'] });
+          g.deck = G.shuffle(extra);
+          log({ k: 'phase2' });
+          drawRound();
+        }
+      }
+      // вторая фаза опустела (ни одного ножа паладина и алого меча не осталось) — третья фаза: магическая колода
+      if (g.kingBattle && g.phase2 && !g.phase3 && !g.deck.some(c => c.id === 'A4-c' || c.id === 'A3-h')) {
+        g.phase3 = true;
+        g.magicCards = G.magicDeck();
+        g.deck = G.shuffle(g.magicCards.slice());
+        log({ k: 'phase3' });
+        drawRound();
       }
       if (g.players.every(p => p.hand.length === 0)) return endGame();
       // король превращает меч со спины в карту (по одному, с шансом на раунд)
@@ -1332,9 +1546,22 @@ window.NDEngine = (() => {
     }
 
     // залп: каждый из 12 кортиков может сбить чужой нож в полёте; сбитые кортики не втыкаются
-    function volleyClash(id, now, sim, flight, msg, result, st) {
-      const shotFr = [sim.frames, ...(sim.extra || [])];
+    // зачарования залпа: основной кортик ведёт себя как обычный нож (фриз, лёд, самонаводка — уже учтены в mainFr);
+    // остальные кортики останавливаются фризом (на 50% пути) или льдом. Остановленные не втыкаются.
+    function volleyClash(id, now, sim, flight, msg, result, st, mainFr, mainStopped) {
+      const shotFr = [mainFr, ...(sim.extra || [])];
       const info = sim.shots || [];
+      const stopped = new Set(mainStopped ? [0] : []);   // кортик, остановленный по дороге, не втыкается
+      const stops = [];                                   // {k, at}: клиент обрывает кортик в этом кадре
+      for (let k = 1; k < shotFr.length; k++) {
+        const sf = shotFr[k];
+        if (!sf || !sf.length) continue;
+        let at = null;
+        const ice = iceBlock(sf, id);
+        if (ice != null) at = ice;
+        if (st.ench === 'freeze') { const fz = Math.max(2, Math.floor(sf.length * 0.5)); if (at == null || fz < at) at = fz; }
+        if (at != null) { shotFr[k] = sf.slice(0, at + 1); stopped.add(k); stops.push({ k, at }); }
+      }
       const cutAt = {}, hitAt = new Map();   // hitAt: нож соперника -> самая ранняя точка касания
       for (let k = 0; k < shotFr.length; k++) {
         const sf = shotFr[k];
@@ -1346,21 +1573,51 @@ window.NDEngine = (() => {
         }
       }
       const knocks = [...hitAt].map(([f, at]) => ({ f, at }));
-      if (!knocks.length) return;
-      const bonus = knocks.reduce((sum, x) => sum + Math.max(5, Math.round(x.f.st.points / 2)), 0);
-      msg.shotCuts = Object.keys(cutAt).map(k => ({ k: +k, at: cutAt[k] }));
-      msg.knocks = knocks.map(({ f, at }) => {
-        f.frames = G.knockFrames(f.frames, at);
-        f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
-        if (f.msg) { f.msg.cut = at; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
-        scheduleLanding(f);
-        return { id: f.id, at, res: f.result };
-      });
-      if (cutAt[0] != null) { msg.cut = cutAt[0]; flight.frames = G.knockFrames(sim.frames, cutAt[0]); }
-      // в воздухе сбитые кортики не втыкаются: остальные считаются как обычно
-      const kept = info.map((s, k) => (s.hit && cutAt[k] == null ? s : null)).filter(Boolean);
-      Object.assign(result, { hit: kept.length > 0, knock: true, knocked: false, reason: 'Сбил нож соперника!', code: 'knock',
-        points: kept.length * G.VOLLEY_PTS + bonus, mult: 0, zone: null, stuck: null, volley: kept.length, stucks: kept.map(s => s.stuck) });
+      if (stops.length) msg.shotStops = stops;
+      if (knocks.length) {
+        const bonus = knocks.reduce((sum, x) => sum + Math.max(5, Math.round(x.f.st.points / 2)), 0);
+        msg.shotCuts = Object.keys(cutAt).map(k => ({ k: +k, at: cutAt[k] }));
+        msg.knocks = knocks.map(({ f, at }) => {
+          f.frames = G.knockFrames(f.frames, at);
+          f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: dropKeep(f, at), zone: null, stuck: null };
+          if (f.msg) { f.msg.cut = at; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
+          scheduleLanding(f);
+          return { id: f.id, at, res: f.result };
+        });
+        if (cutAt[0] != null) { msg.cut = cutAt[0]; flight.frames = G.knockFrames(mainFr, cutAt[0]); }
+        // в воздухе сбитые кортики не втыкаются: остальные считаются как обычно
+        const kept = info.map((s, k) => (s.hit && cutAt[k] == null && !stopped.has(k) ? s : null)).filter(Boolean);
+        Object.assign(result, { hit: kept.length > 0, knock: true, knocked: false, reason: 'Сбил нож соперника!', code: 'knock',
+          points: kept.length * G.VOLLEY_PTS + bonus, mult: 0, zone: null, stuck: null, volley: kept.length, stucks: kept.map(s => s.stuck) });
+        return;
+      }
+      // никого не сбили: считаем только кортики, которые долетели до пня и не остановлены
+      const kept = info.map((s, k) => (s.hit && cutAt[k] == null && !stopped.has(k) ? s : null)).filter(Boolean);
+      Object.assign(result, { hit: kept.length > 0, mult: kept.length ? result.mult : 0,
+        points: kept.length * G.VOLLEY_PTS, volley: kept.length, code: kept.length ? 'volley' : 'miss',
+        reason: kept.length ? `Залп: ${kept.length} из ${G.VOLLEY_N}` : (mainStopped ? result.reason : 'Мимо'), stucks: kept.map(s => s.stuck) });
+      if (!kept.length) { result.zone = null; result.stuck = null; }
+    }
+    // ножепад: кортики, упавшие на пень до того, как нож соперника сбит, засчитываются; остальные убираются
+    function dropKeep(f, at) {
+      if (!f.msg || !f.msg.dag) return 0;
+      f.msg.dag = f.msg.dag.filter(d => d.i <= at);
+      return f.msg.dag.filter(d => d.hit).length * 5;
+    }
+    // взрывчатка: 20 осколков, каждый втыкается в пень соперника в окне 160° (≈ 160/360) и даёт 2 очка
+    function explosionPts() { let n = 0; for (let i = 0; i < 20; i++) if (Math.random() < 160 / 360) n++; return n * 2; }
+    // преграда изо льда: индекс кадра, где нож упирается в лёд (лёд чужого — в зеркальных координатах)
+    function iceBlock(frames, id) {
+      for (let i = 0; i < frames.length; i++) {
+        const q = frames[i];
+        if (q.y >= G.GROUND - 4) break;
+        for (const ice of g.ice) {
+          const ix = ice.o === id ? ice.x : G.W - ice.x;
+          const dx = q.x - ix, dy = q.y - ice.y;
+          if (dx * dx + dy * dy < 28 * 28) return i;
+        }
+      }
+      return null;
     }
     function doThrow(id, angle, power) {
       const p = P(id);
@@ -1384,13 +1641,51 @@ window.NDEngine = (() => {
       const msg = { ep: g.epoch, o: id, a: angle, p: power, s: seed, w: g.wind, c: card.id, ts: g.trumpSuit, id: throwId };
       flight.msg = msg;
 
+      // самонаводка: нож поворачивает к чужому ножу в воздухе, как только его увидит (путь передаётся клиенту)
+      if (st.ench === 'seek') {
+        const targets = g.flights.filter(f => !f.landed && f.o !== id && !f.volley && f.frames && f.frames.length)
+          .map(f => ({ off: Math.round((now - f.t0) / 1000 * 60), frames: f.frames }));
+        const steer = targets.length ? G.seekPath(frames, targets, G.W) : null;
+        if (steer) {
+          frames = flight.frames = steer.frames; msg.path = steer.frames;
+          if (!steer.contact) Object.assign(result, { hit: false, mult: 0, points: 0, zone: null, stuck: null, code: 'miss', reason: 'Мимо' });
+        }
+      }
+      // преграда изо льда: нож упирается и падает; фриз сам замирает на 50% пути и становится такой преградой
+      const fullPath = frames;   // путь до льда/фриза/удара: от него раскол считает точку деления
+      const iceIdx = iceBlock(frames, id);
+      if (iceIdx != null) {
+        frames = flight.frames = frames.slice(0, iceIdx + 1);
+        Object.assign(result, { hit: false, mult: 0, points: 0, zone: null, stuck: null, reason: 'Преграда изо льда!', code: 'miss' });
+        msg.cut = iceIdx;
+      } else if (st.ench === 'freeze') {
+        const k = Math.max(2, Math.floor(frames.length * 0.5));
+        frames = flight.frames = frames.slice(0, k + 1);
+        g.ice.push({ x: frames[k].x, y: frames[k].y, r: frames[k].r, o: id, c: card.id });
+        Object.assign(result, { hit: false, mult: 0, points: 0, zone: null, stuck: null, reason: 'Застыл!', code: 'miss' });
+        msg.frz = k;   // клиент обрывает полёт на этом кадре и оставляет нож висеть во льду
+      }
+
       // Столкновение с чужим ножом, который ещё в воздухе (залп сбивает каждым кортиком отдельно)
-      if (volley) volleyClash(id, now, sim, flight, msg, result, st); else
+      if (volley) volleyClash(id, now, sim, flight, msg, result, st, frames, msg.frz != null || iceIdx != null || msg.path != null); else
       for (const f of g.flights) {
         if (f.landed || f.o === id || f.result.knocked || f.result.knock || f.volley) continue;
         const offset = Math.round(((now - f.t0) / 1000) * 60);
-        const col = G.findCollision(frames, f.frames, offset);
+        // самонаводка: зона сбития шире — нож сам наводится на чужой нож в воздухе
+        const col = G.findCollision(frames, f.frames, offset, (st.trail || 0) + (st.ench === 'seek' ? 90 : 0));
         if (!col) continue;
+        // нож паладина: шлейф сбивает чужой нож, тот летит обратно в дерево и втыкается с 80%
+        if (st.has('paladin')) {   // шлейф паладина сбивает и меч Алого Короля — это его уникальное умение
+          const ret = G.returnFlight(f.frames, col.j, f.st, g.wind, G.palSeed(f.id));
+          f.frames = ret.frames; f.result = ret.result; f.result.points = (f.result.points || 0) + dropKeep(f, col.j);
+          frames = flight.frames = G.knockFrames(frames, col.i);
+          const bonus = ret.result.hit ? Math.round((ret.result.points || 0) / 2) : 0;   // половина очков, которые принёс бы отбитый нож
+          Object.assign(result, { hit: false, knock: true, reason: 'Сбил нож соперника!', code: 'knock', points: bonus, mult: 0, zone: null, stuck: null });
+          msg.cut = col.i;
+          msg.pal = { id: f.id, at: col.j };
+          scheduleLanding(f);
+          break;
+        }
         // меч Алого Короля не сбить: чужой нож падает, а меч лишь чуть отклоняется
         const kickOf = (sw, other, i, j) => ((other[Math.min(j, other.length - 1)] || {}).y > (sw[Math.min(i, sw.length - 1)] || {}).y ? -0.16 : 0.16);
         if (st.has('bloodsword')) {
@@ -1398,14 +1693,14 @@ window.NDEngine = (() => {
           frames = flight.frames = d.frames; Object.keys(result).forEach(x => delete result[x]); Object.assign(result, d.result);
           msg.defl = { at: col.i, k };
           f.frames = G.knockFrames(f.frames, col.j);
-          f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
+          f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: dropKeep(f, col.j), zone: null, stuck: null };
           msg.knock = { id: f.id, at: col.j, res: f.result }; msg.clash = col.i;
           if (f.msg) { f.msg.cut = col.j; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
           scheduleLanding(f); break;
         }
         if (f.st.has('bloodsword')) {
           const k = kickOf(f.frames, frames, col.j, col.i), d = G.deflect(f.frames, col.j, f.st, g.wind, k);
-          f.frames = d.frames; f.result = d.result;
+          f.frames = d.frames; f.result = d.result; f.result.points = (f.result.points || 0) + dropKeep(f, col.j);
           frames = flight.frames = G.knockFrames(frames, col.i);
           Object.assign(result, { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, mult: 0, zone: null, stuck: null });
           msg.cut = col.i; msg.clash = col.i;
@@ -1417,14 +1712,45 @@ window.NDEngine = (() => {
         }
         frames = flight.frames = G.knockFrames(frames, col.i);
         f.frames = G.knockFrames(f.frames, col.j);
-        const bonus = Math.max(5, Math.round(f.st.points / 2));
+        const bonus = Math.max(5, Math.round(f.st.points / 2)) + (st.ench === 'explode' ? explosionPts() : 0);
         Object.assign(result, { hit: false, knock: true, reason: 'Сбил нож соперника!', code: 'knock', points: bonus, mult: 0, zone: null, stuck: null });
-        f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: 0, zone: null, stuck: null };
+        f.result = { hit: false, knocked: true, reason: 'Сбит в воздухе!', code: 'knocked', points: dropKeep(f, col.j), zone: null, stuck: null };
         msg.cut = col.i;
         msg.knock = { id: f.id, at: col.j, res: f.result };
         if (f.msg) { f.msg.cut = col.j; f.msg.res = Object.assign({}, f.result); f.msg.streak = 0; }
         scheduleLanding(f);
         break;
+      }
+      // раскол: два полупрозрачных клинка тоже считаются, если попадают в пень
+      // раскол: клинки делятся на 20% пути, если основной нож дожил до этой точки (не сбит, не застыл, не упёрся в лёд);
+      // дальше каждый летит сам: крутится, втыкается в пень и даёт очки за попадание
+      if (st.ench === 'split' && fullPath.length >= 5) {
+        const splitIdx = Math.max(1, Math.min(fullPath.length - 2, Math.floor(fullPath.length * 0.2)));
+        const reached = (msg.cut == null || msg.cut >= splitIdx) && (msg.frz == null || msg.frz >= splitIdx);
+        if (reached) {
+          const ghostStucks = [];
+          for (const gh of G.splitGhosts(fullPath, st, g.wind, seed)) {
+            if (!gh.result.hit) continue;
+            result.points = (result.points || 0) + gh.result.points;
+            if (gh.result.stuck) ghostStucks.push(gh.result.stuck);
+          }
+          if (ghostStucks.length) {
+            const own = result.stucks || (result.stuck ? [result.stuck] : []);
+            result.stucks = own.concat(ghostStucks);
+          }
+        }
+      }
+      // ножепад: каждые 0.25 с (15 кадров) кортик падает вниз; упавший на пень соперника даёт 1 очко
+      if (st.ench === 'drop') {
+        const dag = [];
+        for (let k = 15; k < frames.length; k += 15) {
+          const q = frames[k];
+          // ось ножа, воткнутого в пень, стоит левее лицевой грани — колонна пня начинается раньше
+          const hit = q.x >= G.FACE_X - 45 && q.x <= G.FACE_X + G.STUMP_W + 6;   // кортик падает на пень соперника
+          dag.push({ i: k, x: q.x, y: q.y, hit });
+        }
+        msg.dag = dag;
+        result.points = (result.points || 0) + dag.filter(d => d.hit).length * 5;   // 5 очков за каждый кортик на пне
       }
       const opp = g.players.find(x => x.id !== id);
       msg.res = { hit: result.hit, knock: !!result.knock, knocked: !!result.knocked, reason: result.reason, code: result.code, points: result.points, zone: result.zone, stuck: result.stuck, volley: result.volley };
@@ -1461,7 +1787,14 @@ window.NDEngine = (() => {
           if (opp.status === 'aim' && !opp.active && !usable(opp).length) { opp.status = 'done'; opp.deadline = 0; }
         }
       }
-      const good = r.hit || r.knock;
+      // бумеранг, перелетев пенёк, возвращается в руку (и ход продолжается)
+      if (f.st.ench === 'boom' && !r.hit && !r.knock && !r.knocked && f.frames.length) {
+        const last = f.frames[f.frames.length - 1];
+        if (last.x > G.FACE_X + G.STUMP_W) { p.hand.push(f.card); r.returned = true; }
+      }
+      // умный нож: за попадание в пень — 2 случайные карты из колоды
+      if (r.hit && f.st.ench === 'smart') for (let k = 0; k < 2 && g.deck.length; k++) p.hand.push(g.deck.shift());
+      const good = r.hit || r.knock || !!r.returned;
       if (r.hit) p.hits++;
       p.streak = good ? p.streak + 1 : 0;
       for (const sk of (r.stucks || (r.stuck ? [r.stuck] : []))) g.stuck.push({ o: f.o, c: f.card.id, t: f.st.trump, x: Math.round(sk.x), y: Math.round(sk.y), r: Math.round(sk.r * 100) / 100, id: f.id });
@@ -1779,6 +2112,9 @@ window.NDEngine = (() => {
     ['online_win', 'Дуэлянт', 'Duelist', 'Победи живого игрока', 'Beat a human player'],
     ['full50', 'Марафонец', 'Marathoner', 'Сыграй матч на 50 ножей', 'Finish a 50-knife match'],
     ['kill_king', 'Цареубийца', 'Kingslayer', 'Победи настоящего короля в кампании → алая корона', 'Defeat the true king in the campaign → scarlet crown'],
+    ['king_lose', 'Я пришёл договариваться', 'I came to negotiate', 'Проиграй настоящему королю в кампании', 'Lose to the true king in the campaign'],
+    ['king_lose5', 'Короля не убить', "Can't kill the king", 'Умри в битве с королём 5 раз', 'Die in battle with the king 5 times'],
+    ['noble', 'Благородное дело', 'A noble deed', 'Пощади короля после его поражения', 'Spare the king after defeating him'],
   ];
   const MAX_LEVEL = 30;
   const BOT_XP_CAP = 5;   // против ботов опыт идёт только до этого уровня
@@ -1842,6 +2178,15 @@ window.NDEngine = (() => {
       save();
       return addXp(xp, opp !== 'human' && !campaign);
     }
+    // поражение от настоящего короля (20-й бой кампании)
+    function lostToKing() {
+      achieve('king_lose');
+      p.stats.kingDeaths = (p.stats.kingDeaths || 0) + 1;   // сколько раз король убил игрока в кампании
+      if (p.stats.kingDeaths >= 5) achieve('king_lose5');
+      save();
+    }
+    // пощадил короля после победы над ним
+    function spareKing() { achieve('noble'); }
     // победа в бою кампании: открывает следующий бой, первая победа даёт награду; 20-й бой — настоящий король
     function campWin(idx, bonus) {
       const first = idx === p.camp;
@@ -1863,7 +2208,7 @@ window.NDEngine = (() => {
     return {
       get data() { return p; }, get level() { return levelOf(p.xp); }, get botCapped() { return botRoom() <= 0; }, BOT_XP_CAP,
       progress() { const L = levelOf(p.xp); if (L >= MAX_LEVEL) return { L, cur: 1, need: 1, pct: 1 }; const a = xpFor(L), b = xpFor(L + 1); return { L, cur: p.xp - a, need: b - a, pct: (p.xp - a) / (b - a) }; },
-      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, get camp() { return p.camp; }, on: (f) => listeners.push(f),
+      look: () => Object.assign({}, p.look), isUnlocked, equip, redeem, get cheat() { return !!p.cheat; }, onThrow, onMatch, campWin, lostToKing, spareKing, get camp() { return p.camp; }, on: (f) => listeners.push(f),
     };
   })();
 
@@ -1939,7 +2284,6 @@ window.NDEngine = (() => {
     }
     // шапка / волосы
     if (o.king) {   // корона: алый бархат, золотой обод, жемчуг и рубин
-      g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
       g.fillStyle = '#b3121f'; g.beginPath(); g.moveTo(-15, hy - 9); g.lineTo(-17, hy - 34); g.lineTo(-9, hy - 24); g.lineTo(-5, hy - 42); g.lineTo(0, hy - 26); g.lineTo(5, hy - 42); g.lineTo(9, hy - 24); g.lineTo(17, hy - 34); g.lineTo(15, hy - 9); g.closePath(); g.fill();
       g.strokeStyle = '#f2c24a'; g.lineWidth = 1.8; g.stroke();
       g.fillStyle = '#f2c24a'; g.fillRect(-17, hy - 13, 34, 5);
@@ -1956,9 +2300,8 @@ window.NDEngine = (() => {
       case 'tophat': g.fillStyle = '#16161c'; g.beginPath(); g.ellipse(0, hy - 12, 20, 4, 0, 0, 7); g.fill(); g.fillRect(-11, hy - 40, 22, 28); g.fillStyle = '#8f1d24'; g.fillRect(-11, hy - 18, 22, 4); break;
       case 'crown': { g.fillStyle = '#f2c24a'; g.beginPath(); g.moveTo(-14, hy - 10); g.lineTo(-14, hy - 26); g.lineTo(-7, hy - 18); g.lineTo(0, hy - 30); g.lineTo(7, hy - 18); g.lineTo(14, hy - 26); g.lineTo(14, hy - 10); g.closePath(); g.fill();
         g.strokeStyle = '#a87a1e'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#c8302a'; g.beginPath(); g.arc(0, hy - 15, 2.5, 0, 7); g.fill(); g.fillStyle = '#3b82f6'; g.beginPath(); g.arc(-8, hy - 14, 2, 0, 7); g.arc(8, hy - 14, 2, 0, 7); g.fill();
-        g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill(); break; }
+        break; }
       case 'bloodcrown': { // тёмный металл, кровавые зубцы, капли и рубин
-        g.fillStyle = o.color; g.beginPath(); g.arc(0, hy - 6, 15, Math.PI, 0); g.fill();
         g.fillStyle = '#5a0b12'; g.beginPath(); g.moveTo(-16, hy - 9); g.lineTo(-16, hy - 30); g.lineTo(-9, hy - 20); g.lineTo(-4, hy - 36); g.lineTo(0, hy - 22); g.lineTo(4, hy - 36); g.lineTo(9, hy - 20); g.lineTo(16, hy - 30); g.lineTo(16, hy - 9); g.closePath(); g.fill();
         g.strokeStyle = '#d4a23a'; g.lineWidth = 1.6; g.stroke();
         g.fillStyle = '#d4a23a'; g.fillRect(-16, hy - 13, 32, 4);
@@ -2015,14 +2358,19 @@ window.NDEngine = (() => {
       night:  { sky: ['#0b1028', '#1d2550', '#3a3460'], sun: 'rgba(235,240,255,.95)', mtn: '#2a2748', tree: '#162a26', grass: '#14241f', g1: '#1f3a2c', g2: '#1c1a22', g3: '#0c0b10', blade: '#2f5a44' },
       winter: { sky: ['#9fc4e8', '#cfe3f3', '#eef4f8'], sun: 'rgba(255,255,240,.8)', mtn: '#c8d6e3', tree: '#3d5a54', grass: '#dfe9f0', g1: '#f4f8fb', g2: '#cfdbe4', g3: '#9fb1bf', blade: '#ffffff' },
       desert: { sky: ['#f7b267', '#f8d49a', '#f3e2bd'], sun: 'rgba(255,248,215,.95)', mtn: '#d18e52', tree: '#6d8b4a', grass: '#e2b878', g1: '#e9c48a', g2: '#d3a568', g3: '#a87a46', blade: '#c79a5c' },
+      // вторая фаза битвы с королём: красная ночь и красная луна
+      nightred: { sky: ['#1e0306', '#520b12', '#8a1d1f'], sun: 'rgba(255,128,118,.95)', mtn: '#2e0f15', tree: '#24090d', grass: '#230c10', g1: '#3f1217', g2: '#1f0c11', g3: '#0c0407', blade: '#6e1a1f' },
+      // третья фаза: фиолетовая ночь и фиолетовая луна
+      nightpurple: { sky: ['#0d0218', '#2a0d4a', '#4a1d7a'], sun: 'rgba(214,160,255,.95)', mtn: '#1f0f33', tree: '#1a0b2a', grass: '#1c0c2c', g1: '#2e1450', g2: '#1a0a26', g3: '#0a0412', blade: '#4a1f7a' },
     }[id] || null;
     const p = P || { sky: ['#f2a65a', '#e7c38a', '#c9b48e'], sun: 'rgba(255,240,200,.85)', mtn: '#9a7c63', tree: '#5d6b46', grass: '#4c5a39', g1: '#5f7d3a', g2: '#4b3826', g3: '#2c1f14', blade: '#7da04a' };
     const sky = g.createLinearGradient(0, 0, 0, GROUND);
     sky.addColorStop(0, p.sky[0]); sky.addColorStop(0.55, p.sky[1]); sky.addColorStop(1, p.sky[2]);
     g.fillStyle = sky; g.fillRect(0, 0, W, H);
-    if (id === 'night') { for (let i = 0; i < 90; i++) { const x = (i * 211) % W, y = (i * 97) % 300; g.fillStyle = `rgba(255,255,255,${0.3 + (i % 5) * 0.12})`; g.fillRect(x, y, 1.6, 1.6); } }
-    g.fillStyle = p.sun; g.beginPath(); g.arc(id === 'night' ? 760 : 500, id === 'desert' ? 150 : 180, id === 'desert' ? 75 : id === 'night' ? 42 : 60, 0, Math.PI * 2); g.fill();
-    if (id === 'night') { g.fillStyle = p.sky[0]; g.beginPath(); g.arc(776, 170, 38, 0, 7); g.fill(); }
+    const isNight = id === 'night' || id === 'nightred' || id === 'nightpurple';
+    if (isNight) { for (let i = 0; i < 90; i++) { const x = (i * 211) % W, y = (i * 97) % 300; g.fillStyle = `rgba(255,255,255,${0.3 + (i % 5) * 0.12})`; g.fillRect(x, y, 1.6, 1.6); } }
+    g.fillStyle = p.sun; g.beginPath(); g.arc(isNight ? 760 : 500, id === 'desert' ? 150 : 180, id === 'desert' ? 75 : isNight ? 42 : 60, 0, Math.PI * 2); g.fill();
+    if (isNight) { g.fillStyle = p.sky[0]; g.beginPath(); g.arc(776, 170, 38, 0, 7); g.fill(); }
     g.fillStyle = p.mtn; g.beginPath(); g.moveTo(0, 360);
     for (let x = 0; x <= W; x += 50) g.lineTo(x, (id === 'desert' ? 360 : 330) - Math.sin(x * 0.011) * (id === 'desert' ? 25 : 50) - Math.sin(x * 0.03) * 14);
     g.lineTo(W, GROUND); g.lineTo(0, GROUND); g.fill();
@@ -2371,7 +2719,7 @@ window.NDMqtt = (() => {
   let roomAt = 0;
   let myId = 'local';
   let logLines = [];
-  let anims = [], floaters = [], booms = [], swordFx = [];
+  let anims = [], floaters = [], booms = [], swordFx = [], eruption = null, daggerFx = [];
   let aim = { active: false, angle: -0.6, power: 0 };
   let oppAim = null, lastAimSent = 0, morphing = false;
   let heartbeat = null, joinRetry = null;
@@ -2454,6 +2802,8 @@ window.NDMqtt = (() => {
         if (e.hm && e.hm[0] !== e.hm[1]) return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. У тебя в руке до ${e.hm[0]} карт, у соперника до ${e.hm[1]}.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Your hand: up to ${e.hm[0]}, opponent: up to ${e.hm[1]}.`);
         return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
       case 'sword': return T(`${who} превращает алый меч со спины в карту!`, `${who} turns a scarlet sword from the back into a card!`);
+      case 'phase3': return T('🌌 Колода опустела. Из земли выходит магическая колода: 30 карт с зачарованиями!', '🌌 The deck is empty. A magic deck of 30 enchanted cards rises from the ground!');
+      case 'phase2': return T('🌑 Колода пуста, а ты впереди короля! Вторая фаза: в колоду добавлено 20 карт. Ты тянешь ножи паладина, король — алые мечи.', '🌑 The deck is empty and you lead the king! Phase two: 20 cards are added. You draw paladin knives, the king draws scarlet swords.');
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
       case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }
@@ -2711,6 +3061,7 @@ window.NDMqtt = (() => {
   }
 
   function leave(silent) {
+    if (RG.on) { closeRange(); return; }
     if (heartbeat) clearInterval(heartbeat); heartbeat = null;
     if (joinRetry) clearInterval(joinRetry); joinRetry = null;
     if (eng) { eng.destroy(); eng = null; }
@@ -2743,7 +3094,11 @@ window.NDMqtt = (() => {
   }
 
   // ---------- Состояние ----------
-  const cardOf = (id) => id && KG.CARD_BY_ID[id] ? KG.cardWithStats(KG.CARD_BY_ID[id], room ? room.trumpSuit : null) : null;
+  const cardOf = (id) => {
+    if (!id) return null;
+    if (RG.on) { const rc = id === RG.id ? RG.card : rangeCard(id); return rc ? KG.cardWithStats(rc, null) : null; }
+    return KG.CARD_BY_ID[id] ? KG.cardWithStats(KG.CARD_BY_ID[id], room ? room.trumpSuit : null) : null;
+  };
   function applyState(s) {
     if (!s || !Array.isArray(s.players)) return;
     const prev = room;
@@ -2754,6 +3109,10 @@ window.NDMqtt = (() => {
       if (pp && pl.sw != null && pp.sw != null && pl.sw < pp.sw) { swordFx.push({ t0: performance.now(), fired: false }); sfx('whoosh'); }
     }
     room = s; roomAt = performance.now();
+    // карты магической колоды приходят вместе с состоянием: регистрируем их, чтобы клиент мог их показать
+    if (s.magic) for (const c of s.magic) KG.CARD_BY_ID[c.id] = c;
+    // третья фаза начинается: колода выходит из земли
+    if (s.phase3 && !(prev && prev.phase3)) { eruption = { t0: performance.now() }; X.shake(16, 1200); X.burst('dirt', 500, GROUND, 40); X.burst('sparks', 500, GROUND - 30, 40); }
     X.Audio.setContext('game', ['sunset', 'night', 'winter', 'desert'].includes(s.arena) ? s.arena : 'sunset');
     X.Audio.setKing(s.state === 'playing' && cmp != null && !!CAMP[cmp] && CAMP[cmp].boss === 2);
     syncFlights(s);
@@ -2765,6 +3124,7 @@ window.NDMqtt = (() => {
     renderRoom();
   }
   let reward = null;
+  let kingDecision = null;   // судьба короля после победы в 20-м бою: 'spare' | 'exile' | null (ещё не выбрано)
   const doneMatches = new Set();
   function onMatchOver() {
     const m = me(), o = opp();
@@ -2774,9 +3134,11 @@ window.NDMqtt = (() => {
     const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
     const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
     X.Profile.onMatch(result, oppKind, room.size || 20, m.score, cmp != null);
+    if (result === 'loss' && cmp === 19) X.Profile.lostToKing();
     let camp = null;
     if (cmp != null) camp = Object.assign({ idx: cmp, won: result === 'win', draw: result === 'draw' }, result === 'win' ? X.Profile.campWin(cmp, campXp(cmp)) : {});
     reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level, capped: cmp == null && oppKind !== 'human' && X.Profile.botCapped, camp };
+    kingDecision = null;
     matchXp = 0;
     sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
     if (result === 'win') X.burst('confetti', 0, 0, 140);
@@ -2840,6 +3202,8 @@ window.NDMqtt = (() => {
     } else if (room.state === 'over') {
       const [a, b] = [me(), opp()];
       const iWon = room.winnerId === myId;
+      // 20-й бой кампании: после победы над королём — выбор, пощадить его или изгнать
+      const kingPart = cmp === 19 && !!(reward && reward.camp && reward.camp.won);
       const wp = room.players.find(p => p.id === room.winnerId);
       const why = room.endReason === 'forfeit' ? T('Соперник сбежал — победа засчитана', 'Your opponent left — win by forfeit') : room.endReason === 'win' && wp ? T(`Победил ${pname(wp)}`, `${pname(wp)} wins`) : '';
       ov.innerHTML = `<h2>${room.winnerId == null ? T('Ничья!', 'Draw!') : iWon ? T('Победа! 🏆', 'Victory! 🏆') : T('Ты — дурак 🤡', "You're the fool 🤡")}</h2>
@@ -2852,8 +3216,9 @@ window.NDMqtt = (() => {
           <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div>
           ${reward.capped ? `<div class="cap-note">${T(`🤖 Быстрые матчи с ботом дают опыт только до ${X.Profile.BOT_XP_CAP} уровня. Дальше качайся в кампании или с живыми игроками!`, `🤖 Quick bot matches only give XP up to level ${X.Profile.BOT_XP_CAP}. Play the campaign or real people to keep levelling up!`)}</div>` : ''}</div>` : ''}
         ${reward && reward.camp ? campResult(reward.camp) : ''}
+        ${kingPart ? kingScene() : ''}
         <div class="btns">
-          ${cmp != null ? campButtons() : ''}
+          ${cmp != null && !(kingPart && kingDecision == null) ? campButtons() : ''}
           ${cmp == null && isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
           <button class="btn" data-a="leave">${T('В лобби', 'To lobby')}</button>
@@ -2863,6 +3228,7 @@ window.NDMqtt = (() => {
     ov.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
       const k = b.dataset.a;
       if (k === 'leave') return leave();
+      if (k === 'kingSpare' || k === 'kingExile') return kingChoose(k === 'kingSpare');
       if (k === 'campMap') { leave(); return openCampaign(); }
       if (k === 'campNext') { const n = +b.dataset.n; leave(); return createServer(true, { campaign: n }); }
       act(k);
@@ -2884,7 +3250,7 @@ window.NDMqtt = (() => {
       const n = room.state === 'lobby' ? 20 : room.deckCount;
       const backs = n > 1 ? Math.min(4, Math.ceil((n - 1) / 4)) : 0;
       for (let i = 0; i < backs; i++) {
-        const b = document.createElement('div'); b.className = 'card-back back'; b.textContent = '🗡';
+        const b = document.createElement('div'); b.className = 'card-back back' + (room.phase3 ? ' magic' : ''); b.textContent = '🗡';
         b.style.left = (i * 2) + 'px'; b.style.top = (-i * 2) + 'px'; st.appendChild(b);
       }
       const cnt = document.createElement('div'); cnt.className = 'deck-count'; cnt.textContent = n; st.appendChild(cnt);
@@ -2914,7 +3280,7 @@ window.NDMqtt = (() => {
     for (const id of p.hand) {
       const card = cardOf(id); if (!card) continue;
       if (id === p.active) { wrap.appendChild(knifeTile(card, mine)); continue; }
-      if (!mine) { const b = document.createElement('div'); b.className = 'card-back'; b.textContent = '🗡'; wrap.appendChild(b); continue; }
+      if (!mine) { const b = document.createElement('div'); b.className = 'card-back' + (room.phase3 ? ' magic' : ''); b.textContent = '🗡'; wrap.appendChild(b); continue; }
       const c = cardEl(card);
       const firstOnly = card.stats.abilities.includes('slowmo') && (+p.rt || 0) > 0;
       if (canTake && firstOnly) {
@@ -2960,23 +3326,41 @@ window.NDMqtt = (() => {
     return k;
   }
 
+  // английские описания зачарований (русские — в KG.ENCH)
+  const ENCH_EN = {
+    boom: 'after passing the stump, flies back and always returns to hand (100%)',
+    split: 'after 20% of the path, splits into 3 translucent knives',
+    seek: 'thrown during the opponent\'s throw, homes in on their knife and knocks it',
+    freeze: 'slows down the further it flies; at 50% of the path it freezes and becomes an obstacle',
+    explode: 'explodes on hitting an opponent knife: 20 fragments worth 2 points each, stick only in the opponent\'s stump within a 160° window',
+    rocket: 'does not spin, flies straight and very fast, always sticks in the stump',
+    drop: 'every 0.25 s drops a dagger straight down; a dagger landing on the opponent\'s stump gives 5 points',
+    smart: 'a hit on the stump draws 2 random cards into hand',
+  };
+  // в описаниях магических карт все числа заменяются на «?»
+  const hideNums = (text) => String(text).replace(/\d+(?:[.,]\d+)?/g, '?');
   function cardEl(card) {
     const st = card.stats;
     const s = SUITS[card.suit];
     const c = document.createElement('div');
-    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}`;
+    const en = card.ench ? KG.ENCH[card.ench] : null;
+    const hide = card.magic ? hideNums : (x) => x;
+    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}${card.magic ? ' magic' : ''}`;
+    if (en) c.style.setProperty('--ench', en.color);
     const items = [];
-    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${abil(a)[0]}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${abil(a)[1]}</li>`));
-    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${qual(q)[0]}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${qual(q)[1]}</li>`));
-    st.flaws.forEach(f => items.push(`<li class="fl">− ${flaw(f)[0]} — ${flaw(f)[1]}</li>`));
+    if (en) items.push(`<li class="ab magic-ench">✦ ${esc(T(en.name, en.en))} — ${esc(hide(LANG === 'en' ? ENCH_EN[card.ench] : en.desc))}</li>`);
+    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${hide(abil(a)[0])}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(abil(a)[1])}</li>`));
+    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${hide(qual(q)[0])}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(qual(q)[1])}</li>`));
+    st.flaws.forEach(f => items.push(`<li class="fl">− ${hide(flaw(f)[0])} — ${hide(flaw(f)[1])}</li>`));
     if (st.trump) items.push(`<li class="ab">★ ${T('Козырь: летит ровнее, меньше ветра', 'Trump: steadier flight, less wind')}</li>`);
+    const nv = (v) => (card.magic ? '?' : v);
     c.innerHTML = `
       <div class="corner"><span>${tierRank(card.tier)}${s.sym}</span>${st.trump ? `<span class="badge">${T('КОЗЫРЬ', 'TRUMP')}</span>` : ''}<span>${s.sym}</span></div>
       <canvas width="312" height="156"></canvas>
       <div class="cname">${esc(cardName(card))}</div>
       <div class="ctier">${tierName(card.tier)} · ${suitName(card.suit)}</div>
       <ul>${items.join('')}</ul>
-      <div class="nums"><span>${T('Очки', 'Pts')} ${st.points}</span><span>${T('Разброс', 'Spread')} ${st.spread}°</span><span>${T('Окно', 'Window')} ${st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2)}°</span></div>`;
+      <div class="nums"><span>${T('Очки', 'Pts')} ${nv(st.points)}</span><span>${T('Разброс', 'Spread')} ${nv(st.spread)}°</span><span>${T('Окно', 'Window')} ${nv(st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2))}°</span></div>`;
     const cv = c.querySelector('canvas'), cx = cv.getContext('2d');
     cx.translate(156, 80); cx.rotate(-0.32); cx.scale(2.3, 2.3);
     drawCardArt(cx, card, st.trump);
@@ -3030,7 +3414,7 @@ window.NDMqtt = (() => {
   const release = () => {
     if (!aim.active) return;
     aim.active = false;
-    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); }
+    if (aim.power >= 0.08 && canAim()) { if (RG.on) rangeThrow(RG.id, true, aim.angle, aim.power); else act('throw', { a: aim.angle, p: aim.power }); }
   };
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', () => { aim.active = false; });
@@ -3047,17 +3431,32 @@ window.NDMqtt = (() => {
     let full = [], extra = [], dur = 0;
     const st0 = base ? KG.knifeStats(base, m.ts) : null;
     if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: st0, wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
+    if (m.path && full.length) full = m.path;   // самонаводка: путь, по которому нож повернул к цели (считает движок)
     // сбитые кортики залпа обрываются в точке удара
+    // залп: кортики, остановленные фризом или льдом, обрываются на кадре остановки (без падения), затем сбитые
+    for (const ss of m.shotStops || []) if (ss.k > 0 && extra[ss.k - 1]) extra[ss.k - 1] = extra[ss.k - 1].slice(0, +ss.at + 1);
     for (const sc of m.shotCuts || []) if (sc.k > 0 && extra[sc.k - 1]) extra[sc.k - 1] = KG.knockFrames(extra[sc.k - 1], +sc.at);
     if (m.defl && full.length) full = KG.deflect(full, +m.defl.at, st0, +m.w || 0, +m.defl.k).frames;   // меч отклонился от удара
     const cut = m.cut != null ? +m.cut : null;
-    const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
+    // фриз: нож замирает на кадре m.frz и остаётся висеть во льду (без падения)
+    const frozenAt = m.frz != null ? +m.frz : null;
+    const frames = frozenAt != null && full.length ? full.slice(0, frozenAt + 1) : cut != null && full.length ? KG.knockFrames(full, cut) : full;
+    // раскол: два призрачных клинка после 20% пути (считаются так же, как в движке)
+    // раскол: клинки появляются, только если основной нож дожил до точки деления (та же проверка, что на сервере)
+    const splitIdx = full.length >= 5 ? Math.max(1, Math.min(full.length - 2, Math.floor(full.length * 0.2))) : -1;
+    const splitReached = splitIdx >= 0 && (m.cut == null || +m.cut >= splitIdx) && (m.frz == null || +m.frz >= splitIdx);
+    const ghosts = st0 && st0.ench === 'split' && splitReached && m.a != null ? KG.splitGhosts(full, st0, +m.w || 0, m.s | 0).map(gh => gh.frames) : [];
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
     for (const k of m.knocks || []) knockAnim(k.id, +k.at, k.res);
     if (m.defl2) deflAnim(m.defl2.id, +m.defl2.at, +m.defl2.k, m.defl2.res);
+    if (m.pal) palAnim(m.pal.id, +m.pal.at, +m.w || 0);   // шлейф паладина отбил нож — тот летит обратно в дерево
     const el = Math.max(0, +m.el || 0);
-    const a = { owner: m.o, full, cut, frames, extra, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    // точка заморозки: лёд появляется, только когда нож долетит до неё
+    const frzPt = frozenAt != null && full[frozenAt] ? { x: full[frozenAt].x, y: full[frozenAt].y, o: m.o } : null;
+    const a = { owner: m.o, full, cut, frames, extra, ghosts, frzPt, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    // ножепад: кортики падают из точек полёта; на пне соперника остаются торчать
+    for (const d of m.dag || []) daggerFx.push({ owner: m.o, x: +d.x, y: +d.y, hit: !!d.hit, t0: a.t0 + (+d.i) / 60 * 1000 });
     if (!frames.length) finishAnim(a);
     else if (el / 1000 * 60 >= Math.max(frames.length, dur)) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
@@ -3068,6 +3467,13 @@ window.NDMqtt = (() => {
     if (!other || other.cut === at || !other.full.length) return;
     other.cut = at; other.frames = KG.knockFrames(other.full, at);
     other.result = res || { hit: false, reason: 'Сбит в воздухе!', code: 'knocked' }; other.streak = 0;
+  }
+  // нож отбит шлейфом паладина: пересчитываем его полёт обратно к дереву (та же функция, что у сервера)
+  function palAnim(id, at, w) {
+    const a = anims.find(x => x.throwId === id);
+    if (!a || a.pal === at || !a.full.length || !a.st) return;
+    a.pal = at; const r = KG.returnFlight(a.full, at, a.st, w, KG.palSeed(id));
+    a.full = a.frames = r.frames; a.result = r.result;
   }
   // меч отклонили в полёте: пересчитываем его траекторию с точки удара
   function deflAnim(id, at, k, res) {
@@ -3092,6 +3498,7 @@ window.NDMqtt = (() => {
   }
 
   function finishAnim(a) {
+    if (a.rg) { rangeFinish(a); return; }
     anims = anims.filter(x => x !== a);
     const last = a.frames[a.frames.length - 1];
     const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
@@ -3122,14 +3529,14 @@ window.NDMqtt = (() => {
       text = `+${+res.points || 0} ${text}${res.steal ? T(` (украл ${+res.steal})`, ` (stole ${+res.steal})`) : ''}`;
       color = res.zone === 'bull' ? '#ffd77a' : '#9ff0a6'; sfx('thunk');
       if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
-    } else { color = '#ff9f8f'; sfx('clank'); }
+    } else { color = '#ff9f8f'; sfx('clank'); if (+res.points > 0) { text = `+${+res.points} ${text}`; color = '#9ff0a6'; } }   // ножепад: кортики на пне засчитываются и без попадания ножа
     floaters.push({ text, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(60, v.y - 30), t0: performance.now(), color });
   }
 
   // фон
   const bgCache = {};
   function getBg(arena) {
-    const id = ['sunset', 'night', 'winter', 'desert'].includes(arena) ? arena : 'sunset';
+    const id = ['sunset', 'night', 'nightred', 'nightpurple', 'winter', 'desert'].includes(arena) ? arena : 'sunset';
     if (bgCache[id]) return bgCache[id];
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
@@ -3252,7 +3659,8 @@ window.NDMqtt = (() => {
       ctx.fillStyle = `rgba(${col},${0.9 - (i / n) * 0.6})`;
       ctx.beginPath(); ctx.arc(f.x, f.y, 2.6, 0, Math.PI * 2); ctx.fill();
     }
-    for (let i = 10 * slow; i < n && i < frames.length && !st.abilities.includes('volley'); i += 10 * slow) {
+    // паладин: вся траектория видна, но вращение ножа по пути — нет (призраки ножей не рисуем)
+    for (let i = 10 * slow; i < n && i < frames.length && !st.abilities.includes('volley') && !st.abilities.includes('paladin'); i += 10 * slow) {
       const f = frames[i];
       ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(f.x, f.y); ctx.rotate(f.r); KG.drawKnife(ctx, card); ctx.restore();
     }
@@ -3272,6 +3680,64 @@ window.NDMqtt = (() => {
   const roomScreen = document.getElementById('room');
   let lastHint = null, lastTimer = null, lastTimerColor = null;
   function putText(el, v, last) { if (v !== last) el.textContent = v; return v; }
+  // выход магической колоды из земли: луч света и карты, поднимающиеся из-под поля
+  function drawEruption(c, t) {
+    const k = Math.min(1, t / 2400), fade = t > 2200 ? Math.max(0, 1 - (t - 2200) / 600) : 1;
+    c.save(); c.globalAlpha = fade;
+    const beam = c.createLinearGradient(0, GROUND, 0, 0);
+    beam.addColorStop(0, 'rgba(200,140,255,.85)'); beam.addColorStop(1, 'rgba(200,140,255,0)');
+    c.fillStyle = beam; c.fillRect(W / 2 - 70 * k, 0, 140 * k, GROUND);
+    for (let i = 0; i < 14; i++) {
+      const kk = Math.max(0, Math.min(1, (t - i * 90) / 1100)); if (kk <= 0) continue;
+      const ease = 1 - Math.pow(1 - kk, 3);
+      const x = W / 2 + Math.sin(i * 2.3) * (120 + (i % 4) * 40);
+      const y = GROUND + 30 - ease * (200 + (i % 5) * 26);
+      c.save(); c.translate(x, y); c.rotate(Math.sin(i * 1.7) * 0.35);
+      c.shadowColor = 'rgba(190,120,255,.95)'; c.shadowBlur = 18;
+      const g2 = c.createLinearGradient(0, -32, 0, 32); g2.addColorStop(0, '#7a3bd6'); g2.addColorStop(1, '#2a0f4d');
+      c.fillStyle = g2; c.fillRect(-22, -32, 44, 64);
+      c.strokeStyle = '#d7b8ff'; c.lineWidth = 2; c.strokeRect(-22, -32, 44, 64);
+      c.restore();
+    }
+    c.restore();
+  }
+  // преграды изо льда (фриз): красные кристаллы на поле, у каждого владельца — в его системе координат
+  // замёрзший нож висит во льду на том месте, где остановился (в цвете льда)
+  function drawIce(c) {
+    if (!room || !room.ice) return;
+    for (const ice of room.ice) {
+      // пока замораживающий нож ещё летит к этой точке, льда на поле нет
+      if (anims.some(an => an.frzPt && an.frzPt.o === ice.o && Math.abs(an.frzPt.x - ice.x) < 2 && Math.abs(an.frzPt.y - ice.y) < 2)) continue;
+      const card = KG.CARD_BY_ID[ice.c];
+      const v = view(ice.o, ice.x, ice.y, ice.r || 0);
+      if (!card) continue;
+      c.save(); c.translate(v.x, v.y); c.rotate(v.r);
+      c.globalAlpha = 0.92; c.filter = 'sepia(1) hue-rotate(170deg) saturate(3) brightness(1.1)';
+      KG.drawKnife(c, card, { trump: card.suit === room.trumpSuit });
+      c.restore();
+    }
+  }
+  // кортики ножепада: падают из точки полёта; попавший на пень соперника торчит в нём
+  function drawDaggers(c, now) {
+    daggerFx = daggerFx.filter(d => now - d.t0 < 2600);
+    for (const d of daggerFx) {
+      if (now < d.t0) continue;
+      const p = Math.min(1, (now - d.t0) / 320), e = p * p;
+      // кортик упал на пень — всплывает его +5 очков (над верхней гранью пня)
+      if (d.hit && !d.shown && now - d.t0 >= 320) {
+        d.shown = true;
+        const fv = view(d.owner, d.x, STUMP_TOP, 0);
+        floaters.push({ text: '+5', x: Math.max(120, Math.min(W - 120, fv.x)), y: Math.max(60, fv.y - 24), t0: now, color: '#c9d3ff', small: true });
+      }
+      const yEnd = d.hit ? Math.max(d.y, STUMP_TOP + 6) : GROUND - 8;
+      const v = view(d.owner, d.x, d.y + (yEnd - d.y) * e, 0);
+      c.save(); c.translate(v.x, v.y);
+      c.fillStyle = '#c9d3ff'; c.strokeStyle = '#6a2bbd'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(0, 12); c.lineTo(-4, -4); c.lineTo(0, -8); c.lineTo(4, -4); c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+  }
+
   function frame(now) {
     requestAnimationFrame(frame);
     // на экране меню холст игры не нужен: не рисуем и не трогаем DOM, пока комната не открыта
@@ -3281,15 +3747,18 @@ window.NDMqtt = (() => {
     const [sx, sy] = X.shakeOffset(now);
     ctx.setTransform(1, 0, 0, 1, sx, sy);
     const arena = room && room.arena ? room.arena : myLook().arena;
-    ctx.drawImage(getBg(arena), -8, -8, W + 16, H + 16);
+    // вторая фаза битвы с королём — красная ночь
+    const bgId = arena === 'night' && room && room.phase3 ? 'nightpurple' : arena === 'night' && room && room.phase2 ? 'nightred' : arena;
+    ctx.drawImage(getBg(bgId), -8, -8, W + 16, H + 16);
     X.drawWeather(ctx, arena, now, W, H, GROUND);
     if (room) {
+      if (RG.on) rangeStep(now);
       const m = me(), o = opp();
       for (const s of room.stuck || []) {
         if (!Array.isArray(s)) continue;
         const [pi, cid, tr, x, y, r, tid] = s;
         if (anims.some(a => a.throwId === tid)) continue;
-        const card = KG.CARD_BY_ID[cid]; const owner = room.players[pi];
+        const card = anyCard(cid); const owner = room.players[pi];
         if (!card || !owner) continue;
         const v = view(owner.id, +x, +y, +r);
         ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, card, { trump: !!tr }); ctx.restore();
@@ -3328,6 +3797,12 @@ window.NDMqtt = (() => {
           const ev = view(an.owner, e.x, e.y, e.r);
           ctx.save(); ctx.translate(ev.x, ev.y); ctx.rotate(ev.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore();
         }
+        // раскол: два клинка рядом с основным — такие же, как оригинал
+        if (an.ghosts && an.card) for (const gf of an.ghosts) {
+          const e = gf[Math.min(i, gf.length - 1)]; if (!e) continue;
+          const ev = view(an.owner, e.x, e.y, e.r);
+          ctx.save(); ctx.translate(ev.x, ev.y); ctx.rotate(ev.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore();
+        }
         if (an.boomAt >= 0 && i >= an.boomAt) {
           const bf = an.frames[an.boomAt]; an.boomAt = -1;
           if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clang'); X.burst('sparks', bv.x, bv.y, 22); X.shake(9); }
@@ -3337,6 +3812,9 @@ window.NDMqtt = (() => {
       booms = booms.filter(b => now - b.t0 < 450);
       swordFx = swordFx.filter(fx => now - fx.t0 < 1700);
       for (const fx of swordFx) drawSwordFx(ctx, fx, now);
+      drawIce(ctx);
+      drawDaggers(ctx, now);
+      if (eruption) { const t = now - eruption.t0; if (t < 2800) drawEruption(ctx, t); else eruption = null; }
       for (const b of booms) {
         const t = (now - b.t0) / 450;
         ctx.save(); ctx.globalAlpha = 1 - t; ctx.strokeStyle = '#fff4b0'; ctx.lineWidth = 3;
@@ -3754,6 +4232,23 @@ window.NDMqtt = (() => {
     const next = CAMP[c.idx + 1], nb = next && next.b !== f.b;
     return `<div class="camp-res">${c.first ? T(`Бой пройден! +${c.xp} XP за кампанию.`, `Fight won! +${c.xp} campaign XP.`) : T('Бой пройден снова.', 'Fight won again.')}${nb && c.first ? ' ' + T(`Открыт новый биом: ${BIOMES[next.b].n[0]}!`, `New biome unlocked: ${BIOMES[next.b].n[1]}!`) : ''}</div>`;
   }
+  // король говорит перед выбором: он один удерживает царство и тех, что за его границами
+  function kingScene() {
+    if (kingDecision) return `<div class="king-say">${kingDecision === 'spare'
+      ? T('Король склоняет голову: «Тогда я ещё понадоблюсь. Но помни: без меня вам придётся куда хуже».', 'The king bows his head: "Then I am still of use. But remember: without me, things will be far worse for you."')
+      : T('Король молча уходит в ночь. Ворота закрываются за ним — что будет дальше, знает только он.', 'The king leaves in silence into the night. The gates close behind him. Only he knows what comes next.')}</div>`;
+    return `<div class="king-scene">
+      <p class="king-say">${T('Ты победил. Что ж, выслушай меня, прежде чем решать. Да, это царство держу я, и держу его тиранией — я не стану этого отрицать. Но за его границами водятся твари, перед которыми не спасают ни стены, ни законы. Я единственный, кто их сдерживает. Если меня не станет, оборона рухнет, они прорвутся сюда и убьют всех до единого. Решай: оставь меня на троне или изгони.',
+        'You won. Before you decide, hear me out. Yes, I hold this kingdom, and I hold it through tyranny; I won\'t deny that. But beyond its borders live creatures no walls or laws can stop, and I am the only one holding them back. If I fall, the defenses break, they pour through, and they kill every last one of you. Decide: keep me on the throne, or exile me.')}</p>
+      <div class="btns"><button class="btn gold" data-a="kingSpare">${T('Пощадить короля', 'Spare the king')}</button><button class="btn" data-a="kingExile">${T('Изгнать его', 'Exile him')}</button></div>
+    </div>`;
+  }
+  function kingChoose(spare) {
+    kingDecision = spare ? 'spare' : 'exile';
+    if (spare) X.Profile.spareKing();
+    sfx(spare ? 'achieve' : 'clank');
+    renderOverlay();
+  }
   function campButtons() {
     const i = cmp, won = reward && reward.camp && reward.camp.won;
     const nextOk = won && i < 19 && i + 1 <= X.Profile.camp;
@@ -3811,7 +4306,7 @@ window.NDMqtt = (() => {
       const h = document.createElement('h3'); h.className = 'cards-h';
       h.innerHTML = `${esc(T(sec.ru, sec.en))} <span>${sec.cards.length}</span>`;
       const grid = document.createElement('div'); grid.className = 'cards-grid';
-      sec.cards.forEach((c) => grid.appendChild(cardEl(c)));
+      sec.cards.forEach((c) => { const el = cardEl(c); el.style.cursor = 'pointer'; el.title = T('Проверить на полигоне', 'Test on the range'); el.onclick = () => openRange(c.id); grid.appendChild(el); });
       body.appendChild(h); body.appendChild(grid);
     });
     const gh = document.createElement('h3'); gh.className = 'cards-h'; gh.textContent = T('Способности и качества', 'Abilities and qualities');
@@ -3823,6 +4318,157 @@ window.NDMqtt = (() => {
       ...Object.keys(KG.FLAWS).map((k) => row(k, flaw, '−')),
     ].join('');
     body.appendChild(gh); body.appendChild(gl);
+  }
+
+  // ---------- Полигон ножей: тот же стол, что и в матче с ботом. Бросаешь сам (зажми поле, тяни назад, отпусти); ножи бота можно отбивать ----------
+  const RG = { on: false, id: null, card: null, wind: 0, oppId: '', oppIdle: false, oppEvery: 4, nextOpp: 0, seq: 0, pts: 0 };
+  const RG_BOT = 'rg-bot';
+  let rgCatalog = null;
+  const rangeAllCards = () => rgCatalog || (rgCatalog = KG.catalog().flatMap((sec) => sec.cards));
+  const anyCard = (id) => KG.CARD_BY_ID[id] || (RG.on ? rangeAllCards().find((c) => c.id === id) : null) || null;
+  const rangeCard = (id) => { const b = KG.CARD_BY_ID[id] || rangeAllCards().find((c) => c.id === id); return b && Object.assign({}, b, { abilities: b.abilities.slice(), qualities: b.qualities.slice(), flaws: b.flaws.slice() }); };
+  function openRange(id) {
+    if (room && room.state === 'playing' && !RG.on) { toast(T('Сначала закончи матч', 'Finish the match first')); return; }
+    if (net) { toast(T('Полигон работает только в одиночной игре', 'The range works only in single player')); return; }
+    $('#cards-modal').classList.add('hidden');
+    if (!document.getElementById('rg-css')) {
+      const css = document.createElement('style'); css.id = 'rg-css';
+      css.textContent = '#rg-panel { position: fixed; right: 12px; top: 12px; width: 268px; max-height: calc(100vh - 24px); overflow: auto; z-index: 60; background: rgba(30,20,10,.94); color: #f6ead8; border: 1px solid #6b4a2a; border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); }' +
+        '#rg-panel summary { font-family: "Russo One", sans-serif; color: #ffe39a; cursor: pointer; font-size: 14px; }' +
+        '#rg-panel .rg-row { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 6px 0; }' +
+        '#rg-panel .rg-row label { display: flex; align-items: center; gap: 6px; }' +
+        '#rg-panel .rg-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin: 6px 0; }' +
+        '#rg-panel .rg-feats label { display: flex; align-items: center; gap: 4px; }' +
+        '#rg-panel .rg-note { color: #c9b6a0; font-size: 11px; margin-top: 6px; }';
+      document.head.appendChild(css);
+    }
+    RG.on = true; RG.id = id; RG.card = rangeCard(id); RG.nextOpp = performance.now(); RG.pts = 0;
+    const look = myLook();
+    room = { id: 'range', state: 'playing', phase: 'play', round: 1, trumpSuit: null, handMax: 1, wind: RG.wind, arena: look.arena, stuck: [],
+      players: [
+        { id: myId, name: T('Ты', 'You'), look, status: 'aim', active: id, streak: 0, score: 0, hm: 1 },
+        { id: RG_BOT, name: T('Бот', 'Bot'), look: X.cleanLook(null), status: 'aim', active: RG.oppId || null, streak: 0, score: 0, isBot: true },
+      ] };
+    anims = []; floaters = []; booms = [];
+    enterRoom();
+    try { renderRoom(); } catch (e) {}
+    renderRangePanel();
+  }
+  function closeRange() {
+    RG.on = false; room = null; anims = []; floaters = []; booms = [];
+    const p = document.getElementById('rg-panel'); if (p) p.remove();
+    show('lobby');
+  }
+  function renderRangePanel() {
+    let el = document.getElementById('rg-panel');
+    if (!el) { el = document.createElement('div'); el.id = 'rg-panel'; document.body.appendChild(el); }
+    const cards = rangeAllCards();
+    const opts = cards.map((c) => `<option value="${esc(c.id)}" ${c.id === RG.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    const oppOpts = `<option value="">${T('— ничего —', '— nothing —')}</option>` + cards.map((c) => `<option value="${esc(c.id)}" ${c.id === RG.oppId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    const feats = [['abilities', KG.ABILITIES, abil], ['qualities', KG.QUALITIES, qual], ['flaws', KG.FLAWS, flaw]].map(([field, dict, fn]) =>
+      Object.keys(dict).map((k) => `<label><input type="checkbox" data-f="${field}" data-k="${k}" ${RG.card[field].includes(k) ? 'checked' : ''}> ${esc(fn(k)[0])}</label>`).join('')).join('');
+    el.innerHTML = `<details><summary>${T('Полигон ножей', 'Knife range')}</summary>
+      <div class="rg-row"><label>${T('Нож', 'Knife')} <select id="rg-knife">${opts}</select></label></div>
+      <div class="rg-feats">${feats}</div>
+      <div class="rg-row"><label>${T('Ветер', 'Wind')} <span id="rg-wind-v"></span> <input id="rg-wind" type="range" min="-100" max="100" value="${Math.round(RG.wind * 100)}"></label></div>
+      <div class="rg-row"><label>${T('Противник кидает', 'Opponent throws')} <select id="rg-opp">${oppOpts}</select></label></div>
+      <div class="rg-row"><label>${T('каждые', 'every')} <span id="rg-every-v"></span> ${T('сек', 's')} <input id="rg-every" type="range" min="1" max="10" value="${RG.oppEvery}"></label></div>
+      <div class="rg-row"><label><input id="rg-idle" type="checkbox" ${RG.oppIdle ? 'checked' : ''}> ${T('Противник ничего не делает', 'Opponent does nothing')}</label></div>
+      <div class="rg-row"><button id="rg-clear" class="cards-btn" type="button">${T('Очистить пень', 'Clear stump')}</button> <span>${T('Бонус паладина', 'Paladin bonus')}: <b id="rg-pts">${RG.pts}</b></span></div>
+      <div class="rg-note">${T('Бросок: зажми мышь на поле, тяни назад-вниз, отпусти. Нож не тратится, раунд не заканчивается.', 'Throw: hold the mouse on the field, drag back-down, release. The knife is never used up and the round never ends.')}</div>
+    </details>`;
+    const val = () => { $('#rg-wind-v').textContent = RG.wind.toFixed(2); $('#rg-every-v').textContent = RG.oppEvery; };
+    el.querySelector('#rg-knife').onchange = (e) => { RG.id = e.target.value; RG.card = rangeCard(RG.id); me().active = RG.id; renderRangePanel(); };
+    el.querySelectorAll('.rg-feats input').forEach((cb) => cb.onchange = () => {
+      const arr = RG.card[cb.dataset.f], k = cb.dataset.k, i = arr.indexOf(k);
+      if (cb.checked && i < 0) arr.push(k); if (!cb.checked && i >= 0) arr.splice(i, 1);
+    });
+    el.querySelector('#rg-wind').oninput = (e) => { RG.wind = +e.target.value / 100; val(); };
+    el.querySelector('#rg-every').oninput = (e) => { RG.oppEvery = +e.target.value; val(); };
+    el.querySelector('#rg-opp').onchange = (e) => { RG.oppId = e.target.value; RG.nextOpp = performance.now(); };
+    el.querySelector('#rg-idle').onchange = (e) => { RG.oppIdle = e.target.checked; };
+    el.querySelector('#rg-clear').onclick = () => { room.stuck = []; RG.pts = 0; const ps = el.querySelector('#rg-pts'); if (ps) ps.textContent = 0; };
+    val();
+  }
+  // каждый кадр: ветер, бот в руке и его броски по интервалу
+  function rangeStep(now) {
+    room.wind = RG.wind;
+    const ps = document.getElementById('rg-pts'); if (ps && ps.textContent !== String(RG.pts)) ps.textContent = RG.pts;
+    const bot = room.players[1];
+    bot.active = RG.oppIdle ? null : (RG.oppId || null);
+    if (RG.oppId && !RG.oppIdle && now >= RG.nextOpp) {
+      RG.nextOpp = now + RG.oppEvery * 1000;
+      rangeThrow(RG.oppId, false, -0.6 + (Math.random() - 0.5) * 0.3, 0.7 + (Math.random() - 0.5) * 0.25);
+    }
+  }
+  function rangeThrow(id, mine, angle, power) {
+    const card = id === RG.id ? RG.card : rangeCard(id);
+    const st = KG.knifeStats(card, 'none');
+    const wind = mine ? RG.wind : -RG.wind;   // бот бросает зеркально, поэтому ветер для него с обратным знаком
+    const sim = KG.throwSim({ angle, power, stats: st, wind, seed: (Math.random() * 2 ** 31) | 0 });
+    const now = performance.now();
+    const a = { rg: true, id: ++RG.seq, throwId: 0, owner: mine ? myId : RG_BOT, card, st, wind, frames: sim.frames, result: Object.assign({}, sim.result), t0: now, dur: 0, extra: [], boomAt: -1, streak: 0, trump: false, done: false, knocked: false };
+    a.throwId = a.id;
+    anims.push(a);
+    swingAt[a.owner] = now;
+    if (mine) sfx('whoosh');
+    rangeCollide(a);
+  }
+  // столкновение в воздухе — как в движке (engine.js): бьёт новый нож, у старого frames уже в своих координатах (findCollision сам зеркалит их)
+  function rangeCollide(f) {
+    for (const g of anims) {
+      if (g === f || !g.rg || g.done || g.knocked || f.knocked || g.owner === f.owner) continue;
+      const offset = Math.round((f.t0 - g.t0) / 1000 * 60);
+      const col = KG.findCollision(f.frames, g.frames, offset, f.st.trail || 0);
+      if (!col) continue;
+      // шлейф паладина сбивает чужой нож, тот летит обратно в дерево и втыкается с 80%; бонус +max(5, очки/2)
+      if (f.st.has('paladin')) {   // шлейф паладина сбивает и меч Алого Короля — его уникальное умение
+        const ret = KG.returnFlight(g.frames, col.j, g.st, g.wind, KG.palSeed(g.id));
+        g.frames = ret.frames; g.result = ret.result; g.knocked = true;
+        f.frames = KG.knockFrames(f.frames, col.i); f.knocked = true; f.boomAt = col.i;
+        // бонус бросившему паладин: половина очков, которые принёс бы отбитый нож (0, если он не воткнулся)
+        const bonus = ret.result.hit ? Math.round((ret.result.points || 0) / 2) : 0;
+        f.result = Object.assign({}, f.result, { hit: false, knock: true, code: 'knock', reason: 'Сбил нож соперника!', points: bonus });
+        if (f.owner === myId) RG.pts += bonus;
+        break;
+      }
+      // меч Алого Короля не сбивается: чужой нож падает, меч лишь отклоняется
+      const kickOf = (sw, other, i, j) => ((other[Math.min(j, other.length - 1)] || {}).y > (sw[Math.min(i, sw.length - 1)] || {}).y ? -0.16 : 0.16);
+      if (f.st.has('bloodsword')) {
+        const d = KG.deflect(f.frames, col.i, f.st, f.wind, kickOf(f.frames, g.frames, col.i, col.j));
+        f.frames = d.frames; f.result = Object.assign({}, d.result);
+        g.frames = KG.knockFrames(g.frames, col.j); g.knocked = true; g.result = { hit: false, knocked: true, code: 'knocked', reason: 'Сбит в воздухе!', points: 0 };
+        break;
+      }
+      if (g.st.has('bloodsword')) {
+        const d = KG.deflect(g.frames, col.j, g.st, g.wind, kickOf(g.frames, f.frames, col.j, col.i));
+        g.frames = d.frames; g.result = Object.assign({}, d.result);
+        f.frames = KG.knockFrames(f.frames, col.i); f.knocked = true; f.boomAt = col.i; f.result = { hit: false, knocked: true, code: 'knocked', reason: 'Сбит в воздухе!', points: 0 };
+        break;
+      }
+      // обычное столкновение: оба ножа падают
+      g.frames = KG.knockFrames(g.frames, col.j); g.knocked = true; g.result = { hit: false, knocked: true, code: 'knocked', reason: 'Сбит в воздухе!', points: 0 };
+      f.frames = KG.knockFrames(f.frames, col.i); f.knocked = true; f.boomAt = col.i;
+      f.result = Object.assign({}, f.result, { hit: false, knock: true, code: 'knock', reason: 'Сбил нож соперника!', points: Math.max(5, Math.round(g.st.points / 2)) });
+      break;
+    }
+  }
+  // нож долетел: воткнулся в пень (запоминаем в списке ножей пня) или упал
+  function rangeFinish(a) {
+    a.done = true;
+    anims = anims.filter((x) => x !== a);
+    const res = a.result;
+    const last = a.frames[a.frames.length - 1];
+    const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
+    if (res.hit && res.stuck) room.stuck.push([a.owner === myId ? 0 : 1, a.card.id, 0, res.stuck.x, res.stuck.y, res.stuck.r, a.id]);
+    if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, a.owner === myId ? 1 : -1); sfx('thunk'); }
+    else if (res.knocked || res.knock) sfx('dirt');
+    else sfx('clank');
+    let text = reasonText(res), color = '#ff9f8f';
+    if (res.knock && res.points) text = `+${+res.points} ${text}`;
+    if (res.knock || res.knocked) color = '#7fd8ff';
+    else if (res.hit) { text = `+${+res.points || 0} ${text}`; color = res.zone === 'bull' ? '#ffd77a' : '#9ff0a6'; }
+    floaters.push({ text, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(60, v.y - 30), t0: performance.now(), color });
   }
 
   function buildExtraUI() {

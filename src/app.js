@@ -14,7 +14,7 @@
   let roomAt = 0;
   let myId = 'local';
   let logLines = [];
-  let anims = [], floaters = [], booms = [], swordFx = [];
+  let anims = [], floaters = [], booms = [], swordFx = [], eruption = null, daggerFx = [];
   let aim = { active: false, angle: -0.6, power: 0 };
   let oppAim = null, lastAimSent = 0, morphing = false;
   let heartbeat = null, joinRetry = null;
@@ -97,6 +97,8 @@
         if (e.hm && e.hm[0] !== e.hm[1]) return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. У тебя в руке до ${e.hm[0]} карт, у соперника до ${e.hm[1]}.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Your hand: up to ${e.hm[0]}, opponent: up to ${e.hm[1]}.`);
         return T(`Матч на ${e.size} ножей начался! Козырь — ${s.sym} ${suitName(e.suit)}. В руке до ${e.hand} карт.`, `A ${e.size}-knife match has begun! Trump: ${s.sym} ${suitName(e.suit)}. Hand size up to ${e.hand}.`); }
       case 'sword': return T(`${who} превращает алый меч со спины в карту!`, `${who} turns a scarlet sword from the back into a card!`);
+      case 'phase3': return T('🌌 Колода опустела. Из земли выходит магическая колода: 30 карт с зачарованиями!', '🌌 The deck is empty. A magic deck of 30 enchanted cards rises from the ground!');
+      case 'phase2': return T('🌑 Колода пуста, а ты впереди короля! Вторая фаза: в колоду добавлено 20 карт. Ты тянешь ножи паладина, король — алые мечи.', '🌑 The deck is empty and you lead the king! Phase two: 20 cards are added. You draw paladin knives, the king draws scarlet swords.');
       case 'timeout': return T(`${who}: время вышло — ${cn} сгорел`, `${who}: time is up — ${cn} is lost`);
       case 'throw': return `${who} · ${cn}: ${reasonText({ code: e.code })}${e.pts ? ' +' + e.pts : ''}${e.steal ? T(` (украл ${e.steal})`, ` (stole ${e.steal})`) : ''}${e.streak > 1 ? T(` · серия ×${e.streak}`, ` · streak ×${e.streak}`) : ''}`;
       case 'end': { const bn = e.cn != null && CAMP[e.cn] ? T(...CAMP[e.cn].n) : BOT(); return T(`Ножи кончились. ${e.w ? `Победил ${e.b ? bn : e.w}` : 'Ничья!'} (${e.s1} : ${e.s2})`, `All knives thrown. ${e.w ? `${e.b ? bn : e.w} wins` : 'Draw!'} (${e.s1} : ${e.s2})`); }
@@ -354,6 +356,7 @@
   }
 
   function leave(silent) {
+    if (RG.on) { closeRange(); return; }
     if (heartbeat) clearInterval(heartbeat); heartbeat = null;
     if (joinRetry) clearInterval(joinRetry); joinRetry = null;
     if (eng) { eng.destroy(); eng = null; }
@@ -386,7 +389,11 @@
   }
 
   // ---------- Состояние ----------
-  const cardOf = (id) => id && KG.CARD_BY_ID[id] ? KG.cardWithStats(KG.CARD_BY_ID[id], room ? room.trumpSuit : null) : null;
+  const cardOf = (id) => {
+    if (!id) return null;
+    if (RG.on) { const rc = id === RG.id ? RG.card : rangeCard(id); return rc ? KG.cardWithStats(rc, null) : null; }
+    return KG.CARD_BY_ID[id] ? KG.cardWithStats(KG.CARD_BY_ID[id], room ? room.trumpSuit : null) : null;
+  };
   function applyState(s) {
     if (!s || !Array.isArray(s.players)) return;
     const prev = room;
@@ -397,6 +404,10 @@
       if (pp && pl.sw != null && pp.sw != null && pl.sw < pp.sw) { swordFx.push({ t0: performance.now(), fired: false }); sfx('whoosh'); }
     }
     room = s; roomAt = performance.now();
+    // карты магической колоды приходят вместе с состоянием: регистрируем их, чтобы клиент мог их показать
+    if (s.magic) for (const c of s.magic) KG.CARD_BY_ID[c.id] = c;
+    // третья фаза начинается: колода выходит из земли
+    if (s.phase3 && !(prev && prev.phase3)) { eruption = { t0: performance.now() }; X.shake(16, 1200); X.burst('dirt', 500, GROUND, 40); X.burst('sparks', 500, GROUND - 30, 40); }
     X.Audio.setContext('game', ['sunset', 'night', 'winter', 'desert'].includes(s.arena) ? s.arena : 'sunset');
     X.Audio.setKing(s.state === 'playing' && cmp != null && !!CAMP[cmp] && CAMP[cmp].boss === 2);
     syncFlights(s);
@@ -408,6 +419,7 @@
     renderRoom();
   }
   let reward = null;
+  let kingDecision = null;   // судьба короля после победы в 20-м бою: 'spare' | 'exile' | null (ещё не выбрано)
   const doneMatches = new Set();
   function onMatchOver() {
     const m = me(), o = opp();
@@ -417,9 +429,11 @@
     const xpBefore = matchStartXp == null ? X.Profile.data.xp : matchStartXp, before = X.levelOf(xpBefore);
     const oppKind = o && o.isBot ? (o.lvl || 'medium') : 'human';
     X.Profile.onMatch(result, oppKind, room.size || 20, m.score, cmp != null);
+    if (result === 'loss' && cmp === 19) X.Profile.lostToKing();
     let camp = null;
     if (cmp != null) camp = Object.assign({ idx: cmp, won: result === 'win', draw: result === 'draw' }, result === 'win' ? X.Profile.campWin(cmp, campXp(cmp)) : {});
     reward = { result, xp: X.Profile.data.xp - xpBefore, before, after: X.Profile.level, capped: cmp == null && oppKind !== 'human' && X.Profile.botCapped, camp };
+    kingDecision = null;
     matchXp = 0;
     sfx(result === 'win' ? 'win' : result === 'loss' ? 'lose' : 'achieve');
     if (result === 'win') X.burst('confetti', 0, 0, 140);
@@ -483,6 +497,8 @@
     } else if (room.state === 'over') {
       const [a, b] = [me(), opp()];
       const iWon = room.winnerId === myId;
+      // 20-й бой кампании: после победы над королём — выбор, пощадить его или изгнать
+      const kingPart = cmp === 19 && !!(reward && reward.camp && reward.camp.won);
       const wp = room.players.find(p => p.id === room.winnerId);
       const why = room.endReason === 'forfeit' ? T('Соперник сбежал — победа засчитана', 'Your opponent left — win by forfeit') : room.endReason === 'win' && wp ? T(`Победил ${pname(wp)}`, `${pname(wp)} wins`) : '';
       ov.innerHTML = `<h2>${room.winnerId == null ? T('Ничья!', 'Draw!') : iWon ? T('Победа! 🏆', 'Victory! 🏆') : T('Ты — дурак 🤡', "You're the fool 🤡")}</h2>
@@ -495,8 +511,9 @@
           <div class="xpbar"><i style="width:${Math.round(X.Profile.progress().pct * 100)}%"></i></div>
           ${reward.capped ? `<div class="cap-note">${T(`🤖 Быстрые матчи с ботом дают опыт только до ${X.Profile.BOT_XP_CAP} уровня. Дальше качайся в кампании или с живыми игроками!`, `🤖 Quick bot matches only give XP up to level ${X.Profile.BOT_XP_CAP}. Play the campaign or real people to keep levelling up!`)}</div>` : ''}</div>` : ''}
         ${reward && reward.camp ? campResult(reward.camp) : ''}
+        ${kingPart ? kingScene() : ''}
         <div class="btns">
-          ${cmp != null ? campButtons() : ''}
+          ${cmp != null && !(kingPart && kingDecision == null) ? campButtons() : ''}
           ${cmp == null && isHost && room.players.length === 2 ? `<button class="btn gold" data-a="start">${T('Реванш', 'Rematch')}</button>` : ''}
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
           <button class="btn" data-a="leave">${T('В лобби', 'To lobby')}</button>
@@ -506,6 +523,7 @@
     ov.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
       const k = b.dataset.a;
       if (k === 'leave') return leave();
+      if (k === 'kingSpare' || k === 'kingExile') return kingChoose(k === 'kingSpare');
       if (k === 'campMap') { leave(); return openCampaign(); }
       if (k === 'campNext') { const n = +b.dataset.n; leave(); return createServer(true, { campaign: n }); }
       act(k);
@@ -527,7 +545,7 @@
       const n = room.state === 'lobby' ? 20 : room.deckCount;
       const backs = n > 1 ? Math.min(4, Math.ceil((n - 1) / 4)) : 0;
       for (let i = 0; i < backs; i++) {
-        const b = document.createElement('div'); b.className = 'card-back back'; b.textContent = '🗡';
+        const b = document.createElement('div'); b.className = 'card-back back' + (room.phase3 ? ' magic' : ''); b.textContent = '🗡';
         b.style.left = (i * 2) + 'px'; b.style.top = (-i * 2) + 'px'; st.appendChild(b);
       }
       const cnt = document.createElement('div'); cnt.className = 'deck-count'; cnt.textContent = n; st.appendChild(cnt);
@@ -557,7 +575,7 @@
     for (const id of p.hand) {
       const card = cardOf(id); if (!card) continue;
       if (id === p.active) { wrap.appendChild(knifeTile(card, mine)); continue; }
-      if (!mine) { const b = document.createElement('div'); b.className = 'card-back'; b.textContent = '🗡'; wrap.appendChild(b); continue; }
+      if (!mine) { const b = document.createElement('div'); b.className = 'card-back' + (room.phase3 ? ' magic' : ''); b.textContent = '🗡'; wrap.appendChild(b); continue; }
       const c = cardEl(card);
       const firstOnly = card.stats.abilities.includes('slowmo') && (+p.rt || 0) > 0;
       if (canTake && firstOnly) {
@@ -603,23 +621,41 @@
     return k;
   }
 
+  // английские описания зачарований (русские — в KG.ENCH)
+  const ENCH_EN = {
+    boom: 'after passing the stump, flies back and always returns to hand (100%)',
+    split: 'after 20% of the path, splits into 3 translucent knives',
+    seek: 'thrown during the opponent\'s throw, homes in on their knife and knocks it',
+    freeze: 'slows down the further it flies; at 50% of the path it freezes and becomes an obstacle',
+    explode: 'explodes on hitting an opponent knife: 20 fragments worth 2 points each, stick only in the opponent\'s stump within a 160° window',
+    rocket: 'does not spin, flies straight and very fast, always sticks in the stump',
+    drop: 'every 0.25 s drops a dagger straight down; a dagger landing on the opponent\'s stump gives 5 points',
+    smart: 'a hit on the stump draws 2 random cards into hand',
+  };
+  // в описаниях магических карт все числа заменяются на «?»
+  const hideNums = (text) => String(text).replace(/\d+(?:[.,]\d+)?/g, '?');
   function cardEl(card) {
     const st = card.stats;
     const s = SUITS[card.suit];
     const c = document.createElement('div');
-    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}`;
+    const en = card.ench ? KG.ENCH[card.ench] : null;
+    const hide = card.magic ? hideNums : (x) => x;
+    c.className = `card tier-${card.tier} ${s.red ? 'red-suit' : ''} ${st.trump ? 'trump' : ''} ${st.abilities.includes('slowmo') ? 'slowmo-card' : ''} ${st.abilities.includes('volley') ? 'volley-card' : ''}${card.magic ? ' magic' : ''}`;
+    if (en) c.style.setProperty('--ench', en.color);
     const items = [];
-    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${abil(a)[0]}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${abil(a)[1]}</li>`));
-    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${qual(q)[0]}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${qual(q)[1]}</li>`));
-    st.flaws.forEach(f => items.push(`<li class="fl">− ${flaw(f)[0]} — ${flaw(f)[1]}</li>`));
+    if (en) items.push(`<li class="ab magic-ench">✦ ${esc(T(en.name, en.en))} — ${esc(hide(LANG === 'en' ? ENCH_EN[card.ench] : en.desc))}</li>`);
+    st.abilities.forEach((a, i) => items.push(`<li class="ab">✦ ${hide(abil(a)[0])}${st.trump && i === st.abilities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(abil(a)[1])}</li>`));
+    st.qualities.forEach((q, i) => items.push(`<li class="q">+ ${hide(qual(q)[0])}${st.trump && i === st.qualities.length - 1 ? ' <span class="x">★</span>' : ''} — ${hide(qual(q)[1])}</li>`));
+    st.flaws.forEach(f => items.push(`<li class="fl">− ${hide(flaw(f)[0])} — ${hide(flaw(f)[1])}</li>`));
     if (st.trump) items.push(`<li class="ab">★ ${T('Козырь: летит ровнее, меньше ветра', 'Trump: steadier flight, less wind')}</li>`);
+    const nv = (v) => (card.magic ? '?' : v);
     c.innerHTML = `
       <div class="corner"><span>${tierRank(card.tier)}${s.sym}</span>${st.trump ? `<span class="badge">${T('КОЗЫРЬ', 'TRUMP')}</span>` : ''}<span>${s.sym}</span></div>
       <canvas width="312" height="156"></canvas>
       <div class="cname">${esc(cardName(card))}</div>
       <div class="ctier">${tierName(card.tier)} · ${suitName(card.suit)}</div>
       <ul>${items.join('')}</ul>
-      <div class="nums"><span>${T('Очки', 'Pts')} ${st.points}</span><span>${T('Разброс', 'Spread')} ${st.spread}°</span><span>${T('Окно', 'Window')} ${st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2)}°</span></div>`;
+      <div class="nums"><span>${T('Очки', 'Pts')} ${nv(st.points)}</span><span>${T('Разброс', 'Spread')} ${nv(st.spread)}°</span><span>${T('Окно', 'Window')} ${nv(st.stick >= 360 ? '360' : '±' + Math.round(st.stick / 2))}°</span></div>`;
     const cv = c.querySelector('canvas'), cx = cv.getContext('2d');
     cx.translate(156, 80); cx.rotate(-0.32); cx.scale(2.3, 2.3);
     drawCardArt(cx, card, st.trump);
@@ -673,7 +709,7 @@
   const release = () => {
     if (!aim.active) return;
     aim.active = false;
-    if (aim.power >= 0.08 && canAim()) { act('throw', { a: aim.angle, p: aim.power }); }
+    if (aim.power >= 0.08 && canAim()) { if (RG.on) rangeThrow(RG.id, true, aim.angle, aim.power); else act('throw', { a: aim.angle, p: aim.power }); }
   };
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', () => { aim.active = false; });
@@ -690,17 +726,32 @@
     let full = [], extra = [], dur = 0;
     const st0 = base ? KG.knifeStats(base, m.ts) : null;
     if (base && m.a != null) { const sm = KG.throwSim({ angle: +m.a, power: +m.p, stats: st0, wind: +m.w || 0, seed: m.s | 0 }); full = sm.frames; extra = sm.extra || []; dur = sm.dur || 0; }
+    if (m.path && full.length) full = m.path;   // самонаводка: путь, по которому нож повернул к цели (считает движок)
     // сбитые кортики залпа обрываются в точке удара
+    // залп: кортики, остановленные фризом или льдом, обрываются на кадре остановки (без падения), затем сбитые
+    for (const ss of m.shotStops || []) if (ss.k > 0 && extra[ss.k - 1]) extra[ss.k - 1] = extra[ss.k - 1].slice(0, +ss.at + 1);
     for (const sc of m.shotCuts || []) if (sc.k > 0 && extra[sc.k - 1]) extra[sc.k - 1] = KG.knockFrames(extra[sc.k - 1], +sc.at);
     if (m.defl && full.length) full = KG.deflect(full, +m.defl.at, st0, +m.w || 0, +m.defl.k).frames;   // меч отклонился от удара
     const cut = m.cut != null ? +m.cut : null;
-    const frames = cut != null && full.length ? KG.knockFrames(full, cut) : full;
+    // фриз: нож замирает на кадре m.frz и остаётся висеть во льду (без падения)
+    const frozenAt = m.frz != null ? +m.frz : null;
+    const frames = frozenAt != null && full.length ? full.slice(0, frozenAt + 1) : cut != null && full.length ? KG.knockFrames(full, cut) : full;
+    // раскол: два призрачных клинка после 20% пути (считаются так же, как в движке)
+    // раскол: клинки появляются, только если основной нож дожил до точки деления (та же проверка, что на сервере)
+    const splitIdx = full.length >= 5 ? Math.max(1, Math.min(full.length - 2, Math.floor(full.length * 0.2))) : -1;
+    const splitReached = splitIdx >= 0 && (m.cut == null || +m.cut >= splitIdx) && (m.frz == null || +m.frz >= splitIdx);
+    const ghosts = st0 && st0.ench === 'split' && splitReached && m.a != null ? KG.splitGhosts(full, st0, +m.w || 0, m.s | 0).map(gh => gh.frames) : [];
     // этот бросок сбил чужой нож — перестраиваем его полёт
     if (m.knock) knockAnim(m.knock.id, +m.knock.at, m.knock.res);
     for (const k of m.knocks || []) knockAnim(k.id, +k.at, k.res);
     if (m.defl2) deflAnim(m.defl2.id, +m.defl2.at, +m.defl2.k, m.defl2.res);
+    if (m.pal) palAnim(m.pal.id, +m.pal.at, +m.w || 0);   // шлейф паладина отбил нож — тот летит обратно в дерево
     const el = Math.max(0, +m.el || 0);
-    const a = { owner: m.o, full, cut, frames, extra, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    // точка заморозки: лёд появляется, только когда нож долетит до неё
+    const frzPt = frozenAt != null && full[frozenAt] ? { x: full[frozenAt].x, y: full[frozenAt].y, o: m.o } : null;
+    const a = { owner: m.o, full, cut, frames, extra, ghosts, frzPt, dur, st: st0, w: +m.w || 0, defl: m.defl ? +m.defl.at : null, result: m.res || {}, card: base, trump: base && base.suit === m.ts, throwId: m.id, streak: +m.streak || 0, t0: performance.now() - el, boomAt: m.clash != null ? +m.clash : cut != null && !(m.res && m.res.knocked) ? cut : -1 };
+    // ножепад: кортики падают из точек полёта; на пне соперника остаются торчать
+    for (const d of m.dag || []) daggerFx.push({ owner: m.o, x: +d.x, y: +d.y, hit: !!d.hit, t0: a.t0 + (+d.i) / 60 * 1000 });
     if (!frames.length) finishAnim(a);
     else if (el / 1000 * 60 >= Math.max(frames.length, dur)) return;     // уже долетел, пока сообщение шло
     else anims.push(a);
@@ -711,6 +762,13 @@
     if (!other || other.cut === at || !other.full.length) return;
     other.cut = at; other.frames = KG.knockFrames(other.full, at);
     other.result = res || { hit: false, reason: 'Сбит в воздухе!', code: 'knocked' }; other.streak = 0;
+  }
+  // нож отбит шлейфом паладина: пересчитываем его полёт обратно к дереву (та же функция, что у сервера)
+  function palAnim(id, at, w) {
+    const a = anims.find(x => x.throwId === id);
+    if (!a || a.pal === at || !a.full.length || !a.st) return;
+    a.pal = at; const r = KG.returnFlight(a.full, at, a.st, w, KG.palSeed(id));
+    a.full = a.frames = r.frames; a.result = r.result;
   }
   // меч отклонили в полёте: пересчитываем его траекторию с точки удара
   function deflAnim(id, at, k, res) {
@@ -735,6 +793,7 @@
   }
 
   function finishAnim(a) {
+    if (a.rg) { rangeFinish(a); return; }
     anims = anims.filter(x => x !== a);
     const last = a.frames[a.frames.length - 1];
     const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
@@ -765,14 +824,14 @@
       text = `+${+res.points || 0} ${text}${res.steal ? T(` (украл ${+res.steal})`, ` (stole ${+res.steal})`) : ''}`;
       color = res.zone === 'bull' ? '#ffd77a' : '#9ff0a6'; sfx('thunk');
       if (a.streak > 1) floaters.push({ text: T(`Серия ×${a.streak}!`, `Streak ×${a.streak}!`), x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(90, v.y - 70), t0: performance.now(), color: '#ff9b3d' });
-    } else { color = '#ff9f8f'; sfx('clank'); }
+    } else { color = '#ff9f8f'; sfx('clank'); if (+res.points > 0) { text = `+${+res.points} ${text}`; color = '#9ff0a6'; } }   // ножепад: кортики на пне засчитываются и без попадания ножа
     floaters.push({ text, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(60, v.y - 30), t0: performance.now(), color });
   }
 
   // фон
   const bgCache = {};
   function getBg(arena) {
-    const id = ['sunset', 'night', 'winter', 'desert'].includes(arena) ? arena : 'sunset';
+    const id = ['sunset', 'night', 'nightred', 'nightpurple', 'winter', 'desert'].includes(arena) ? arena : 'sunset';
     if (bgCache[id]) return bgCache[id];
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
@@ -895,7 +954,8 @@
       ctx.fillStyle = `rgba(${col},${0.9 - (i / n) * 0.6})`;
       ctx.beginPath(); ctx.arc(f.x, f.y, 2.6, 0, Math.PI * 2); ctx.fill();
     }
-    for (let i = 10 * slow; i < n && i < frames.length && !st.abilities.includes('volley'); i += 10 * slow) {
+    // паладин: вся траектория видна, но вращение ножа по пути — нет (призраки ножей не рисуем)
+    for (let i = 10 * slow; i < n && i < frames.length && !st.abilities.includes('volley') && !st.abilities.includes('paladin'); i += 10 * slow) {
       const f = frames[i];
       ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(f.x, f.y); ctx.rotate(f.r); KG.drawKnife(ctx, card); ctx.restore();
     }
@@ -915,6 +975,64 @@
   const roomScreen = document.getElementById('room');
   let lastHint = null, lastTimer = null, lastTimerColor = null;
   function putText(el, v, last) { if (v !== last) el.textContent = v; return v; }
+  // выход магической колоды из земли: луч света и карты, поднимающиеся из-под поля
+  function drawEruption(c, t) {
+    const k = Math.min(1, t / 2400), fade = t > 2200 ? Math.max(0, 1 - (t - 2200) / 600) : 1;
+    c.save(); c.globalAlpha = fade;
+    const beam = c.createLinearGradient(0, GROUND, 0, 0);
+    beam.addColorStop(0, 'rgba(200,140,255,.85)'); beam.addColorStop(1, 'rgba(200,140,255,0)');
+    c.fillStyle = beam; c.fillRect(W / 2 - 70 * k, 0, 140 * k, GROUND);
+    for (let i = 0; i < 14; i++) {
+      const kk = Math.max(0, Math.min(1, (t - i * 90) / 1100)); if (kk <= 0) continue;
+      const ease = 1 - Math.pow(1 - kk, 3);
+      const x = W / 2 + Math.sin(i * 2.3) * (120 + (i % 4) * 40);
+      const y = GROUND + 30 - ease * (200 + (i % 5) * 26);
+      c.save(); c.translate(x, y); c.rotate(Math.sin(i * 1.7) * 0.35);
+      c.shadowColor = 'rgba(190,120,255,.95)'; c.shadowBlur = 18;
+      const g2 = c.createLinearGradient(0, -32, 0, 32); g2.addColorStop(0, '#7a3bd6'); g2.addColorStop(1, '#2a0f4d');
+      c.fillStyle = g2; c.fillRect(-22, -32, 44, 64);
+      c.strokeStyle = '#d7b8ff'; c.lineWidth = 2; c.strokeRect(-22, -32, 44, 64);
+      c.restore();
+    }
+    c.restore();
+  }
+  // преграды изо льда (фриз): красные кристаллы на поле, у каждого владельца — в его системе координат
+  // замёрзший нож висит во льду на том месте, где остановился (в цвете льда)
+  function drawIce(c) {
+    if (!room || !room.ice) return;
+    for (const ice of room.ice) {
+      // пока замораживающий нож ещё летит к этой точке, льда на поле нет
+      if (anims.some(an => an.frzPt && an.frzPt.o === ice.o && Math.abs(an.frzPt.x - ice.x) < 2 && Math.abs(an.frzPt.y - ice.y) < 2)) continue;
+      const card = KG.CARD_BY_ID[ice.c];
+      const v = view(ice.o, ice.x, ice.y, ice.r || 0);
+      if (!card) continue;
+      c.save(); c.translate(v.x, v.y); c.rotate(v.r);
+      c.globalAlpha = 0.92; c.filter = 'sepia(1) hue-rotate(170deg) saturate(3) brightness(1.1)';
+      KG.drawKnife(c, card, { trump: card.suit === room.trumpSuit });
+      c.restore();
+    }
+  }
+  // кортики ножепада: падают из точки полёта; попавший на пень соперника торчит в нём
+  function drawDaggers(c, now) {
+    daggerFx = daggerFx.filter(d => now - d.t0 < 2600);
+    for (const d of daggerFx) {
+      if (now < d.t0) continue;
+      const p = Math.min(1, (now - d.t0) / 320), e = p * p;
+      // кортик упал на пень — всплывает его +5 очков (над верхней гранью пня)
+      if (d.hit && !d.shown && now - d.t0 >= 320) {
+        d.shown = true;
+        const fv = view(d.owner, d.x, STUMP_TOP, 0);
+        floaters.push({ text: '+5', x: Math.max(120, Math.min(W - 120, fv.x)), y: Math.max(60, fv.y - 24), t0: now, color: '#c9d3ff', small: true });
+      }
+      const yEnd = d.hit ? Math.max(d.y, STUMP_TOP + 6) : GROUND - 8;
+      const v = view(d.owner, d.x, d.y + (yEnd - d.y) * e, 0);
+      c.save(); c.translate(v.x, v.y);
+      c.fillStyle = '#c9d3ff'; c.strokeStyle = '#6a2bbd'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(0, 12); c.lineTo(-4, -4); c.lineTo(0, -8); c.lineTo(4, -4); c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+  }
+
   function frame(now) {
     requestAnimationFrame(frame);
     // на экране меню холст игры не нужен: не рисуем и не трогаем DOM, пока комната не открыта
@@ -924,15 +1042,18 @@
     const [sx, sy] = X.shakeOffset(now);
     ctx.setTransform(1, 0, 0, 1, sx, sy);
     const arena = room && room.arena ? room.arena : myLook().arena;
-    ctx.drawImage(getBg(arena), -8, -8, W + 16, H + 16);
+    // вторая фаза битвы с королём — красная ночь
+    const bgId = arena === 'night' && room && room.phase3 ? 'nightpurple' : arena === 'night' && room && room.phase2 ? 'nightred' : arena;
+    ctx.drawImage(getBg(bgId), -8, -8, W + 16, H + 16);
     X.drawWeather(ctx, arena, now, W, H, GROUND);
     if (room) {
+      if (RG.on) rangeStep(now);
       const m = me(), o = opp();
       for (const s of room.stuck || []) {
         if (!Array.isArray(s)) continue;
         const [pi, cid, tr, x, y, r, tid] = s;
         if (anims.some(a => a.throwId === tid)) continue;
-        const card = KG.CARD_BY_ID[cid]; const owner = room.players[pi];
+        const card = anyCard(cid); const owner = room.players[pi];
         if (!card || !owner) continue;
         const v = view(owner.id, +x, +y, +r);
         ctx.save(); ctx.translate(v.x, v.y); ctx.rotate(v.r); KG.drawKnife(ctx, card, { trump: !!tr }); ctx.restore();
@@ -971,6 +1092,12 @@
           const ev = view(an.owner, e.x, e.y, e.r);
           ctx.save(); ctx.translate(ev.x, ev.y); ctx.rotate(ev.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore();
         }
+        // раскол: два клинка рядом с основным — такие же, как оригинал
+        if (an.ghosts && an.card) for (const gf of an.ghosts) {
+          const e = gf[Math.min(i, gf.length - 1)]; if (!e) continue;
+          const ev = view(an.owner, e.x, e.y, e.r);
+          ctx.save(); ctx.translate(ev.x, ev.y); ctx.rotate(ev.r); KG.drawKnife(ctx, an.card, { trump: an.trump }); ctx.restore();
+        }
         if (an.boomAt >= 0 && i >= an.boomAt) {
           const bf = an.frames[an.boomAt]; an.boomAt = -1;
           if (bf) { const bv = view(an.owner, bf.x, bf.y, 0); booms.push({ x: bv.x, y: bv.y, t0: now }); floaters.push({ text: T('💥 Дзынь!', '💥 Clang!'), x: bv.x, y: bv.y - 40, t0: now, color: '#ffffff' }); sfx('clang'); X.burst('sparks', bv.x, bv.y, 22); X.shake(9); }
@@ -980,6 +1107,9 @@
       booms = booms.filter(b => now - b.t0 < 450);
       swordFx = swordFx.filter(fx => now - fx.t0 < 1700);
       for (const fx of swordFx) drawSwordFx(ctx, fx, now);
+      drawIce(ctx);
+      drawDaggers(ctx, now);
+      if (eruption) { const t = now - eruption.t0; if (t < 2800) drawEruption(ctx, t); else eruption = null; }
       for (const b of booms) {
         const t = (now - b.t0) / 450;
         ctx.save(); ctx.globalAlpha = 1 - t; ctx.strokeStyle = '#fff4b0'; ctx.lineWidth = 3;
@@ -1397,6 +1527,23 @@
     const next = CAMP[c.idx + 1], nb = next && next.b !== f.b;
     return `<div class="camp-res">${c.first ? T(`Бой пройден! +${c.xp} XP за кампанию.`, `Fight won! +${c.xp} campaign XP.`) : T('Бой пройден снова.', 'Fight won again.')}${nb && c.first ? ' ' + T(`Открыт новый биом: ${BIOMES[next.b].n[0]}!`, `New biome unlocked: ${BIOMES[next.b].n[1]}!`) : ''}</div>`;
   }
+  // король говорит перед выбором: он один удерживает царство и тех, что за его границами
+  function kingScene() {
+    if (kingDecision) return `<div class="king-say">${kingDecision === 'spare'
+      ? T('Король склоняет голову: «Тогда я ещё понадоблюсь. Но помни: без меня вам придётся куда хуже».', 'The king bows his head: "Then I am still of use. But remember: without me, things will be far worse for you."')
+      : T('Король молча уходит в ночь. Ворота закрываются за ним — что будет дальше, знает только он.', 'The king leaves in silence into the night. The gates close behind him. Only he knows what comes next.')}</div>`;
+    return `<div class="king-scene">
+      <p class="king-say">${T('Ты победил. Что ж, выслушай меня, прежде чем решать. Да, это царство держу я, и держу его тиранией — я не стану этого отрицать. Но за его границами водятся твари, перед которыми не спасают ни стены, ни законы. Я единственный, кто их сдерживает. Если меня не станет, оборона рухнет, они прорвутся сюда и убьют всех до единого. Решай: оставь меня на троне или изгони.',
+        'You won. Before you decide, hear me out. Yes, I hold this kingdom, and I hold it through tyranny; I won\'t deny that. But beyond its borders live creatures no walls or laws can stop, and I am the only one holding them back. If I fall, the defenses break, they pour through, and they kill every last one of you. Decide: keep me on the throne, or exile me.')}</p>
+      <div class="btns"><button class="btn gold" data-a="kingSpare">${T('Пощадить короля', 'Spare the king')}</button><button class="btn" data-a="kingExile">${T('Изгнать его', 'Exile him')}</button></div>
+    </div>`;
+  }
+  function kingChoose(spare) {
+    kingDecision = spare ? 'spare' : 'exile';
+    if (spare) X.Profile.spareKing();
+    sfx(spare ? 'achieve' : 'clank');
+    renderOverlay();
+  }
   function campButtons() {
     const i = cmp, won = reward && reward.camp && reward.camp.won;
     const nextOk = won && i < 19 && i + 1 <= X.Profile.camp;
@@ -1454,7 +1601,7 @@
       const h = document.createElement('h3'); h.className = 'cards-h';
       h.innerHTML = `${esc(T(sec.ru, sec.en))} <span>${sec.cards.length}</span>`;
       const grid = document.createElement('div'); grid.className = 'cards-grid';
-      sec.cards.forEach((c) => grid.appendChild(cardEl(c)));
+      sec.cards.forEach((c) => { const el = cardEl(c); el.style.cursor = 'pointer'; el.title = T('Проверить на полигоне', 'Test on the range'); el.onclick = () => openRange(c.id); grid.appendChild(el); });
       body.appendChild(h); body.appendChild(grid);
     });
     const gh = document.createElement('h3'); gh.className = 'cards-h'; gh.textContent = T('Способности и качества', 'Abilities and qualities');
@@ -1466,6 +1613,157 @@
       ...Object.keys(KG.FLAWS).map((k) => row(k, flaw, '−')),
     ].join('');
     body.appendChild(gh); body.appendChild(gl);
+  }
+
+  // ---------- Полигон ножей: тот же стол, что и в матче с ботом. Бросаешь сам (зажми поле, тяни назад, отпусти); ножи бота можно отбивать ----------
+  const RG = { on: false, id: null, card: null, wind: 0, oppId: '', oppIdle: false, oppEvery: 4, nextOpp: 0, seq: 0, pts: 0 };
+  const RG_BOT = 'rg-bot';
+  let rgCatalog = null;
+  const rangeAllCards = () => rgCatalog || (rgCatalog = KG.catalog().flatMap((sec) => sec.cards));
+  const anyCard = (id) => KG.CARD_BY_ID[id] || (RG.on ? rangeAllCards().find((c) => c.id === id) : null) || null;
+  const rangeCard = (id) => { const b = KG.CARD_BY_ID[id] || rangeAllCards().find((c) => c.id === id); return b && Object.assign({}, b, { abilities: b.abilities.slice(), qualities: b.qualities.slice(), flaws: b.flaws.slice() }); };
+  function openRange(id) {
+    if (room && room.state === 'playing' && !RG.on) { toast(T('Сначала закончи матч', 'Finish the match first')); return; }
+    if (net) { toast(T('Полигон работает только в одиночной игре', 'The range works only in single player')); return; }
+    $('#cards-modal').classList.add('hidden');
+    if (!document.getElementById('rg-css')) {
+      const css = document.createElement('style'); css.id = 'rg-css';
+      css.textContent = '#rg-panel { position: fixed; right: 12px; top: 12px; width: 268px; max-height: calc(100vh - 24px); overflow: auto; z-index: 60; background: rgba(30,20,10,.94); color: #f6ead8; border: 1px solid #6b4a2a; border-radius: 12px; padding: 8px 10px; font-size: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); }' +
+        '#rg-panel summary { font-family: "Russo One", sans-serif; color: #ffe39a; cursor: pointer; font-size: 14px; }' +
+        '#rg-panel .rg-row { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 6px 0; }' +
+        '#rg-panel .rg-row label { display: flex; align-items: center; gap: 6px; }' +
+        '#rg-panel .rg-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; margin: 6px 0; }' +
+        '#rg-panel .rg-feats label { display: flex; align-items: center; gap: 4px; }' +
+        '#rg-panel .rg-note { color: #c9b6a0; font-size: 11px; margin-top: 6px; }';
+      document.head.appendChild(css);
+    }
+    RG.on = true; RG.id = id; RG.card = rangeCard(id); RG.nextOpp = performance.now(); RG.pts = 0;
+    const look = myLook();
+    room = { id: 'range', state: 'playing', phase: 'play', round: 1, trumpSuit: null, handMax: 1, wind: RG.wind, arena: look.arena, stuck: [],
+      players: [
+        { id: myId, name: T('Ты', 'You'), look, status: 'aim', active: id, streak: 0, score: 0, hm: 1 },
+        { id: RG_BOT, name: T('Бот', 'Bot'), look: X.cleanLook(null), status: 'aim', active: RG.oppId || null, streak: 0, score: 0, isBot: true },
+      ] };
+    anims = []; floaters = []; booms = [];
+    enterRoom();
+    try { renderRoom(); } catch (e) {}
+    renderRangePanel();
+  }
+  function closeRange() {
+    RG.on = false; room = null; anims = []; floaters = []; booms = [];
+    const p = document.getElementById('rg-panel'); if (p) p.remove();
+    show('lobby');
+  }
+  function renderRangePanel() {
+    let el = document.getElementById('rg-panel');
+    if (!el) { el = document.createElement('div'); el.id = 'rg-panel'; document.body.appendChild(el); }
+    const cards = rangeAllCards();
+    const opts = cards.map((c) => `<option value="${esc(c.id)}" ${c.id === RG.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    const oppOpts = `<option value="">${T('— ничего —', '— nothing —')}</option>` + cards.map((c) => `<option value="${esc(c.id)}" ${c.id === RG.oppId ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    const feats = [['abilities', KG.ABILITIES, abil], ['qualities', KG.QUALITIES, qual], ['flaws', KG.FLAWS, flaw]].map(([field, dict, fn]) =>
+      Object.keys(dict).map((k) => `<label><input type="checkbox" data-f="${field}" data-k="${k}" ${RG.card[field].includes(k) ? 'checked' : ''}> ${esc(fn(k)[0])}</label>`).join('')).join('');
+    el.innerHTML = `<details><summary>${T('Полигон ножей', 'Knife range')}</summary>
+      <div class="rg-row"><label>${T('Нож', 'Knife')} <select id="rg-knife">${opts}</select></label></div>
+      <div class="rg-feats">${feats}</div>
+      <div class="rg-row"><label>${T('Ветер', 'Wind')} <span id="rg-wind-v"></span> <input id="rg-wind" type="range" min="-100" max="100" value="${Math.round(RG.wind * 100)}"></label></div>
+      <div class="rg-row"><label>${T('Противник кидает', 'Opponent throws')} <select id="rg-opp">${oppOpts}</select></label></div>
+      <div class="rg-row"><label>${T('каждые', 'every')} <span id="rg-every-v"></span> ${T('сек', 's')} <input id="rg-every" type="range" min="1" max="10" value="${RG.oppEvery}"></label></div>
+      <div class="rg-row"><label><input id="rg-idle" type="checkbox" ${RG.oppIdle ? 'checked' : ''}> ${T('Противник ничего не делает', 'Opponent does nothing')}</label></div>
+      <div class="rg-row"><button id="rg-clear" class="cards-btn" type="button">${T('Очистить пень', 'Clear stump')}</button> <span>${T('Бонус паладина', 'Paladin bonus')}: <b id="rg-pts">${RG.pts}</b></span></div>
+      <div class="rg-note">${T('Бросок: зажми мышь на поле, тяни назад-вниз, отпусти. Нож не тратится, раунд не заканчивается.', 'Throw: hold the mouse on the field, drag back-down, release. The knife is never used up and the round never ends.')}</div>
+    </details>`;
+    const val = () => { $('#rg-wind-v').textContent = RG.wind.toFixed(2); $('#rg-every-v').textContent = RG.oppEvery; };
+    el.querySelector('#rg-knife').onchange = (e) => { RG.id = e.target.value; RG.card = rangeCard(RG.id); me().active = RG.id; renderRangePanel(); };
+    el.querySelectorAll('.rg-feats input').forEach((cb) => cb.onchange = () => {
+      const arr = RG.card[cb.dataset.f], k = cb.dataset.k, i = arr.indexOf(k);
+      if (cb.checked && i < 0) arr.push(k); if (!cb.checked && i >= 0) arr.splice(i, 1);
+    });
+    el.querySelector('#rg-wind').oninput = (e) => { RG.wind = +e.target.value / 100; val(); };
+    el.querySelector('#rg-every').oninput = (e) => { RG.oppEvery = +e.target.value; val(); };
+    el.querySelector('#rg-opp').onchange = (e) => { RG.oppId = e.target.value; RG.nextOpp = performance.now(); };
+    el.querySelector('#rg-idle').onchange = (e) => { RG.oppIdle = e.target.checked; };
+    el.querySelector('#rg-clear').onclick = () => { room.stuck = []; RG.pts = 0; const ps = el.querySelector('#rg-pts'); if (ps) ps.textContent = 0; };
+    val();
+  }
+  // каждый кадр: ветер, бот в руке и его броски по интервалу
+  function rangeStep(now) {
+    room.wind = RG.wind;
+    const ps = document.getElementById('rg-pts'); if (ps && ps.textContent !== String(RG.pts)) ps.textContent = RG.pts;
+    const bot = room.players[1];
+    bot.active = RG.oppIdle ? null : (RG.oppId || null);
+    if (RG.oppId && !RG.oppIdle && now >= RG.nextOpp) {
+      RG.nextOpp = now + RG.oppEvery * 1000;
+      rangeThrow(RG.oppId, false, -0.6 + (Math.random() - 0.5) * 0.3, 0.7 + (Math.random() - 0.5) * 0.25);
+    }
+  }
+  function rangeThrow(id, mine, angle, power) {
+    const card = id === RG.id ? RG.card : rangeCard(id);
+    const st = KG.knifeStats(card, 'none');
+    const wind = mine ? RG.wind : -RG.wind;   // бот бросает зеркально, поэтому ветер для него с обратным знаком
+    const sim = KG.throwSim({ angle, power, stats: st, wind, seed: (Math.random() * 2 ** 31) | 0 });
+    const now = performance.now();
+    const a = { rg: true, id: ++RG.seq, throwId: 0, owner: mine ? myId : RG_BOT, card, st, wind, frames: sim.frames, result: Object.assign({}, sim.result), t0: now, dur: 0, extra: [], boomAt: -1, streak: 0, trump: false, done: false, knocked: false };
+    a.throwId = a.id;
+    anims.push(a);
+    swingAt[a.owner] = now;
+    if (mine) sfx('whoosh');
+    rangeCollide(a);
+  }
+  // столкновение в воздухе — как в движке (engine.js): бьёт новый нож, у старого frames уже в своих координатах (findCollision сам зеркалит их)
+  function rangeCollide(f) {
+    for (const g of anims) {
+      if (g === f || !g.rg || g.done || g.knocked || f.knocked || g.owner === f.owner) continue;
+      const offset = Math.round((f.t0 - g.t0) / 1000 * 60);
+      const col = KG.findCollision(f.frames, g.frames, offset, f.st.trail || 0);
+      if (!col) continue;
+      // шлейф паладина сбивает чужой нож, тот летит обратно в дерево и втыкается с 80%; бонус +max(5, очки/2)
+      if (f.st.has('paladin')) {   // шлейф паладина сбивает и меч Алого Короля — его уникальное умение
+        const ret = KG.returnFlight(g.frames, col.j, g.st, g.wind, KG.palSeed(g.id));
+        g.frames = ret.frames; g.result = ret.result; g.knocked = true;
+        f.frames = KG.knockFrames(f.frames, col.i); f.knocked = true; f.boomAt = col.i;
+        // бонус бросившему паладин: половина очков, которые принёс бы отбитый нож (0, если он не воткнулся)
+        const bonus = ret.result.hit ? Math.round((ret.result.points || 0) / 2) : 0;
+        f.result = Object.assign({}, f.result, { hit: false, knock: true, code: 'knock', reason: 'Сбил нож соперника!', points: bonus });
+        if (f.owner === myId) RG.pts += bonus;
+        break;
+      }
+      // меч Алого Короля не сбивается: чужой нож падает, меч лишь отклоняется
+      const kickOf = (sw, other, i, j) => ((other[Math.min(j, other.length - 1)] || {}).y > (sw[Math.min(i, sw.length - 1)] || {}).y ? -0.16 : 0.16);
+      if (f.st.has('bloodsword')) {
+        const d = KG.deflect(f.frames, col.i, f.st, f.wind, kickOf(f.frames, g.frames, col.i, col.j));
+        f.frames = d.frames; f.result = Object.assign({}, d.result);
+        g.frames = KG.knockFrames(g.frames, col.j); g.knocked = true; g.result = { hit: false, knocked: true, code: 'knocked', reason: 'Сбит в воздухе!', points: 0 };
+        break;
+      }
+      if (g.st.has('bloodsword')) {
+        const d = KG.deflect(g.frames, col.j, g.st, g.wind, kickOf(g.frames, f.frames, col.j, col.i));
+        g.frames = d.frames; g.result = Object.assign({}, d.result);
+        f.frames = KG.knockFrames(f.frames, col.i); f.knocked = true; f.boomAt = col.i; f.result = { hit: false, knocked: true, code: 'knocked', reason: 'Сбит в воздухе!', points: 0 };
+        break;
+      }
+      // обычное столкновение: оба ножа падают
+      g.frames = KG.knockFrames(g.frames, col.j); g.knocked = true; g.result = { hit: false, knocked: true, code: 'knocked', reason: 'Сбит в воздухе!', points: 0 };
+      f.frames = KG.knockFrames(f.frames, col.i); f.knocked = true; f.boomAt = col.i;
+      f.result = Object.assign({}, f.result, { hit: false, knock: true, code: 'knock', reason: 'Сбил нож соперника!', points: Math.max(5, Math.round(g.st.points / 2)) });
+      break;
+    }
+  }
+  // нож долетел: воткнулся в пень (запоминаем в списке ножей пня) или упал
+  function rangeFinish(a) {
+    a.done = true;
+    anims = anims.filter((x) => x !== a);
+    const res = a.result;
+    const last = a.frames[a.frames.length - 1];
+    const v = last ? view(a.owner, last.x, last.y, 0) : view(a.owner, HAND.x, HAND.y - 40, 0);
+    if (res.hit && res.stuck) room.stuck.push([a.owner === myId ? 0 : 1, a.card.id, 0, res.stuck.x, res.stuck.y, res.stuck.r, a.id]);
+    if (res.hit) { X.burst('chips', v.x, v.y, res.zone === 'bull' ? 16 : 9, a.owner === myId ? 1 : -1); sfx('thunk'); }
+    else if (res.knocked || res.knock) sfx('dirt');
+    else sfx('clank');
+    let text = reasonText(res), color = '#ff9f8f';
+    if (res.knock && res.points) text = `+${+res.points} ${text}`;
+    if (res.knock || res.knocked) color = '#7fd8ff';
+    else if (res.hit) { text = `+${+res.points || 0} ${text}`; color = res.zone === 'bull' ? '#ffd77a' : '#9ff0a6'; }
+    floaters.push({ text, x: Math.max(120, Math.min(W - 120, v.x)), y: Math.max(60, v.y - 30), t0: performance.now(), color });
   }
 
   function buildExtraUI() {

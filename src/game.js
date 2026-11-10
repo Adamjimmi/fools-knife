@@ -12,6 +12,8 @@
   const BULL_Y = 390;                                // «яблочко» на боку пня
   const HAND = { x: 75, y: 285 };                    // точка выброса
   const GRAV = 900, SPIN = Math.PI * 2, WIND_ACC = 80, KNIFE_HALF = 30;
+  // острие плохих ножей (px от оси вращения вдоль лезвия) — по разметке зоны втыкания
+  const BAD_TIP = { cleaver: 32.2, shiv: 27, butter: 29.1, penknife: 27, broken: 16.2, bread: 36.2, kitchen: 35.3, table: 29.9 };
   const TURN_MS = 35000;
 
   const SUITS = {
@@ -34,6 +36,7 @@
     calm:   { name: 'Штиль',            desc: 'ветер не действует' },
     double: { name: 'Двойной удар',     desc: 'очки за попадание ×2' },
     sticky: { name: 'Всегда втыкается', desc: 'втыкается под любым углом' },
+    paladin: { name: 'Паладин', desc: 'видна вся траектория, но не видно вращение; шлейф сбивает ножи соперника; отбитый нож летит в дерево и втыкается с 80%' },
     eagle:  { name: 'Орлиный глаз',     desc: 'видна вся траектория' },
     magnet: { name: 'Магнит',           desc: 'пень-мишень крупнее' },
     thief:  { name: 'Вор',              desc: 'при попадании крадёт 5 очков' },
@@ -72,6 +75,7 @@
   const SPECIAL = [
     ['diamonds', 'A2-d', ['Дюжина кортиков', 'dirk',  ['volley'],                   'calm', 'balance']],
     ['spades',   'A2-s', ['Слоумо-нож',      'twin',  ['slowmo', 'double', 'eagle'], 'calm', 'value']],
+    ['clubs',    'A4-c', ['Нож паладина',    'paladin', ['paladin'],                  'calm', 'value']],
   ];
   const VOLLEY_N = 12, VOLLEY_PTS = 3, SLOWMO = 4;
   // Редкий туз: попадает в колоду не в каждом матче (заменяет последний хороший нож червей)
@@ -142,6 +146,31 @@
   const CARDS = deckFor(20);
   const CARD_BY_ID = Object.fromEntries(deckFor(50).concat(deckFor(50, { rare: true })).map(c => [c.id, c]));
 
+  // ---------- Третья фаза: зачарования магической колоды ----------
+  // цвет — аура карты; в описании все числа заменяются на «?»
+  const ENCH = {
+    boom:   { name: 'Бумеранг',    en: 'Boomerang',   color: '#3aa0ff', desc: 'перелетев пенёк, летит обратно и всегда возвращается в руку (100%)' },
+    split:  { name: 'Раскол',      en: 'Split',       color: '#3ddc84', desc: 'после 20% пути делится на 3 полупрозрачных ножа' },
+    seek:   { name: 'Самонаводка', en: 'Homing',      color: '#d9c9a3', desc: 'брошенный во время броска соперника сам наводится на его нож и сбивает его' },
+    freeze: { name: 'Фриз',        en: 'Freeze',      color: '#ff3b3b', desc: 'чем дальше летит, тем сильнее замедляется; на 50% пути замирает и становится преградой' },
+    explode:{ name: 'Взрывчатка',  en: 'Explosive',   color: '#8b5a2b', desc: 'при столкновении с ножом соперника взрывается: 20 осколков по 2 очка, втыкаются только в пень соперника в окне 160°' },
+    rocket: { name: 'Ракета',      en: 'Rocket',      color: '#ff8c1a', desc: 'не крутится, летит строго по прямой очень быстро, всегда втыкается в пень' },
+    drop:   { name: 'Ножепад',     en: 'Dropper',     color: '#b44dff', desc: 'каждые 0.25 с роняет вниз кортик; кортик, упавший на пень соперника, даёт 5 очков' },
+    smart:  { name: 'Умный нож',   en: 'Smart knife', color: '#ffd84d', desc: 'за попадание в пень даёт в руку 2 случайные карты' },
+  };
+  const ENCH_KEYS = Object.keys(ENCH);
+  // магическая колода: 30 обычных карт, каждой — одно случайное зачарование; взрывчатка чаще достаётся плохим ножам (75%)
+  function magicDeck() {
+    return deckFor(30).map((c, i) => {
+      let ench = ENCH_KEYS[Math.floor(Math.random() * ENCH_KEYS.length)];
+      if (ench === 'explode' && c.tier !== 'bad' && Math.random() < 0.75) {
+        const rest = ENCH_KEYS.filter(k => k !== 'explode');
+        ench = rest[Math.floor(Math.random() * rest.length)];
+      }
+      return Object.assign({}, c, { id: 'M' + i, ench, magic: true });
+    });
+  }
+
   const BASE = {
     ace:  { maxSpeed: 1100, gravityMul: 0.9,  spread: 0.5, stick: 100, spinMul: 1,   points: 30, preview: 0.7,  windMul: 0.5 },
     good: { maxSpeed: 1030, gravityMul: 1.0,  spread: 1.5, stick: 70,  spinMul: 1,   points: 15, preview: 0.4,  windMul: 0.9 },
@@ -179,24 +208,29 @@
     for (const a of abilities) {
       if (a === 'calm') s.windMul = 0;
       if (a === 'eagle') s.preview = 1;
+      if (a === 'paladin') { s.preview = 1; s.trail = 5; }   // шлейф ~10% длины ножа (px), виден весь путь
       if (a === 'sticky') s.stick = 360;
       if (a === 'magnet') s.magnet = 1.4;
       if (a === 'slowmo') s.stick = 360;
       if (a === 'bloodsword') { s.stick = 360; s.preview = 1; }
       if (a === 'volley') s.points = VOLLEY_PTS;
     }
+    // ракета: без вращения, строго по прямой, без ветра, очень быстрая и всегда втыкается в пень
+    if (card.ench === 'rocket') { s.gravityMul = 0; s.spinMul = 0; s.windMul = 0; s.maxSpeed *= 1.5; s.stick = 360; }
     // длина ножа в физике = длина по рисунку (длинный клинок достаёт до пня раньше)
     const shp = SH[card.shape];
-    s.reach = shp ? (shp.sword ? 54 : shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
+    s.reach = shp ? (shp.pal ? (shp.len + shp.handle) / 2 : shp.sword ? 54 : shp.twin ? 36 : Math.max(26, Math.min(38, (shp.len + shp.handle) / 2))) : KNIFE_HALF;
     s.twin = !!(shp && shp.twin);
+    // плохие ножи: острие, которым они втыкаются, — по разметке зоны (кончик от оси вращения, px)
+    s.tipLen = card.tier === 'bad' && BAD_TIP[card.shape] ? BAD_TIP[card.shape] : null;
     // хлеборез, кухонный и тесак: широкий тяжёлый клинок легче вгрызается в дерево
     if (card.tier === 'bad' && ['bread', 'kitchen', 'cleaver'].includes(card.shape)) { s.stick += 22; s.spinMul *= 0.9; }
     // плохие ножи: окно втыкания +30% (окна «всегда втыкается» не трогаем)
-    if (card.tier === 'bad' && s.stick < 360) s.stick = Math.round(s.stick * 1.3);
+    if (card.tier === 'bad' && s.stick < 360) s.stick = Math.round(s.stick * 1.3 * 1.2);   // окно втыкания: +30%, затем ещё +20%
     s.preview = Math.min(1, s.preview);
     s.spread = Math.round(s.spread * 100) / 100;
     return Object.assign(s, {
-      abilities, qualities, flaws, trump,
+      abilities, qualities, flaws, trump, ench: card.ench || null,
       extraAbility: trump ? card.trumpAbility : null,
       extraQuality: trump ? card.trumpQuality : null,
       has: (a) => abilities.includes(a),
@@ -244,6 +278,8 @@
   function simulate({ angle, power, stats, wind = 0, seed = 1, noNoise = false, start = null }) {
     const has = (a) => stats.abilities.includes(a);
     const rng = mulberry32(seed);
+    // отбитый нож паладина втыкается с 80%: бросок решается один раз на полёт
+    const retOk = stats.returnStick ? rng() < 0.8 : true;
     let a = angle, sp = Math.max(0, Math.min(1, power)) * stats.maxSpeed;
     if (!noNoise) {
       a += gauss(rng) * stats.spread * Math.PI / 180;
@@ -260,7 +296,8 @@
     const face = FACE_X - (big ? 20 : 0);
     const right = FACE_X + STUMP_W + (big ? 20 : 0);
     const win = stats.stick * Math.PI / 360; // половина окна
-    const reach = stats.reach || KNIFE_HALF, TIP = reach * 0.92;
+    const reach = stats.reach || KNIFE_HALF, TIP = stats.tipLen || reach * 0.92;
+    const TIP_GAP = reach * 0.08;   // торец ножа всегда у пня: позиция оси = торец − TIP − зазор
     // настоящий пень (магнит только ловит, отскоки — от настоящего)
     const T0 = STUMP_TOP, F0 = FACE_X, R0 = FACE_X + STUMP_W;
     const lim = Math.min(win, 1.0);   // «всегда втыкается» тоже входит остриём, а не рукоятью
@@ -297,14 +334,14 @@
         x += vx * dt; y += vy * dt; r += omega * dt;
 
         const tipNow = x + TIP, tipPrev = px + TIP;
-        const stickFace = stats.stick >= 360 || Math.abs(norm(r)) <= win;
-        const stickTop = stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win;
+        const stickFace = (stats.stick >= 360 || Math.abs(norm(r)) <= win) && retOk;
+        const stickTop = (stats.stick >= 360 || Math.abs(norm(r - Math.PI / 2)) <= win) && retOk;
         let done = false;
         // 1) остриё входит в бок (магнит ловит раньше, но нож втыкается в настоящий бок пня)
         if (tipPrev < face && tipNow >= face && y >= top && y <= GROUND) {
           if (stickFace) {
             const rn = flip(norm(r)), rr = Math.max(-lim, Math.min(lim, rn));
-            r = rr; x = F0 + 10 - Math.cos(rr) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            r = rr; x = F0 + 10 - Math.cos(rr) * (TIP_GAP + TIP); y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y + Math.sin(r) * TIP - BULL_Y);   // зона — по остриём, а не по центру ножа
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -335,7 +372,7 @@
             res.stuck = { x, y, r }; push(); break;
           }
           if (!fromTop && tip && stickFace && tip[2] < F0) {   // остриё зашло в бок между кадрами
-            r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * reach; y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
+            r = Math.max(-lim, Math.min(lim, flip(norm(r)))); x = F0 + 10 - Math.cos(r) * (TIP_GAP + TIP); y = Math.max(T0 + 6 - Math.sin(r) * TIP, Math.min(GROUND - 6 - Math.sin(r) * TIP, y));
             const dy = Math.abs(y + Math.sin(r) * TIP - BULL_Y);   // зона — по остриём, а не по центру ножа
             if (dy <= 16) { res.mult = 2; res.zone = 'bull'; res.reason = 'Яблочко!'; res.code = 'bull'; }
             else if (dy <= 50) { res.mult = 1.5; res.zone = 'inner'; res.reason = 'Отличное попадание!'; res.code = 'inner'; }
@@ -403,6 +440,82 @@
     const sim = simulate({ angle: 0, power: 0, stats, wind, noNoise: true, start: { x: b.x, y: b.y, vx, vy, r: b.r, omega: (b.r - a.r) * k + kick * 6 } });
     return { frames: frames.slice(0, at + 1).concat(sim.frames.slice(1)), result: sim.result };
   }
+  const palSeed = (id) => ((id * 7919 + 13) | 0);
+  // отбитый нож паладина летит обратно к дереву (вправо) и втыкается с 80%; seed — общий для сервера и клиентов
+  // отбитый нож летит назад к отправителю и втыкается в его пень (80%).
+  // Считаем в зеркальной системе (x → W−x): там это обычный бросок в пень, а пень отправителя — тот же FACE_X.
+  // самонаводка: как только нож «увидел» чужой нож в воздухе (в радиусе SIGHT), он поворачивает к нему и летит до контакта.
+  // targets — чужие ножи в воздухе: { off: сколько кадров назад они начали лететь, frames (в их системе координат) }
+  function seekPath(frames, targets, W) {
+    const SIGHT = 320, SPEED = 900, TURN = 0.25, CONTACT = 26, MAX = 240;
+    const pos = (tg, j) => { const q = tg.frames[Math.min(tg.frames.length - 1, Math.max(0, j))]; return { x: W - q.x, y: q.y }; };
+    for (let i = 1; i < frames.length; i++) {
+      const p = frames[i];
+      let tgt = null, bd = Infinity;
+      for (const tg of targets) {
+        const j = tg.off + i;
+        if (j < 0 || j >= tg.frames.length - 1) continue;     // чужой нож ещё не летит или уже долетел
+        const t = pos(tg, j), d = Math.hypot(t.x - p.x, t.y - p.y);
+        if (d < bd) { bd = d; tgt = tg; }
+      }
+      if (!tgt || bd >= SIGHT) continue;
+      const a = frames[i - 1];
+      const vx0 = (p.x - a.x) * 60, vy0 = (p.y - a.y) * 60;
+      const sp = Math.max(Math.hypot(vx0, vy0), SPEED), rOff = p.r - Math.atan2(vy0, vx0);
+      let x = p.x, y = p.y, vx = vx0, vy = vy0, contact = false;
+      const out = frames.slice(0, i + 1);
+      for (let k = 1; k <= MAX; k++) {
+        if (tgt.off + i + k >= tgt.frames.length - 1) break;   // цель уже долетела — поворачивать не к чему
+        const t = pos(tgt, tgt.off + i + k);
+        const dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy);
+        if (d < CONTACT) { contact = true; break; }
+        const cur = Math.hypot(vx, vy) || 1, s = Math.max(cur, sp);
+        vx += (dx / d * s - vx) * TURN; vy += (dy / d * s - vy) * TURN;
+        x += vx / 60; y += vy / 60;
+        out.push({ x, y, r: Math.atan2(vy, vx) + rOff });
+      }
+      return { frames: out, contact };
+    }
+    return null;
+  }
+  // раскол: после 20% пути нож делится на три; два боковых клинка летят с отклонением ±7° от основного
+  // (общая функция: её считают и движок, и клиент — результат одинаковый). Клинки крутятся, как оригинал, втыкаются в пень.
+  function splitGhosts(frames, stats, wind, seed) {
+    const k = Math.max(1, Math.min(frames.length - 2, Math.floor(frames.length * 0.2)));
+    const a = frames[k - 1], b = frames[k];
+    const vx = (b.x - a.x) * 60, vy = (b.y - a.y) * 60;
+    const out = [];
+    for (const da of [-0.12, 0.12]) {
+      const c = Math.cos(da), s = Math.sin(da);
+      const sim = simulate({ angle: 0, power: 0, stats, wind, seed: seed + (da > 0 ? 1 : 2), noNoise: true,
+        start: { x: b.x, y: b.y, vx: vx * c - vy * s, vy: vx * s + vy * c, r: b.r, omega: SPIN * stats.spinMul } });
+      out.push({ frames: frames.slice(0, k).concat(sim.frames), result: sim.result });
+    }
+    return out;
+  }
+  function returnFlight(frames, at, stats, wind, seed) {
+    at = Math.max(1, Math.min(frames.length - 2, at | 0));
+    const a = frames[at - 1], b = frames[at], k = 60 * slowOf(stats);
+    const mx = (x) => W - x, mr = (r) => Math.PI - r;
+    // возврат: подбираем скорость и угол так, чтобы нож долетел до торца пня на высоте яблочка
+    // (остриё втыкается в торец, поэтому центр ножа целится левее торца)
+    const sx = mx(b.x), sy = b.y, g = GRAV * stats.gravityMul, ty = BULL_Y;
+    const tipLen = stats.tipLen || (stats.reach || KNIFE_HALF) * 0.92, tx = FACE_X - tipLen;
+    let best = null;
+    for (let S = 300; S <= 1100; S += 40) for (let th = -1.5; th <= 0.3; th += 0.01) {
+      const vx = S * Math.cos(th), vy = S * Math.sin(th), dx = tx - sx;
+      if (vx <= 0 || dx <= 0) continue;
+      const t = dx / vx, yy = sy + vy * t + 0.5 * g * t * t, err = Math.abs(yy - ty) + S * 0.02;   // слабое предпочтение медленных
+      if (!best || err < best.err) best = { err, vx, vy };
+    }
+    const vx = best ? best.vx : 820, vy = best ? best.vy : 0;
+    const sim = simulate({ angle: 0, power: 0, stats: Object.assign({}, stats, { returnStick: true, stick: 360 }), wind: -wind, seed, noNoise: true,
+      start: { x: sx, y: sy, vx, vy, r: mr(b.r), omega: -(b.r - a.r) * k } });
+    const back = sim.frames.slice(1).map((p) => ({ x: mx(p.x), y: p.y, r: mr(p.r) }));
+    const result = Object.assign({}, sim.result);
+    if (result.stuck) result.stuck = { x: mx(result.stuck.x), y: result.stuck.y, r: mr(result.stuck.r) };
+    return { frames: frames.slice(0, at + 1).concat(back), result };
+  }
   // залп: 12 кортиков веером. Первый летит точно в прицел, остальные — с небольшим разбросом угла и силы
   function volleyShots(angle, power) {
     const out = [];
@@ -437,6 +550,7 @@
       thief: ['Thief', 'steals 5 points on a hit'], bounce: ['Ricochet', 'bounces off the ground once'],
       volley: ['Volley', '12 dirks in a fan, every trajectory shown; 3 points per hit'],
       bloodsword: ['Titan', 'points ×2, can\'t be knocked down, steals the best card; slow, sticks with any side'],
+      paladin: ['Paladin', 'full trajectory visible, knife spin hidden; the trail knocks knives, a knocked knife flies back to the stump and sticks 80%'],
       slowmo: ['Slowmo', 'flies 4× slower and sticks with either end; only as your first throw of a round'],
     },
     qualities: {
@@ -451,7 +565,7 @@
       'Ржавый тесак': 'Rusty Cleaver', 'Заточка': 'Shiv', 'Нож для масла': 'Butter Knife', 'Перочинный': 'Penknife',
       'Сломанный клинок': 'Broken Blade', 'Хлеборез': 'Bread Knife', 'Кухонный': 'Kitchen Knife', 'Столовый': 'Table Knife',
       'Пилка': 'Nail File', 'Тупой мачете': 'Dull Machete', 'Пластиковый': 'Plastic Knife', 'Брелок': 'Keychain Knife',
-      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword',
+      'Дюжина кортиков': 'Dozen Dirks', 'Слоумо-нож': 'Slowmo Blade', 'Меч Алого Короля': 'Scarlet King\'s Sword', 'Нож паладина': 'Paladin Knife', 'Меч паладина': 'Paladin\'s Sword',
     },
     reasons: {
       miss: 'Miss', bull: 'Bullseye!', inner: 'Great hit!', outer: 'Hit', top: 'Into the top!', bounce_face: 'Bounced off the stump',
@@ -485,7 +599,8 @@
   }
   // Ищет столкновение нового ножа (кадры newF) с чужим ножом oldF, который летит уже offset кадров.
   // Чужой нож в зеркальной системе координат. Возвращает {i, j} или null.
-  function findCollision(newF, oldF, offset) {
+  function findCollision(newF, oldF, offset, extra = 0) {
+    const D = KNOCK_DIST + extra;   // extra — шлейф паладина, добавляет радиус удара
     for (let i = 0; i < newF.length; i++) {
       const j = offset + i;
       if (j >= oldF.length - 1) return null;          // чужой нож уже долетел
@@ -493,7 +608,7 @@
       const A = newF[i], B = oldF[j];
       if (A.y >= GROUND - 4 || B.y >= GROUND - 4) continue;
       const dx = A.x - (W - B.x), dy = A.y - B.y;
-      if (dx * dx + dy * dy < KNOCK_DIST * KNOCK_DIST) return { i, j };
+      if (dx * dx + dy * dy < D * D) return { i, j };
     }
     return null;
   }
@@ -505,6 +620,7 @@
     dagger:    { len: 52, w: 10, handle: 24, guard: 18, pts: [[0,-.7],[.7,-.45],[1,0],[.7,.45],[0,.7]], pommel: true },
     sword:     { len: 84, w: 8, handle: 22, guard: 0, pts: [[0,0]], sword: true },
     twin:      { len: 30, w: 8, handle: 16, guard: 0, pts: [[0,0]], twin: true },
+    paladin:   { len: 42, w: 4.4, handle: 11, guard: 0, pts: [[0,0]], sword: true, pal: true },
     karambit:  { len: 36, w: 9, handle: 24, guard: 0, pts: [[0,0]], karambit: true },
     fang:      { len: 50, w: 10, handle: 24, guard: 14, pts: [[0,-.5],[.5,-.75],[.85,-.4],[1,.4],[.78,.05],[.4,.5],[0,.6]], pommel: true },
     bowie:     { len: 46, w: 9,  handle: 24, guard: 14, pts: [[0,-.6],[.62,-.6],[.78,-.35],[1,.15],[.85,.6],[0,.6]] },
@@ -559,6 +675,28 @@
     ctx.fillStyle = '#3a3036'; ctx.beginPath(); ctx.moveTo(-3, -12); ctx.lineTo(3, -10); ctx.lineTo(3, 10); ctx.lineTo(-3, 12); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#d4a23a'; ctx.fillRect(-3.5, -13, 7, 3); ctx.fillRect(-3.5, 10, 7, 3);
     ctx.save(); ctx.shadowColor = '#ff2a3a'; ctx.shadowBlur = 4 + glow * 8; ctx.fillStyle = '#e0162a'; ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+
+  // меч паладина: уменьшенная вдвое копия меча Алого Короля, синяя палитра, без крови; вдоль всего клинка идёт синяя линия
+  function drawPaladinSword(ctx, sh) {
+    const L = sh.len, w = sh.w, hl = sh.handle, t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    const glow = 0.5 + 0.5 * Math.sin(t * 2);
+    ctx.translate(-(L - hl) / 2, 0);
+    // рукоять, навершие
+    ctx.fillStyle = '#0b1a33'; ctx.fillRect(-hl, -1.7, hl, 3.4);
+    ctx.strokeStyle = '#2f7fd6'; ctx.lineWidth = 0.8; for (let i = 0; i < 5; i++) { const x = -hl + 1 + i * 2; ctx.beginPath(); ctx.moveTo(x, -1.7); ctx.lineTo(x + 1.5, 1.7); ctx.stroke(); }
+    ctx.fillStyle = '#d4a23a'; ctx.beginPath(); ctx.arc(-hl - 1.5, 0, 2.2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#2f7fd6'; ctx.beginPath(); ctx.arc(-hl - 1.5, 0, 1, 0, Math.PI * 2); ctx.fill();
+    // клинок
+    ctx.shadowColor = `rgba(60,140,255,${0.45 + glow * 0.5})`; ctx.shadowBlur = 3 + glow * 5;
+    ctx.beginPath(); ctx.moveTo(0, -w * 0.62); ctx.lineTo(L * 0.86, -w * 0.5); ctx.lineTo(L, 0); ctx.lineTo(L * 0.86, w * 0.5); ctx.lineTo(0, w * 0.62); ctx.closePath();
+    const gr = ctx.createLinearGradient(0, -w, 0, w); gr.addColorStop(0, '#eef6ff'); gr.addColorStop(0.5, '#a9c4e0'); gr.addColorStop(1, '#4b6582');
+    ctx.fillStyle = gr; ctx.fill(); ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(10,25,50,.7)'; ctx.lineWidth = 0.6; ctx.stroke();
+    // синяя линия вдоль всего лезвия
+    ctx.strokeStyle = '#1d5fc4'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(L * 0.97, 0); ctx.stroke();
+    // крестовина с сапфиром
+    ctx.fillStyle = '#1f2a3a'; ctx.beginPath(); ctx.moveTo(-1.5, -6); ctx.lineTo(1.5, -5); ctx.lineTo(1.5, 5); ctx.lineTo(-1.5, 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d4a23a'; ctx.fillRect(-1.8, -6.5, 3.5, 1.5); ctx.fillRect(-1.8, 5, 3.5, 1.5);
+    ctx.save(); ctx.shadowColor = '#3fa0ff'; ctx.shadowBlur = 2 + glow * 4; ctx.fillStyle = '#2a7bff'; ctx.beginPath(); ctx.arc(0, 0, 1.3, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
 
   // слоумо-нож: рукоять в центре, клинки с обеих сторон, пульсирующее синее свечение
@@ -625,6 +763,7 @@
     const L = sh.len, w = sh.w, hl = sh.handle, hw = sh.fat ? 6 : 4.5;
     ctx.save();
     if (sh.twin) { drawTwin(ctx, card, sh, suit, opt); ctx.restore(); return; }
+    if (sh.pal) { drawPaladinSword(ctx, sh); ctx.restore(); return; }
     if (sh.sword) { drawSword(ctx, card, sh, opt); ctx.restore(); return; }
     ctx.translate(-(L - hl) / 2, 0);
     if (opt.trump) { ctx.shadowColor = 'rgba(255,214,90,.95)'; ctx.shadowBlur = 14; }
@@ -679,8 +818,8 @@
   // Каталог: каждая карта игры ровно один раз (тузы мастей, особые, редкий, модели хороших и плохих ножей)
   function catalog() {
     const aces = SUIT_ORDER.map((suit) => mkCard('A-' + SUIT_SHORT[suit], suit, 'ace', ACES[suit], false));
-    const special = [mkCard('A2-d', 'diamonds', 'ace', SPECIAL[0][2], false), mkCard('A2-s', 'spades', 'ace', SPECIAL[1][2], false)];
-    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false)];
+    const special = SPECIAL.map(([suit, id, d]) => mkCard(id, suit, 'ace', d, false));
+    const rare = [mkCard(RARE[1], RARE[0], 'ace', RARE[2], false), mkCard('R-pal', 'clubs', 'ace', ['Меч паладина', 'paladin', ['paladin'], 'calm', 'power'], false)];
     const good = GOOD.map((d, i) => mkCard('cat-g' + i, SUIT_ORDER[i % 4], 'good', d, false));
     const bad = BAD.map((d, i) => mkCard('cat-b' + i, SUIT_ORDER[i % 4], 'bad', d, true));
     const pack = (list) => list.map((c) => cardWithStats(c, null));
@@ -695,7 +834,7 @@
 
   return {
     W, H, GROUND, STUMP_TOP, STUMP_W, FACE_X, BULL_Y, HAND, KNIFE_HALF, TURN_MS,
-    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, catalog, DECK_SIZES, HAND_SIZE,
-    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, VOLLEY_PTS, knockFrames, findCollision, shuffle, mulberry32, gauss, norm, drawKnife,
+    EN, RU_REASONS, SUITS, SUIT_ORDER, TIERS, ABILITIES, QUALITIES, FLAWS, CARDS, CARD_BY_ID, deckFor, catalog, DECK_SIZES, HAND_SIZE, ENCH, magicDeck,
+    knifeStats, cardWithStats, simulate, throwSim, deflect, RARE_CHANCE, volleyShots, VOLLEY_N, VOLLEY_PTS, knockFrames, findCollision, returnFlight, splitGhosts, seekPath, palSeed, shuffle, mulberry32, gauss, norm, drawKnife,
   };
 });
