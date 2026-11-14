@@ -95,6 +95,7 @@ input:focus { border-color: var(--gold); }
 .overlay > :first-child { margin-top: auto; }
 .overlay > :last-child { margin-bottom: auto; }
 .overlay.hidden { display: none; }
+.overlay.king-full { position: fixed; inset: 0; z-index: 60; }
 .overlay h2 { font-family: 'Russo One'; font-weight: 400; font-size: 34px; color: var(--gold); margin: 0; }
 .overlay p { color: var(--muted); margin: 0; }
 .overlay .btns { display: flex; gap: 10px; }

@@ -453,8 +453,11 @@ window.NDEngine = (() => {
       if (!p || g.state !== 'playing') return;
       const r = f.result;
       const opp = g.players.find(x => x.id !== f.o);
-      if (r.hit && f.st.has('thief') && opp) { r.steal = Math.min(5, opp.score); opp.score -= r.steal; r.points += r.steal; }
-      p.score += r.points || 0;
+      // кража очков: у отбитого паладином ножа жертва — его владелец, иначе — соперник владельца
+      if (r.hit && f.st.has('thief') && opp) { const victim = f.bounced ? p : opp; r.steal = Math.min(5, victim.score); victim.score -= r.steal; r.points += r.steal; }
+      // очки отбитого паладином ножа достаются тому, кто его отбил (бросившему паладин), а не владельцу ножа
+      const scorer = f.bounced && opp ? opp : p;
+      scorer.score += r.points || 0;
       if (r.hit && f.st.has('bloodsword') && opp) {   // меч крадёт лучшую карту соперника
         // меч, отбитый паладином и вернувшийся в свой пень, крадёт у своего владельца (Алого Короля) — в пользу того, кто его отбил
         const thief = f.bounced ? opp : p, victim = f.bounced ? p : opp;

@@ -482,6 +482,7 @@
 
   function renderOverlay() {
     const ov = $('#overlay');
+    ov.classList.remove('king-full');
     const isHost = room.hostId === myId;
     if (room.state === 'lobby') {
       const full = room.players.length === 2;
@@ -518,6 +519,8 @@
           ${isHost && room.players.length < 2 ? `<button class="btn" data-a="addBot">🤖 ${T('Добавить бота', 'Add bot')}</button>` : ''}
           <button class="btn" data-a="leave">${T('В лобби', 'To lobby')}</button>
         </div>`;
+      // выбор судьбы короля — на весь экран, а не внутри сцены (иначе на телефоне текст и кнопки обрезаются)
+      ov.classList.toggle('king-full', kingPart);
       ov.classList.remove('hidden');
     } else ov.classList.add('hidden');
     ov.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
@@ -1525,7 +1528,7 @@
     const f = CAMP[c.idx];
     if (c.draw) return `<div class="camp-res">${T('Ничья — бой не засчитан. Попробуй ещё раз!', 'A draw does not count. Try again!')}</div>`;
     if (!c.won) return `<div class="camp-res">${f.boss === 2 ? T('Король пока сильнее. Попробуй ещё раз!', 'The king is stronger for now. Try again!') : T(`${f.n[0]} победил. Попробуй ещё раз!`, `${f.n[1]} won. Try again!`)}</div>`;
-    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Алая корона теперь твоя — надень её в профиле.', 'The true king has fallen! The scarlet crown is yours — wear it from your profile.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
+    if (c.idx === 19) return `<div class="camp-res crown">🩸👑 ${T('Настоящий король повержен! Теперь реши его судьбу.', 'The true king has fallen! Now decide his fate.')}${c.first ? ` +${c.xp} XP` : ''}</div>`;
     const next = CAMP[c.idx + 1], nb = next && next.b !== f.b;
     return `<div class="camp-res">${c.first ? T(`Бой пройден! +${c.xp} XP за кампанию.`, `Fight won! +${c.xp} campaign XP.`) : T('Бой пройден снова.', 'Fight won again.')}${nb && c.first ? ' ' + T(`Открыт новый биом: ${BIOMES[next.b].n[0]}!`, `New biome unlocked: ${BIOMES[next.b].n[1]}!`) : ''}</div>`;
   }
